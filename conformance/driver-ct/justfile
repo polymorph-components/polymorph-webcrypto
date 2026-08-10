@@ -217,6 +217,39 @@ run-jco: build _jco-prepared
         --suite conformance-signing-guest-ct --jsonl --target jco-node \
         > ../results/jco-node-signing.jsonl
 
+# The deltic-deno target (the same reference host as jco-node, rewritten
+# over deltic's embedder API — js/deltic/src/mod.ts — and RUNTIME-LINKED
+# under stock Deno), both suites. Unlike the jco legs there is no
+# transpile step and no npm tree: fetch-translator.ts owns the release-
+# asset pin (TAG + TRANSLATOR_SHA256, cross-checked against both
+# deno.json import maps) and run.ts owns the runs. --frozen on every
+# lock-bearing invocation; permissions scoped throughout.
+#
+# The fetch and the run are separate invocations precisely so the run
+# needs no network grant at all: the first prints the cached shim path,
+# the second only reads it.
+#
+# Case failures do not fail this recipe — deltic-deno carries declared
+# expected-fail debt (targets.toml / targets-signing.toml, #351) and the
+# aggregate is what assesses it. run.ts still exits nonzero on any
+# runner-level error.
+run-deltic: build
+    #!/usr/bin/env bash
+    set -euo pipefail
+    shim=$(deno run \
+        --config {{root}}/conformance/driver-ct/deltic/deno.json --frozen \
+        --allow-read={{root}} \
+        --allow-write={{root}}/target/deltic \
+        --allow-net=github.com,objects.githubusercontent.com,release-assets.githubusercontent.com \
+        {{root}}/conformance/driver-ct/deltic/fetch-translator.ts)
+    mkdir -p results
+    deno run \
+        --config {{root}}/conformance/driver-ct/deltic/deno.json --frozen \
+        --allow-read={{root}} \
+        --allow-write={{root}}/conformance/driver-ct/results \
+        {{root}}/conformance/driver-ct/deltic/run.ts \
+        --translator "$shim" --target deltic-deno
+
 # Build the in-guest RustCrypto provider (composed target SUT; also the
 # class-D gate's plug). Prebuilt-skip as for `build`.
 build-provider:
@@ -296,10 +329,12 @@ aggregate: _ct-tools
         --results wasmtime-rustcrypto=results/wasmtime-rustcrypto.jsonl \
         --results composed=results/composed.jsonl \
         --results jco-node=results/jco-node.jsonl \
+        --results deltic-deno=results/deltic-deno.jsonl \
         ${browser[@]+"${browser[@]}"} \
         -o results/matrix.md
 
-# The signing suite (host-only: wasmtime, jco-node, and jco-browser).
+# The signing suite (host-only: wasmtime, jco-node, jco-browser, and
+# deltic-deno).
 aggregate-signing: _ct-tools
     #!/usr/bin/env bash
     set -euo pipefail
@@ -310,6 +345,7 @@ aggregate-signing: _ct-tools
         --manifest targets-signing.toml \
         --results wasmtime-rustcrypto=results/wasmtime-signing.jsonl \
         --results jco-node=results/jco-node-signing.jsonl \
+        --results deltic-deno=results/deltic-deno-signing.jsonl \
         ${browser[@]+"${browser[@]}"} \
         -o results/matrix-signing.md
 
@@ -339,7 +375,8 @@ all: build build-provider _ct-tools _jco-prepared
     cd {{root}} && scripts/parallel-recipes.sh target/conformance-ct-logs \
         conformance-ct::lock-check conformance-ct::class-d \
         conformance-ct::run-wasmtime conformance-ct::run-composed \
-        conformance-ct::run-jco conformance-ct::_run-browser-if-enabled
+        conformance-ct::run-jco conformance-ct::_run-browser-if-enabled \
+        conformance-ct::run-deltic
     just aggregate aggregate-signing
 
 # The class-D negative-composition gate (ported from the incumbent

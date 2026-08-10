@@ -14,11 +14,13 @@ rust-checks:
     @just gha::_step demo::test-composed
 
 # Everything the conformance CI job runs: the cross-implementation
-# conformance matrix (component-test stack, all four targets including
-# jco-browser) and the committed-matrix check.
+# conformance matrix (component-test stack, all five targets including
+# jco-browser and deltic-deno), the committed-matrix check, and the
+# deltic host module's own unit gate (same module, fast local check).
 conformance-checks:
     @just gha::_step conformance-ct::all
     @just gha::_step conformance-ct::matrix-check
+    @just gha::_step deltic-module-check
 
 # Everything the jco CI job runs. The three WPT parity engines run in
 # parallel over one shared artifact build (wpt::_parity-gates).

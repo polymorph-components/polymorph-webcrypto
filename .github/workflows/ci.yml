@@ -45,9 +45,10 @@ jobs:
         run: just gha::rust-checks
 
   # The cross-implementation conformance matrix (component-test stack):
-  # both suites across all four targets — wasmtime-rustcrypto, composed,
-  # jco-node, and jco-browser (headless Chromium) — plus the aggregates
-  # and the committed-matrix check.
+  # both suites across all five targets — wasmtime-rustcrypto, composed,
+  # jco-node, jco-browser (headless Chromium), and deltic-deno
+  # (runtime-linked under stock Deno) — plus the aggregates, the
+  # committed-matrix check, and the deltic host module's unit gate.
   conformance:
     runs-on: ubuntu-latest
     # Warm runs take a few minutes, but a full cache bootstrap (dependency
@@ -114,6 +115,16 @@ jobs:
         with:
           node-version: 24
 
+      - name: Install Deno
+        # For the deltic-deno conformance target and js/deltic's own unit
+        # gate: deltic runs the suites RUNTIME-LINKED under stock Deno,
+        # its runtime graph pinned by the conformance/driver-ct/deltic and
+        # js/deltic import maps + frozen deno.lock files (no npm tree, no
+        # transpile). Version-pinned like every other toolchain here.
+        uses: denoland/setup-deno@v2
+        with:
+          deno-version: "2.9.5"
+
       - name: Install dependencies
         run: ./scripts/setup.sh
         env:
@@ -170,6 +181,7 @@ jobs:
             composed=conformance/driver-ct/results/composed.jsonl
             jco-node=conformance/driver-ct/results/jco-node.jsonl
             jco-browser=conformance/driver-ct/results/jco-browser.jsonl
+            deltic-deno=conformance/driver-ct/results/deltic-deno.jsonl
           summary-title: Conformance matrix
           cli: target/ct-tools/bin/component-test
           cargo-lock: Cargo.lock
@@ -184,6 +196,7 @@ jobs:
             wasmtime-rustcrypto=conformance/driver-ct/results/wasmtime-signing.jsonl
             jco-node=conformance/driver-ct/results/jco-node-signing.jsonl
             jco-browser=conformance/driver-ct/results/jco-browser-signing.jsonl
+            deltic-deno=conformance/driver-ct/results/deltic-deno-signing.jsonl
           summary-title: Signing conformance matrix
           cli: target/ct-tools/bin/component-test
           cargo-lock: Cargo.lock

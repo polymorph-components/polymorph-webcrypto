@@ -36,6 +36,13 @@ ci: gha::rust-checks gha::conformance-checks gha::jco-checks gha::componentize-c
 # Run the fast pre-commit checks (fmt, clippy, WIT, Rust tests).
 check: fmt-check clippy validate-wit test
 
+# js/deltic's own gate (type-check + the KAT unit suite) against the
+# pinned deltic release URLs, with deno.lock frozen. The conformance leg
+# that exercises the same module exhaustively is
+# `conformance-ct::run-deltic`.
+deltic-module-check:
+    cd js/deltic && deno task check && deno task test
+
 # Check formatting across all crates.
 fmt-check:
     cargo fmt --all -- --check

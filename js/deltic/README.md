@@ -1,0 +1,75 @@
+# `js/deltic` — the deltic-native `polymorph:webcrypto` host module
+
+`src/mod.ts` is the [deltic](https://github.com/lann/deltic)-native port of
+[`js/jco/webcrypto.js`](../jco/webcrypto.js): the same behavioral reference
+host — one platform-WebCrypto-backed implementation of every
+`polymorph:webcrypto@0.1.0` interface — rewritten over deltic's embedder
+API (typed `Stream<T>` rather than jco's bare-payload `Stream`, and
+`WitError` throws rather than `throw { tag, val }`). It was developed as
+deltic's own `ports/webcrypto` reference-host port and is upstreamed here
+per [lann/deltic#40](https://github.com/lann/deltic/pull/40); the WIT
+contract is [`wit/`](../../wit), and every doc comment quoting a contract
+quotes that package. Doc comments citing `contracts/embedder-api.md` cite
+the *deltic* repository's embedder contract, the port's other authority.
+
+`webcryptoImports()` is the whole entry point: it returns the imports
+record — one entry per WIT interface, keyed by the fully qualified id with
+version — that deltic's `instantiate` takes.
+
+## Standing declines
+
+Both are the WIT's own rulings rather than Deno gaps, and both are
+fail-closed refusals, not silent weakenings:
+
+- **`sha1-checked`** is provided but refuses with `error.unsupported`: its
+  postures need sha1dc collision detection, which no platform WebCrypto
+  carries (`src/sha1Checked.ts`). Conformance targets declare it in
+  `missing-features` (`conformance/driver-ct/targets.toml`), and the
+  suite's `!sha1-checked` decline case still runs, verifying that the
+  refusal actually happens.
+- **`aes192`, `p521`/`p521-sha512`, and the truncated SHA-2 variants** are
+  declined package-wide with `error.unsupported` (see the WIT docs).
+
+The RSA private-key posture (`rsa-pss-sign`, `rsassa-pkcs1-v15-sign`,
+`rsa-oaep-decrypt`) defaults to **served** here, matching the reference
+host's Node posture — Deno's `crypto.subtle` mints those keys. A
+browser-hosted embedding should call `setRsaPrivateKeyPolicy("decline")`
+(`src/rsaSignature.ts`), the posture `jco-browser` runs under.
+
+## Module identity
+
+`deno.json`'s `@deltic/runtime/embedder` import maps to the exact same
+pinned URL as
+[`conformance/driver-ct/deltic/deno.json`](../../conformance/driver-ct/deltic/deno.json).
+deltic's `wasi-shims` module imports that specifier by bare name
+internally; if the two configs ever disagreed, the embedder module would
+load twice and `instanceof WitError` would stop holding across the
+boundary. Keep both import maps byte-identical for that one entry —
+`conformance/driver-ct/deltic/fetch-translator.ts`'s `assertPinConsistency`
+gate fails loudly if they drift.
+
+## Unit tests
+
+`tests/families_test.ts` is a focused known-answer suite, one case per
+family, reading this repository's own `conformance/vectors` tree by
+RELATIVE path. Each case either agrees with a published vector or verifies
+that the implementation rejects a tampered / upstream-invalid input with
+the WIT taxonomy's verdict for that condition; vectors are named by file +
+tcId, never inlined.
+
+```sh
+cd js/deltic
+deno task check
+deno task test
+```
+
+Both run against the pinned release URLs with `deno.lock` frozen (`just
+deltic-module-check` runs the pair as CI does). The exhaustive behavioral
+surface is the real conformance suite, which lives at
+[`conformance/driver-ct/deltic/`](../../conformance/driver-ct/deltic).
+
+## The pin
+
+See [`conformance/driver-ct/deltic/README.md`](../../conformance/driver-ct/deltic/README.md)
+— it owns the bump procedure for all three pin sites (this `deno.json`
+included).

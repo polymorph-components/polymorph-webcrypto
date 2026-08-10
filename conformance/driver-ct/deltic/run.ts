@@ -117,11 +117,16 @@ const SUITES: Readonly<Record<string, SuiteSpec>> = {
     name: "conformance-guest-ct",
     wasm: new URL("conformance_guest_ct.wasm", SUITE_DIR),
     out: new URL("deltic-deno.jsonl", RESULTS),
-    // No platform WebCrypto carries sha1dc collision detection, so the
-    // host module declines `sha1-checked` fail-closed
-    // (js/deltic/src/sha1Checked.ts) — as jco-node does. The suite's
-    // `!sha1-checked` decline case still runs, verifying the refusal.
-    missing: ["sha1-checked"],
+    // Two capabilities no `crypto.subtle` host can serve here, mirroring
+    // targets.toml's `[targets.deltic-deno] missing-features`:
+    //   sha1-checked    — no platform carries sha1dc collision detection,
+    //                     so the host declines it fail-closed
+    //                     (js/deltic/src/sha1Checked.ts), as jco-node does.
+    //   rsa-verify-8192 — Deno refuses to IMPORT an 8192-bit RSA public
+    //                     key at all (polymorph-webcrypto#351), so the
+    //                     whole rsassa-…-8192 row is unservable.
+    // Each one's `!feature` decline case still runs, verifying the refusal.
+    missing: ["sha1-checked", "rsa-verify-8192"],
   },
   signing: {
     name: "conformance-signing-guest-ct",

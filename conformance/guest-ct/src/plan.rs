@@ -16,7 +16,7 @@ use std::rc::Rc;
 #[cfg(not(feature = "rkyv-corpus"))]
 use component_test_sdk::GeneratedCase;
 use component_test_sdk::{ArcStr, Failure, Registry, Tags, Verdict};
-use conformance_harness::FEATURE_SHA1_CHECKED;
+use conformance_harness::{FEATURE_RSA_VERIFY_8192, FEATURE_SHA1_CHECKED};
 use futures::future::LocalBoxFuture;
 
 #[cfg(not(feature = "rkyv-corpus"))]
@@ -40,6 +40,13 @@ pub struct Row {
 }
 
 const NO_TAGS: &[&str] = &[];
+
+/// The one vector row that is not baseline surface: imported 8192-bit
+/// RSA public keys are unusable for verify on `crypto.subtle` hosts
+/// (see [`FEATURE_RSA_VERIFY_8192`]). Must equal the case-level slice
+/// `translate::RsaCase::features` returns — the census-parity test
+/// asserts row tags == per-case features.
+const RSA_VERIFY_8192: &[&str] = &[FEATURE_RSA_VERIFY_8192];
 
 /// The cutover-frozen incumbent generator rows, mirroring the incumbent
 /// census's two-segment groups. Frozen: the census-parity test expands
@@ -164,7 +171,7 @@ pub const ROWS: &[Row] = &[
     },
     Row {
         prefix: "rsassa-pkcs1-v15-sha256-8192/wycheproof",
-        tags: NO_TAGS,
+        tags: RSA_VERIFY_8192,
     },
     Row {
         prefix: "rsa-pss-sha256-2048-salt0/wycheproof",
@@ -1056,7 +1063,7 @@ fn contract_cases<F: 'static, A: Copy + 'static>(
 
 /// The features exercised by decline cases, re-exported for `lib.rs`.
 pub mod features {
-    pub use conformance_harness::FEATURE_SHA1_CHECKED;
+    pub use conformance_harness::{FEATURE_RSA_VERIFY_8192, FEATURE_SHA1_CHECKED};
 }
 
 // Referenced so the constant isn't unused in corpus modes where no row

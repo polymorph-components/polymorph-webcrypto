@@ -298,170 +298,170 @@ tracking = "https://github.com/polymorph-components/polymorph-webcrypto/issues/3
 
 [[targets.deltic-deno.expected-fail]]
 case = "rsa-oaep-sha256-2688/wycheproof-misc/tc377-pkcs8"
-reason = "Deno WebCrypto: RSA-OAEP unusable at non-standard modulus size (2688-bit)"
+reason = "Deno WebCrypto: valid Constructed+EncryptionWithLabel OAEP ciphertext refused (OperationError); plain-label vectors decrypt fine (the misc groups are entirely this class — modulus size was falsified as the cause, see issue)"
 tracking = "https://github.com/polymorph-components/polymorph-webcrypto/issues/351"
 
 [[targets.deltic-deno.expected-fail]]
 case = "rsa-oaep-sha256-2688/wycheproof-misc/tc377-jwk"
-reason = "Deno WebCrypto: RSA-OAEP unusable at non-standard modulus size (2688-bit)"
+reason = "Deno WebCrypto: valid Constructed+EncryptionWithLabel OAEP ciphertext refused (OperationError); plain-label vectors decrypt fine (the misc groups are entirely this class — modulus size was falsified as the cause, see issue)"
 tracking = "https://github.com/polymorph-components/polymorph-webcrypto/issues/351"
 
 [[targets.deltic-deno.expected-fail]]
 case = "rsa-oaep-sha256-2688/wycheproof-misc/tc378-pkcs8"
-reason = "Deno WebCrypto: RSA-OAEP unusable at non-standard modulus size (2688-bit)"
+reason = "Deno WebCrypto: valid Constructed+EncryptionWithLabel OAEP ciphertext refused (OperationError); plain-label vectors decrypt fine (the misc groups are entirely this class — modulus size was falsified as the cause, see issue)"
 tracking = "https://github.com/polymorph-components/polymorph-webcrypto/issues/351"
 
 [[targets.deltic-deno.expected-fail]]
 case = "rsa-oaep-sha256-2688/wycheproof-misc/tc378-jwk"
-reason = "Deno WebCrypto: RSA-OAEP unusable at non-standard modulus size (2688-bit)"
+reason = "Deno WebCrypto: valid Constructed+EncryptionWithLabel OAEP ciphertext refused (OperationError); plain-label vectors decrypt fine (the misc groups are entirely this class — modulus size was falsified as the cause, see issue)"
 tracking = "https://github.com/polymorph-components/polymorph-webcrypto/issues/351"
 
 [[targets.deltic-deno.expected-fail]]
 case = "rsa-oaep-sha256-2688/wycheproof-misc/tc379-pkcs8"
-reason = "Deno WebCrypto: RSA-OAEP unusable at non-standard modulus size (2688-bit)"
+reason = "Deno WebCrypto: valid Constructed+EncryptionWithLabel OAEP ciphertext refused (OperationError); plain-label vectors decrypt fine (the misc groups are entirely this class — modulus size was falsified as the cause, see issue)"
 tracking = "https://github.com/polymorph-components/polymorph-webcrypto/issues/351"
 
 [[targets.deltic-deno.expected-fail]]
 case = "rsa-oaep-sha256-2688/wycheproof-misc/tc379-jwk"
-reason = "Deno WebCrypto: RSA-OAEP unusable at non-standard modulus size (2688-bit)"
+reason = "Deno WebCrypto: valid Constructed+EncryptionWithLabel OAEP ciphertext refused (OperationError); plain-label vectors decrypt fine (the misc groups are entirely this class — modulus size was falsified as the cause, see issue)"
 tracking = "https://github.com/polymorph-components/polymorph-webcrypto/issues/351"
 
 [[targets.deltic-deno.expected-fail]]
 case = "rsa-oaep-sha256-2688/wycheproof-misc/tc380-pkcs8"
-reason = "Deno WebCrypto: RSA-OAEP unusable at non-standard modulus size (2688-bit)"
+reason = "Deno WebCrypto: valid Constructed+EncryptionWithLabel OAEP ciphertext refused (OperationError); plain-label vectors decrypt fine (the misc groups are entirely this class — modulus size was falsified as the cause, see issue)"
 tracking = "https://github.com/polymorph-components/polymorph-webcrypto/issues/351"
 
 [[targets.deltic-deno.expected-fail]]
 case = "rsa-oaep-sha256-2688/wycheproof-misc/tc380-jwk"
-reason = "Deno WebCrypto: RSA-OAEP unusable at non-standard modulus size (2688-bit)"
+reason = "Deno WebCrypto: valid Constructed+EncryptionWithLabel OAEP ciphertext refused (OperationError); plain-label vectors decrypt fine (the misc groups are entirely this class — modulus size was falsified as the cause, see issue)"
 tracking = "https://github.com/polymorph-components/polymorph-webcrypto/issues/351"
 
 [[targets.deltic-deno.expected-fail]]
 case = "rsa-oaep-sha256-2688/wycheproof-misc/tc381-pkcs8"
-reason = "Deno WebCrypto: RSA-OAEP unusable at non-standard modulus size (2688-bit)"
+reason = "Deno WebCrypto: valid Constructed+EncryptionWithLabel OAEP ciphertext refused (OperationError); plain-label vectors decrypt fine (the misc groups are entirely this class — modulus size was falsified as the cause, see issue)"
 tracking = "https://github.com/polymorph-components/polymorph-webcrypto/issues/351"
 
 [[targets.deltic-deno.expected-fail]]
 case = "rsa-oaep-sha256-2688/wycheproof-misc/tc381-jwk"
-reason = "Deno WebCrypto: RSA-OAEP unusable at non-standard modulus size (2688-bit)"
+reason = "Deno WebCrypto: valid Constructed+EncryptionWithLabel OAEP ciphertext refused (OperationError); plain-label vectors decrypt fine (the misc groups are entirely this class — modulus size was falsified as the cause, see issue)"
 tracking = "https://github.com/polymorph-components/polymorph-webcrypto/issues/351"
 
 [[targets.deltic-deno.expected-fail]]
 case = "rsa-oaep-sha256-2688/wycheproof-misc/tc382-pkcs8"
-reason = "Deno WebCrypto: RSA-OAEP unusable at non-standard modulus size (2688-bit)"
+reason = "Deno WebCrypto: valid Constructed+EncryptionWithLabel OAEP ciphertext refused (OperationError); plain-label vectors decrypt fine (the misc groups are entirely this class — modulus size was falsified as the cause, see issue)"
 tracking = "https://github.com/polymorph-components/polymorph-webcrypto/issues/351"
 
 [[targets.deltic-deno.expected-fail]]
 case = "rsa-oaep-sha256-2688/wycheproof-misc/tc382-jwk"
-reason = "Deno WebCrypto: RSA-OAEP unusable at non-standard modulus size (2688-bit)"
+reason = "Deno WebCrypto: valid Constructed+EncryptionWithLabel OAEP ciphertext refused (OperationError); plain-label vectors decrypt fine (the misc groups are entirely this class — modulus size was falsified as the cause, see issue)"
 tracking = "https://github.com/polymorph-components/polymorph-webcrypto/issues/351"
 
 [[targets.deltic-deno.expected-fail]]
 case = "rsa-oaep-sha256-2688/wycheproof-misc/tc383-pkcs8"
-reason = "Deno WebCrypto: RSA-OAEP unusable at non-standard modulus size (2688-bit)"
+reason = "Deno WebCrypto: valid Constructed+EncryptionWithLabel OAEP ciphertext refused (OperationError); plain-label vectors decrypt fine (the misc groups are entirely this class — modulus size was falsified as the cause, see issue)"
 tracking = "https://github.com/polymorph-components/polymorph-webcrypto/issues/351"
 
 [[targets.deltic-deno.expected-fail]]
 case = "rsa-oaep-sha256-2688/wycheproof-misc/tc383-jwk"
-reason = "Deno WebCrypto: RSA-OAEP unusable at non-standard modulus size (2688-bit)"
+reason = "Deno WebCrypto: valid Constructed+EncryptionWithLabel OAEP ciphertext refused (OperationError); plain-label vectors decrypt fine (the misc groups are entirely this class — modulus size was falsified as the cause, see issue)"
 tracking = "https://github.com/polymorph-components/polymorph-webcrypto/issues/351"
 
 [[targets.deltic-deno.expected-fail]]
 case = "rsa-oaep-sha256-2688/wycheproof-misc/tc384-pkcs8"
-reason = "Deno WebCrypto: RSA-OAEP unusable at non-standard modulus size (2688-bit)"
+reason = "Deno WebCrypto: valid Constructed+EncryptionWithLabel OAEP ciphertext refused (OperationError); plain-label vectors decrypt fine (the misc groups are entirely this class — modulus size was falsified as the cause, see issue)"
 tracking = "https://github.com/polymorph-components/polymorph-webcrypto/issues/351"
 
 [[targets.deltic-deno.expected-fail]]
 case = "rsa-oaep-sha256-2688/wycheproof-misc/tc384-jwk"
-reason = "Deno WebCrypto: RSA-OAEP unusable at non-standard modulus size (2688-bit)"
+reason = "Deno WebCrypto: valid Constructed+EncryptionWithLabel OAEP ciphertext refused (OperationError); plain-label vectors decrypt fine (the misc groups are entirely this class — modulus size was falsified as the cause, see issue)"
 tracking = "https://github.com/polymorph-components/polymorph-webcrypto/issues/351"
 
 [[targets.deltic-deno.expected-fail]]
 case = "rsa-oaep-sha256-4032/wycheproof-misc/tc386-pkcs8"
-reason = "Deno WebCrypto: RSA-OAEP unusable at non-standard modulus size (4032-bit)"
+reason = "Deno WebCrypto: valid Constructed+EncryptionWithLabel OAEP ciphertext refused (OperationError); plain-label vectors decrypt fine (the misc groups are entirely this class — modulus size was falsified as the cause, see issue)"
 tracking = "https://github.com/polymorph-components/polymorph-webcrypto/issues/351"
 
 [[targets.deltic-deno.expected-fail]]
 case = "rsa-oaep-sha256-4032/wycheproof-misc/tc386-jwk"
-reason = "Deno WebCrypto: RSA-OAEP unusable at non-standard modulus size (4032-bit)"
+reason = "Deno WebCrypto: valid Constructed+EncryptionWithLabel OAEP ciphertext refused (OperationError); plain-label vectors decrypt fine (the misc groups are entirely this class — modulus size was falsified as the cause, see issue)"
 tracking = "https://github.com/polymorph-components/polymorph-webcrypto/issues/351"
 
 [[targets.deltic-deno.expected-fail]]
 case = "rsa-oaep-sha256-4032/wycheproof-misc/tc387-pkcs8"
-reason = "Deno WebCrypto: RSA-OAEP unusable at non-standard modulus size (4032-bit)"
+reason = "Deno WebCrypto: valid Constructed+EncryptionWithLabel OAEP ciphertext refused (OperationError); plain-label vectors decrypt fine (the misc groups are entirely this class — modulus size was falsified as the cause, see issue)"
 tracking = "https://github.com/polymorph-components/polymorph-webcrypto/issues/351"
 
 [[targets.deltic-deno.expected-fail]]
 case = "rsa-oaep-sha256-4032/wycheproof-misc/tc387-jwk"
-reason = "Deno WebCrypto: RSA-OAEP unusable at non-standard modulus size (4032-bit)"
+reason = "Deno WebCrypto: valid Constructed+EncryptionWithLabel OAEP ciphertext refused (OperationError); plain-label vectors decrypt fine (the misc groups are entirely this class — modulus size was falsified as the cause, see issue)"
 tracking = "https://github.com/polymorph-components/polymorph-webcrypto/issues/351"
 
 [[targets.deltic-deno.expected-fail]]
 case = "rsa-oaep-sha256-4032/wycheproof-misc/tc388-pkcs8"
-reason = "Deno WebCrypto: RSA-OAEP unusable at non-standard modulus size (4032-bit)"
+reason = "Deno WebCrypto: valid Constructed+EncryptionWithLabel OAEP ciphertext refused (OperationError); plain-label vectors decrypt fine (the misc groups are entirely this class — modulus size was falsified as the cause, see issue)"
 tracking = "https://github.com/polymorph-components/polymorph-webcrypto/issues/351"
 
 [[targets.deltic-deno.expected-fail]]
 case = "rsa-oaep-sha256-4032/wycheproof-misc/tc388-jwk"
-reason = "Deno WebCrypto: RSA-OAEP unusable at non-standard modulus size (4032-bit)"
+reason = "Deno WebCrypto: valid Constructed+EncryptionWithLabel OAEP ciphertext refused (OperationError); plain-label vectors decrypt fine (the misc groups are entirely this class — modulus size was falsified as the cause, see issue)"
 tracking = "https://github.com/polymorph-components/polymorph-webcrypto/issues/351"
 
 [[targets.deltic-deno.expected-fail]]
 case = "rsa-oaep-sha256-4032/wycheproof-misc/tc389-pkcs8"
-reason = "Deno WebCrypto: RSA-OAEP unusable at non-standard modulus size (4032-bit)"
+reason = "Deno WebCrypto: valid Constructed+EncryptionWithLabel OAEP ciphertext refused (OperationError); plain-label vectors decrypt fine (the misc groups are entirely this class — modulus size was falsified as the cause, see issue)"
 tracking = "https://github.com/polymorph-components/polymorph-webcrypto/issues/351"
 
 [[targets.deltic-deno.expected-fail]]
 case = "rsa-oaep-sha256-4032/wycheproof-misc/tc389-jwk"
-reason = "Deno WebCrypto: RSA-OAEP unusable at non-standard modulus size (4032-bit)"
+reason = "Deno WebCrypto: valid Constructed+EncryptionWithLabel OAEP ciphertext refused (OperationError); plain-label vectors decrypt fine (the misc groups are entirely this class — modulus size was falsified as the cause, see issue)"
 tracking = "https://github.com/polymorph-components/polymorph-webcrypto/issues/351"
 
 [[targets.deltic-deno.expected-fail]]
 case = "rsa-oaep-sha256-4032/wycheproof-misc/tc390-pkcs8"
-reason = "Deno WebCrypto: RSA-OAEP unusable at non-standard modulus size (4032-bit)"
+reason = "Deno WebCrypto: valid Constructed+EncryptionWithLabel OAEP ciphertext refused (OperationError); plain-label vectors decrypt fine (the misc groups are entirely this class — modulus size was falsified as the cause, see issue)"
 tracking = "https://github.com/polymorph-components/polymorph-webcrypto/issues/351"
 
 [[targets.deltic-deno.expected-fail]]
 case = "rsa-oaep-sha256-4032/wycheproof-misc/tc390-jwk"
-reason = "Deno WebCrypto: RSA-OAEP unusable at non-standard modulus size (4032-bit)"
+reason = "Deno WebCrypto: valid Constructed+EncryptionWithLabel OAEP ciphertext refused (OperationError); plain-label vectors decrypt fine (the misc groups are entirely this class — modulus size was falsified as the cause, see issue)"
 tracking = "https://github.com/polymorph-components/polymorph-webcrypto/issues/351"
 
 [[targets.deltic-deno.expected-fail]]
 case = "rsa-oaep-sha256-4032/wycheproof-misc/tc391-pkcs8"
-reason = "Deno WebCrypto: RSA-OAEP unusable at non-standard modulus size (4032-bit)"
+reason = "Deno WebCrypto: valid Constructed+EncryptionWithLabel OAEP ciphertext refused (OperationError); plain-label vectors decrypt fine (the misc groups are entirely this class — modulus size was falsified as the cause, see issue)"
 tracking = "https://github.com/polymorph-components/polymorph-webcrypto/issues/351"
 
 [[targets.deltic-deno.expected-fail]]
 case = "rsa-oaep-sha256-4032/wycheproof-misc/tc391-jwk"
-reason = "Deno WebCrypto: RSA-OAEP unusable at non-standard modulus size (4032-bit)"
+reason = "Deno WebCrypto: valid Constructed+EncryptionWithLabel OAEP ciphertext refused (OperationError); plain-label vectors decrypt fine (the misc groups are entirely this class — modulus size was falsified as the cause, see issue)"
 tracking = "https://github.com/polymorph-components/polymorph-webcrypto/issues/351"
 
 [[targets.deltic-deno.expected-fail]]
 case = "rsa-oaep-sha384-3104/wycheproof-misc/tc393-pkcs8"
-reason = "Deno WebCrypto: RSA-OAEP unusable at non-standard modulus size (3104-bit)"
+reason = "Deno WebCrypto: valid Constructed+EncryptionWithLabel OAEP ciphertext refused (OperationError); plain-label vectors decrypt fine (the misc groups are entirely this class — modulus size was falsified as the cause, see issue)"
 tracking = "https://github.com/polymorph-components/polymorph-webcrypto/issues/351"
 
 [[targets.deltic-deno.expected-fail]]
 case = "rsa-oaep-sha384-3104/wycheproof-misc/tc393-jwk"
-reason = "Deno WebCrypto: RSA-OAEP unusable at non-standard modulus size (3104-bit)"
+reason = "Deno WebCrypto: valid Constructed+EncryptionWithLabel OAEP ciphertext refused (OperationError); plain-label vectors decrypt fine (the misc groups are entirely this class — modulus size was falsified as the cause, see issue)"
 tracking = "https://github.com/polymorph-components/polymorph-webcrypto/issues/351"
 
 [[targets.deltic-deno.expected-fail]]
 case = "rsa-oaep-sha384-3104/wycheproof-misc/tc394-pkcs8"
-reason = "Deno WebCrypto: RSA-OAEP unusable at non-standard modulus size (3104-bit)"
+reason = "Deno WebCrypto: valid Constructed+EncryptionWithLabel OAEP ciphertext refused (OperationError); plain-label vectors decrypt fine (the misc groups are entirely this class — modulus size was falsified as the cause, see issue)"
 tracking = "https://github.com/polymorph-components/polymorph-webcrypto/issues/351"
 
 [[targets.deltic-deno.expected-fail]]
 case = "rsa-oaep-sha384-3104/wycheproof-misc/tc394-jwk"
-reason = "Deno WebCrypto: RSA-OAEP unusable at non-standard modulus size (3104-bit)"
+reason = "Deno WebCrypto: valid Constructed+EncryptionWithLabel OAEP ciphertext refused (OperationError); plain-label vectors decrypt fine (the misc groups are entirely this class — modulus size was falsified as the cause, see issue)"
 tracking = "https://github.com/polymorph-components/polymorph-webcrypto/issues/351"
 
 [[targets.deltic-deno.expected-fail]]
 case = "rsa-oaep-sha384-3104/wycheproof-misc/tc395-pkcs8"
-reason = "Deno WebCrypto: RSA-OAEP unusable at non-standard modulus size (3104-bit)"
+reason = "Deno WebCrypto: valid Constructed+EncryptionWithLabel OAEP ciphertext refused (OperationError); plain-label vectors decrypt fine (the misc groups are entirely this class — modulus size was falsified as the cause, see issue)"
 tracking = "https://github.com/polymorph-components/polymorph-webcrypto/issues/351"
 
 [[targets.deltic-deno.expected-fail]]
 case = "rsa-oaep-sha384-3104/wycheproof-misc/tc395-jwk"
-reason = "Deno WebCrypto: RSA-OAEP unusable at non-standard modulus size (3104-bit)"
+reason = "Deno WebCrypto: valid Constructed+EncryptionWithLabel OAEP ciphertext refused (OperationError); plain-label vectors decrypt fine (the misc groups are entirely this class — modulus size was falsified as the cause, see issue)"
 tracking = "https://github.com/polymorph-components/polymorph-webcrypto/issues/351"

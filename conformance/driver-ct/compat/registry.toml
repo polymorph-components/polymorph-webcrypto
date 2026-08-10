@@ -1,0 +1,658 @@
+# The compat matrix's curated structure: display order, row/group
+# labels, case ownership, and the NAMES of divergences (aspects). Which
+# cells are green is always computed from results — see README.md in
+# this directory for the schema and the fail-closed validation the
+# `compat` binary applies (total ownership, per-cell uniformity, aspect
+# liveness, ledger agreement).
+version = "0.1"
+
+# ── Columns ──────────────────────────────────────────────────────────
+# The five platform-backed hosts first, then the two Rust
+# implementations of this repository.
+
+[[columns]]
+target = "jco-browser"
+label = "Chromium"
+kind = "host"
+
+[[columns]]
+target = "jco-firefox"
+label = "Firefox"
+kind = "host"
+
+[[columns]]
+target = "jco-webkit"
+label = "WebKit (macOS)"
+kind = "host"
+
+[[columns]]
+target = "jco-node"
+label = "Node.js"
+kind = "host"
+
+[[columns]]
+target = "deltic-deno"
+label = "Deno"
+kind = "host"
+
+[[columns]]
+target = "wasmtime-rustcrypto"
+label = "Wasmtime (RustCrypto)"
+kind = "implementation"
+
+[[columns]]
+target = "composed"
+label = "In-guest provider"
+kind = "implementation"
+
+# ── Groups: the WIT generic kinds, then the cross-cutting contracts ──
+
+[[groups]]
+id = "mac"
+label = "message authentication"
+
+[[groups]]
+id = "aead"
+label = "authenticated encryption with associated data"
+
+[[groups]]
+id = "cipher"
+label = "unauthenticated encryption (compatibility)"
+
+[[groups]]
+id = "key-wrap"
+label = "dedicated key wrapping"
+
+[[groups]]
+id = "digest"
+label = "cryptographic digests"
+
+[[groups]]
+id = "signature"
+label = "signatures"
+
+[[groups]]
+id = "key-agreement"
+label = "key agreement"
+
+[[groups]]
+id = "derivation"
+label = "key and bit derivation"
+
+[[groups]]
+id = "public-encryption"
+label = "public-key encryption"
+
+[[groups]]
+id = "contracts"
+label = "package contracts (kind-generic and cross-cutting)"
+
+# ── mac ──────────────────────────────────────────────────────────────
+
+[[rows]]
+id = "hmac-sha2"
+group = "mac"
+label = "HMAC-SHA2"
+wit = ["hmac-sha2"]
+select = [
+    "shared:hmac-sha256/",
+    "shared:hmac-sha384/",
+    "shared:hmac-sha512/",
+    "shared:hmac-sha2/contract/",
+    "shared:probe/hmac-generate-length",
+    "shared:probe/hmac-import-empty-key",
+    "shared:probe/hmac-sha384-sha512",
+    "shared:probe/mac-verify-rejects-truncated",
+]
+
+[[rows]]
+id = "hmac-sha1"
+group = "mac"
+label = "HMAC-SHA1 (legacy)"
+wit = ["hmac-sha1"]
+select = ["shared:hmac-sha1/"]
+
+# ── aead ─────────────────────────────────────────────────────────────
+
+[[rows]]
+id = "aes-gcm"
+group = "aead"
+label = "AES-GCM"
+wit = ["aes-gcm"]
+select = [
+    "shared:aes-gcm/",
+    "shared:probe/gcm-full-parameters",
+    "shared:probe/gcm-nonce-window",
+    "shared:probe/seal-input-ends-on-invalid-nonce",
+    "shared:probe/open-input-ends-on-invalid-nonce",
+    "shared:probe/open-short-input",
+    "shared:probe/sealed-length",
+    "shared:probe/aead-wrap-grants",
+]
+
+[[rows.aspects]]
+id = "iv-window"
+label = "IVs other than 96/128 bits (WIT window: 12–128 bytes)"
+tracking = "https://github.com/polymorph-components/polymorph-webcrypto/issues/351"
+select = [
+    "shared:probe/gcm-nonce-window",
+    "shared:aes-gcm/wycheproof/tc259/",
+    "shared:aes-gcm/wycheproof/tc260/",
+    "shared:aes-gcm/wycheproof/tc263/",
+    "shared:aes-gcm/wycheproof/tc264/",
+    "shared:aes-gcm/wycheproof/tc265/",
+    "shared:aes-gcm/wycheproof/tc266/",
+    "shared:aes-gcm/wycheproof/tc267/",
+    "shared:aes-gcm/wycheproof/tc273/",
+    "shared:aes-gcm/wycheproof/tc274/",
+    "shared:aes-gcm/wycheproof/tc275/",
+]
+
+[[rows.aspects]]
+id = "tag-window"
+label = "Decryption tags shorter than 128 bits (WIT window: 32–128, multiples of 8)"
+tracking = "https://github.com/polymorph-components/polymorph-webcrypto/issues/351"
+select = ["shared:probe/gcm-full-parameters"]
+
+# ── cipher ───────────────────────────────────────────────────────────
+
+[[rows]]
+id = "aes-cbc"
+group = "cipher"
+label = "AES-CBC"
+wit = ["aes-cbc"]
+select = ["shared:aes-cbc/", "shared:probe/cbc-uniform-failure"]
+
+[[rows]]
+id = "aes-ctr"
+group = "cipher"
+label = "AES-CTR"
+wit = ["aes-ctr"]
+select = ["shared:aes-ctr/", "shared:probe/ctr-known-answers"]
+
+[[rows.aspects]]
+id = "counter-widths"
+label = "Counter widths other than 32/64/128 bits (WIT window: 1–128)"
+tracking = "https://github.com/polymorph-components/polymorph-webcrypto/issues/351"
+select = ["shared:probe/ctr-known-answers"]
+
+# ── key-wrap ─────────────────────────────────────────────────────────
+
+[[rows]]
+id = "aes-kw"
+group = "key-wrap"
+label = "AES-KW"
+wit = ["aes-kw"]
+select = [
+    "shared:aes-kw/",
+    "shared:probe/kw-key-contract",
+    "shared:probe/kw-jwk-padding",
+]
+
+# ── digest ───────────────────────────────────────────────────────────
+
+[[rows]]
+id = "sha2"
+group = "digest"
+label = "SHA-2 (SHA-256/384/512)"
+wit = ["sha2"]
+select = [
+    "shared:sha2/",
+    "shared:probe/digest-reuse",
+    "shared:probe/sha2-truncated-unsupported",
+]
+
+[[rows]]
+id = "sha1-checked"
+group = "digest"
+label = "SHA-1 with collision detection (gated)"
+wit = ["sha1-checked"]
+select = ["shared:probe/sha1-checked-postures"]
+
+# ── signature ────────────────────────────────────────────────────────
+
+[[rows]]
+id = "ecdsa-verify"
+group = "signature"
+label = "ECDSA verify (P-256/P-384)"
+wit = ["ecdsa-verify"]
+select = ["shared:ecdsa-", "shared:probe/ecdsa-cross-hash-variants"]
+
+[[rows]]
+id = "ed25519-verify"
+group = "signature"
+label = "Ed25519 verify"
+wit = ["ed25519-verify"]
+select = ["shared:ed25519/"]
+
+[[rows]]
+id = "rsassa-pkcs1-v15-verify"
+group = "signature"
+label = "RSASSA-PKCS1-v1_5 verify"
+wit = ["rsassa-pkcs1-v15-verify"]
+select = ["shared:rsassa-"]
+
+[[rows.aspects]]
+id = "verify-8192"
+label = "Imported 8192-bit public keys"
+tracking = "https://github.com/polymorph-components/polymorph-webcrypto/issues/351"
+select = ["shared:rsassa-pkcs1-v15-sha256-8192/"]
+
+[[rows]]
+id = "rsa-pss-verify"
+group = "signature"
+label = "RSA-PSS verify"
+wit = ["rsa-pss-verify"]
+select = ["shared:rsa-pss-", "shared:probe/rsa-pss-salt-binding"]
+
+[[rows]]
+id = "ecdsa-sign"
+group = "signature"
+label = "ECDSA sign (P-256/P-384)"
+wit = ["ecdsa-sign"]
+select = ["signing:probe/ecdsa-"]
+
+[[rows]]
+id = "ed25519-sign"
+group = "signature"
+label = "Ed25519 sign"
+wit = ["ed25519-sign"]
+select = [
+    "shared:probe/ed25519-sign-roundtrip",
+    "shared:probe/ed25519-private-format-imports",
+    "shared:probe/signing-key-unwrap",
+    "shared:probe/signing-usage-policy",
+]
+
+[[rows]]
+id = "rsassa-pkcs1-v15-sign"
+group = "signature"
+label = "RSASSA-PKCS1-v1_5 sign (gated)"
+wit = ["rsassa-pkcs1-v15-sign"]
+select = [
+    "signing:rsassa-",
+    "signing:probe/rsa-sign-admission",
+]
+
+[[rows]]
+id = "rsa-pss-sign"
+group = "signature"
+label = "RSA-PSS sign (gated)"
+wit = ["rsa-pss-sign"]
+select = ["signing:probe/rsa-pss-sign-round-trip"]
+
+# ── key-agreement ────────────────────────────────────────────────────
+
+[[rows]]
+id = "ecdh"
+group = "key-agreement"
+label = "ECDH (P-256/P-384)"
+wit = ["ecdh"]
+select = [
+    "shared:ecdh-p256/",
+    "shared:ecdh-p384/",
+    "shared:ecdh/contract/",
+    "shared:probe/ecdh-key-contract",
+    "shared:probe/ecdh-format-roundtrips",
+]
+
+[[rows]]
+id = "x25519"
+group = "key-agreement"
+label = "X25519"
+wit = ["x25519"]
+select = [
+    "shared:x25519/",
+    "shared:probe/x25519-key-contract",
+    "shared:probe/x25519-agree-contract",
+    "shared:probe/x25519-format-roundtrips",
+]
+
+[[rows.aspects]]
+id = "public-key-admission"
+label = "Low-order / non-canonical public keys accepted at import"
+tracking = "https://github.com/polymorph-components/polymorph-webcrypto/issues/356"
+cases = [
+    "shared:x25519/wycheproof/tc32",
+    "shared:x25519/wycheproof/tc33",
+    "shared:x25519/wycheproof/tc63",
+    "shared:x25519/wycheproof/tc64",
+    "shared:x25519/wycheproof/tc65",
+    "shared:x25519/wycheproof/tc69",
+    "shared:x25519/wycheproof/tc70",
+    "shared:x25519/wycheproof/tc71",
+    "shared:x25519/wycheproof/tc72",
+    "shared:x25519/wycheproof/tc73",
+    "shared:x25519/wycheproof/tc74",
+    "shared:x25519/wycheproof/tc75",
+    "shared:x25519/wycheproof/tc83",
+    "shared:x25519/wycheproof/tc85",
+    "shared:x25519/wycheproof/tc94",
+    "shared:x25519/wycheproof/tc95",
+    "shared:x25519/wycheproof/tc117",
+    "shared:x25519/wycheproof/tc118",
+    "shared:x25519/wycheproof/tc154",
+    "shared:x25519/wycheproof/tc165",
+    "shared:x25519/wycheproof/tc166",
+    "shared:x25519/wycheproof-spki/tc32",
+    "shared:x25519/wycheproof-spki/tc33",
+    "shared:x25519/wycheproof-spki/tc63",
+    "shared:x25519/wycheproof-spki/tc64",
+    "shared:x25519/wycheproof-spki/tc65",
+    "shared:x25519/wycheproof-spki/tc69",
+    "shared:x25519/wycheproof-spki/tc70",
+    "shared:x25519/wycheproof-spki/tc71",
+    "shared:x25519/wycheproof-spki/tc72",
+    "shared:x25519/wycheproof-spki/tc73",
+    "shared:x25519/wycheproof-spki/tc74",
+    "shared:x25519/wycheproof-spki/tc75",
+    "shared:x25519/wycheproof-spki/tc83",
+    "shared:x25519/wycheproof-spki/tc85",
+    "shared:x25519/wycheproof-spki/tc94",
+    "shared:x25519/wycheproof-spki/tc95",
+    "shared:x25519/wycheproof-spki/tc117",
+    "shared:x25519/wycheproof-spki/tc118",
+    "shared:x25519/wycheproof-spki/tc154",
+    "shared:x25519/wycheproof-spki/tc165",
+    "shared:x25519/wycheproof-spki/tc166",
+    "shared:x25519/wycheproof-jwk/tc32",
+    "shared:x25519/wycheproof-jwk/tc33",
+    "shared:x25519/wycheproof-jwk/tc63",
+    "shared:x25519/wycheproof-jwk/tc64",
+    "shared:x25519/wycheproof-jwk/tc65",
+    "shared:x25519/wycheproof-jwk/tc69",
+    "shared:x25519/wycheproof-jwk/tc70",
+    "shared:x25519/wycheproof-jwk/tc71",
+    "shared:x25519/wycheproof-jwk/tc72",
+    "shared:x25519/wycheproof-jwk/tc73",
+    "shared:x25519/wycheproof-jwk/tc74",
+    "shared:x25519/wycheproof-jwk/tc75",
+    "shared:x25519/wycheproof-jwk/tc83",
+    "shared:x25519/wycheproof-jwk/tc85",
+    "shared:x25519/wycheproof-jwk/tc94",
+    "shared:x25519/wycheproof-jwk/tc95",
+    "shared:x25519/wycheproof-jwk/tc117",
+    "shared:x25519/wycheproof-jwk/tc118",
+    "shared:x25519/wycheproof-jwk/tc154",
+    "shared:x25519/wycheproof-jwk/tc165",
+    "shared:x25519/wycheproof-jwk/tc166",
+    "shared:x25519/wycheproof-jwk/tc519",
+    "shared:x25519/wycheproof-jwk/tc520",
+    "shared:x25519/wycheproof-jwk/tc521",
+]
+
+# ── derivation ───────────────────────────────────────────────────────
+
+[[rows]]
+id = "hkdf-sha2"
+group = "derivation"
+label = "HKDF-SHA2"
+wit = ["hkdf-sha2"]
+select = [
+    "shared:hkdf-sha256/",
+    "shared:hkdf-sha384/",
+    "shared:hkdf-sha512/",
+    "shared:hkdf-sha2/contract/",
+    "shared:probe/hkdf-params-and-chaining",
+]
+
+[[rows]]
+id = "hkdf-sha1"
+group = "derivation"
+label = "HKDF-SHA1 (legacy)"
+wit = ["hkdf-sha1"]
+select = ["shared:hkdf-sha1/"]
+
+[[rows]]
+id = "pbkdf2-sha2"
+group = "derivation"
+label = "PBKDF2-SHA2"
+wit = ["pbkdf2-sha2"]
+select = [
+    "shared:pbkdf2-sha256/",
+    "shared:pbkdf2-sha384/",
+    "shared:pbkdf2-sha512/",
+    "shared:pbkdf2-sha2/contract/",
+    "shared:probe/pbkdf2-contract",
+]
+
+[[rows]]
+id = "pbkdf2-sha1"
+group = "derivation"
+label = "PBKDF2-SHA1 (legacy)"
+wit = ["pbkdf2-sha1"]
+select = ["shared:pbkdf2-sha1/"]
+
+# ── public-encryption ────────────────────────────────────────────────
+
+[[rows]]
+id = "rsa-oaep-encrypt"
+group = "public-encryption"
+label = "RSA-OAEP encrypt"
+wit = ["rsa-oaep-encrypt"]
+select = ["signing:probe/rsa-oaep-encrypt-contract"]
+
+[[rows]]
+id = "rsa-oaep-decrypt"
+group = "public-encryption"
+label = "RSA-OAEP decrypt (gated)"
+wit = ["rsa-oaep-decrypt"]
+select = [
+    "signing:rsa-oaep-sha",
+    "signing:probe/rsa-oaep-admission",
+    "signing:probe/rsa-oaep-round-trip",
+]
+
+[[rows.aspects]]
+id = "oaep-labels"
+label = "Ciphertexts bound to a non-empty OAEP label"
+tracking = "https://github.com/polymorph-components/polymorph-webcrypto/issues/351"
+select = [
+    "signing:rsa-oaep-sha256-2048/wycheproof/tc33-",
+    "signing:rsa-oaep-sha256-2048/wycheproof/tc34-",
+    "signing:rsa-oaep-sha256-2048/wycheproof/tc35-",
+    "signing:rsa-oaep-sha256-2048/wycheproof/tc36-",
+    "signing:rsa-oaep-sha256-2048/wycheproof/tc37-",
+    "signing:rsa-oaep-sha256-2688/wycheproof-misc/tc377-",
+    "signing:rsa-oaep-sha256-2688/wycheproof-misc/tc378-",
+    "signing:rsa-oaep-sha256-2688/wycheproof-misc/tc379-",
+    "signing:rsa-oaep-sha256-2688/wycheproof-misc/tc380-",
+    "signing:rsa-oaep-sha256-2688/wycheproof-misc/tc381-",
+    "signing:rsa-oaep-sha256-2688/wycheproof-misc/tc382-",
+    "signing:rsa-oaep-sha256-2688/wycheproof-misc/tc383-",
+    "signing:rsa-oaep-sha256-2688/wycheproof-misc/tc384-",
+    "signing:rsa-oaep-sha256-3072/wycheproof/tc33-",
+    "signing:rsa-oaep-sha256-3072/wycheproof/tc34-",
+    "signing:rsa-oaep-sha256-3072/wycheproof/tc35-",
+    "signing:rsa-oaep-sha256-3072/wycheproof/tc36-",
+    "signing:rsa-oaep-sha256-3072/wycheproof/tc37-",
+    "signing:rsa-oaep-sha256-4032/wycheproof-misc/tc386-",
+    "signing:rsa-oaep-sha256-4032/wycheproof-misc/tc387-",
+    "signing:rsa-oaep-sha256-4032/wycheproof-misc/tc388-",
+    "signing:rsa-oaep-sha256-4032/wycheproof-misc/tc389-",
+    "signing:rsa-oaep-sha256-4032/wycheproof-misc/tc390-",
+    "signing:rsa-oaep-sha256-4032/wycheproof-misc/tc391-",
+    "signing:rsa-oaep-sha256-4096/wycheproof/tc33-",
+    "signing:rsa-oaep-sha256-4096/wycheproof/tc34-",
+    "signing:rsa-oaep-sha256-4096/wycheproof/tc35-",
+    "signing:rsa-oaep-sha256-4096/wycheproof/tc36-",
+    "signing:rsa-oaep-sha256-4096/wycheproof/tc37-",
+    "signing:rsa-oaep-sha384-2048/wycheproof/tc32-",
+    "signing:rsa-oaep-sha384-2048/wycheproof/tc33-",
+    "signing:rsa-oaep-sha384-2048/wycheproof/tc34-",
+    "signing:rsa-oaep-sha384-3104/wycheproof-misc/tc393-",
+    "signing:rsa-oaep-sha384-3104/wycheproof-misc/tc394-",
+    "signing:rsa-oaep-sha384-3104/wycheproof-misc/tc395-",
+    "signing:rsa-oaep-sha512-2048/wycheproof/tc33-",
+    "signing:rsa-oaep-sha512-3072/wycheproof/tc32-",
+    "signing:rsa-oaep-sha512-3072/wycheproof/tc33-",
+    "signing:rsa-oaep-sha512-4096/wycheproof/tc33-",
+    "signing:rsa-oaep-sha512-4096/wycheproof/tc34-",
+    "signing:rsa-oaep-sha512-4096/wycheproof/tc35-",
+    "signing:rsa-oaep-sha512-4096/wycheproof/tc36-",
+]
+
+# ── contracts ────────────────────────────────────────────────────────
+
+[[rows]]
+id = "streaming"
+group = "contracts"
+label = "Streaming and buffering"
+wit = ["types"]
+select = [
+    "shared:probe/large-stream",
+    "shared:probe/stream-empty-writes",
+    "shared:probe/sign-prefix-drop",
+]
+
+[[rows]]
+id = "jwk"
+group = "contracts"
+label = "JWK handling"
+wit = ["types"]
+select = [
+    "shared:probe/jwk-rejections",
+    "shared:probe/jwk-semantics",
+    "shared:probe/unwrap-jwk-usage-members",
+]
+
+[[rows]]
+id = "wrapping"
+group = "contracts"
+label = "Wrapping plumbing"
+wit = ["wrapping"]
+select = [
+    "shared:probe/aead-wrap-operations",
+    "shared:probe/wrap-input-gates",
+]
+
+[[rows]]
+id = "signature-kind"
+group = "contracts"
+label = "Signature kind"
+wit = ["signature"]
+select = [
+    "shared:probe/sig-import-invalid",
+    "shared:probe/sig-key-metadata",
+    "shared:probe/sig-public-format-imports",
+    "shared:probe/verifying-key-export-roundtrip",
+]
+
+[[rows]]
+id = "cipher-kind"
+group = "contracts"
+label = "Cipher kind"
+wit = ["cipher"]
+select = [
+    "shared:probe/cipher-derive-key",
+    "shared:probe/cipher-key-unwrap",
+    "shared:probe/cipher-params-contract",
+    "shared:probe/cipher-wrap-uniform-failure",
+]
+
+[[rows]]
+id = "agreement-plumbing"
+group = "contracts"
+label = "Key-agreement plumbing"
+wit = ["key-agreement"]
+select = [
+    "shared:probe/agreement-key-unwrap",
+    "shared:probe/ecdh-agree-contract",
+    "shared:probe/ecdh-chaining",
+    "shared:probe/x25519-chaining",
+]
+
+[[rows]]
+id = "derivation-plumbing"
+group = "contracts"
+label = "Derivation plumbing"
+wit = ["derivation"]
+select = [
+    "shared:probe/hkdf-derive-key-equivalence",
+    "shared:probe/kdf-secret-unwrap",
+    "shared:probe/sha1-derive-surface",
+]
+
+[[rows]]
+id = "aes-family"
+group = "contracts"
+label = "AES family admission"
+wit = ["aes"]
+select = [
+    "shared:probe/aes-import-wrong-length",
+    "shared:probe/aes192-unsupported",
+]
+
+[[rows]]
+id = "rsa-family"
+group = "contracts"
+label = "RSA family admission (verify)"
+wit = ["rsa"]
+select = [
+    "shared:probe/rsa-admission-contract",
+    "shared:probe/rsa-key-contract",
+]
+
+[[rows]]
+id = "rsa-sign-family"
+group = "contracts"
+label = "RSA family admission (sign, gated)"
+wit = ["rsa"]
+select = ["signing:probe/rsa-sign-key-contract"]
+
+# ── Excluded cases ───────────────────────────────────────────────────
+# Decline cases (`!feature`) prove a refusal on targets missing the
+# feature; the rows' positive cases already render the absence, and the
+# aggregate polices the declines themselves.
+
+[[excluded]]
+select = ["shared:sha1-checked/decline/"]
+why = "the sha1-checked row's positive probe renders the hosts' absence"
+
+[[excluded]]
+select = ["shared:rsa-verify-8192/decline/"]
+why = "the rsassa-pkcs1-v15-verify row's 8192-bit aspect renders the absence"
+
+[[excluded]]
+select = ["signing:rsa-sign/decline/", "signing:probe/rsa-sign-declined"]
+why = "the gated sign rows' positive cases render the browsers' fail-closed posture"
+
+[[excluded]]
+select = ["signing:rsa-oaep-decrypt/decline/", "signing:probe/rsa-oaep-declined"]
+why = "the rsa-oaep-decrypt row's positive cases render the browsers' fail-closed posture"
+
+# ── Structural absences ──────────────────────────────────────────────
+# The signing suite's world imports interfaces the in-guest provider
+# never exports (class D — rust/guest-provider/README.md), so `composed`
+# is not a signing-suite target at all: `wac plug` refuses the
+# composition (the class-d gate asserts exactly that).
+
+[[structural]]
+target = "composed"
+row = "ecdsa-sign"
+note = "class D: the provider never exports ecdsa-sign; the composition fails at wac plug time"
+
+[[structural]]
+target = "composed"
+row = "rsassa-pkcs1-v15-sign"
+note = "class D: the provider never exports rsassa-pkcs1-v15-sign"
+
+[[structural]]
+target = "composed"
+row = "rsa-pss-sign"
+note = "class D: the provider never exports rsa-pss-sign"
+
+[[structural]]
+target = "composed"
+row = "rsa-oaep-encrypt"
+note = "class D: the provider never exports rsa-oaep-encrypt"
+
+[[structural]]
+target = "composed"
+row = "rsa-oaep-decrypt"
+note = "class D: the provider never exports rsa-oaep-decrypt"
+
+[[structural]]
+target = "composed"
+row = "rsa-sign-family"
+note = "class D: the signing suite cannot compose with the provider"

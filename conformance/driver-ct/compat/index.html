@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="data:,">
+<title>polymorph:webcrypto support matrix</title>
+<style>
+  :root {
+    --pass: #1a7f37;
+    --partial: #9a6700;
+    --fail: #cf222e;
+    --dim: #656d76;
+    --line: #d0d7de;
+    --hover: #f6f8fa;
+    --impl: #f6f8fa;
+  }
+  body {
+    font: 14px/1.45 system-ui, sans-serif;
+    margin: 0;
+    color: #1f2328;
+  }
+  header {
+    position: sticky;
+    top: 0;
+    background: #fff;
+    border-bottom: 1px solid var(--line);
+    padding: 0.6rem 1rem;
+    z-index: 2;
+  }
+  h1 {
+    font-size: 1.1rem;
+    margin: 0 0 0.4rem;
+  }
+  h1 code { font-size: 1rem; }
+  #intro {
+    color: var(--dim);
+    max-width: 60rem;
+    margin: 0 0 0.4rem;
+  }
+  #legend {
+    color: var(--dim);
+    display: flex;
+    gap: 1.2rem;
+    flex-wrap: wrap;
+  }
+  #legend span { white-space: nowrap; }
+  main { padding: 0 1rem 3rem; max-width: 72rem; }
+  #status { color: var(--dim); padding: 1rem 0; }
+  section h2 {
+    font-size: 1rem;
+    margin: 1.6rem 0 0.5rem;
+  }
+  section h2 code { font-size: 0.95rem; }
+  section p.groupnote { color: var(--dim); margin: 0 0 0.5rem; max-width: 60rem; }
+  table {
+    border-collapse: collapse;
+    width: 100%;
+  }
+  th, td {
+    border: 1px solid var(--line);
+    padding: 0.3rem 0.55rem;
+    text-align: center;
+  }
+  thead th { background: #fff; position: sticky; top: 6.5rem; }
+  th.rowhead, td.rowhead {
+    text-align: left;
+    width: 22rem;
+  }
+  td.rowhead code { color: var(--dim); font-size: 0.85em; }
+  tr:hover td { background: var(--hover); }
+  th.impl, td.impl { background: var(--impl); }
+  tr:hover td.impl { background: #eef1f4; }
+  tr.aspect td.rowhead {
+    padding-left: 1.8rem;
+    color: #1f2328;
+    font-size: 0.95em;
+  }
+  tr.aspect td.rowhead::before { content: "↳ "; color: var(--dim); }
+  .yes { color: var(--pass); font-weight: 600; }
+  .partial { color: var(--partial); font-weight: 600; }
+  .no { color: var(--fail); font-weight: 600; }
+  .absent, .nodata { color: var(--dim); }
+  td a { text-decoration: none; }
+  td .feat {
+    display: block;
+    color: var(--dim);
+    font-size: 0.78em;
+    font-family: ui-monospace, monospace;
+  }
+  footer {
+    color: var(--dim);
+    border-top: 1px solid var(--line);
+    margin-top: 2rem;
+    padding-top: 0.8rem;
+  }
+  footer ul { margin: 0.3rem 0; padding-left: 1.4rem; }
+</style>
+</head>
+<body>
+<header>
+  <h1><code>polymorph:webcrypto</code> support matrix</h1>
+  <p id="intro">
+    What each host and implementation serves of the package surface,
+    derived from the conformance suites' results: rows are algorithms
+    grouped by the WIT interface that owns them, and subrows appear
+    exactly where targets diverge within an algorithm. Cells link the
+    tracking issue for the divergence behind them.
+  </p>
+  <div id="legend">
+    <span><span class="yes">✓</span> supported</span>
+    <span><span class="partial">◐</span> partial — a subrow diverges</span>
+    <span><span class="no">✗</span> not supported</span>
+    <span><span class="absent">—</span> not part of this target's world</span>
+    <span><span class="nodata">·</span> no data in this run</span>
+  </div>
+</header>
+<main>
+  <div id="status">Loading <code>results/compat.json</code>…</div>
+  <div id="matrix"></div>
+  <footer id="provenance" hidden></footer>
+</main>
+<script type="module" src="./app.mjs"></script>
+</body>
+</html>

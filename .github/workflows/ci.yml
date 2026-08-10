@@ -46,7 +46,8 @@ jobs:
 
   # The cross-implementation conformance targets that run in this job
   # (component-test stack): both suites across wasmtime-rustcrypto,
-  # composed, jco-node, jco-browser (headless Chromium), and deltic-deno
+  # composed, jco-node, jco-browser (headless Chromium via jco),
+  # deltic-browser (headless Chromium via deltic), and deltic-deno
   # (runtime-linked under stock Deno) — plus the aggregates over those
   # targets and the deltic host module's unit gate. The jco-firefox and
   # jco-webkit legs run as their own jobs below (Firefox needs a runner
@@ -427,6 +428,7 @@ jobs:
             composed=conformance/driver-ct/results/composed.jsonl
             jco-node=conformance/driver-ct/results/jco-node.jsonl
             jco-browser=conformance/driver-ct/results/jco-browser.jsonl
+            deltic-browser=conformance/driver-ct/results/deltic-browser.jsonl
             jco-firefox=conformance/driver-ct/results/jco-firefox.jsonl
             jco-webkit=conformance/driver-ct/results/jco-webkit.jsonl
             deltic-deno=conformance/driver-ct/results/deltic-deno.jsonl
@@ -444,6 +446,7 @@ jobs:
             wasmtime-rustcrypto=conformance/driver-ct/results/wasmtime-signing.jsonl
             jco-node=conformance/driver-ct/results/jco-node-signing.jsonl
             jco-browser=conformance/driver-ct/results/jco-browser-signing.jsonl
+            deltic-browser=conformance/driver-ct/results/deltic-browser-signing.jsonl
             jco-firefox=conformance/driver-ct/results/jco-firefox-signing.jsonl
             jco-webkit=conformance/driver-ct/results/jco-webkit-signing.jsonl
             deltic-deno=conformance/driver-ct/results/deltic-deno-signing.jsonl

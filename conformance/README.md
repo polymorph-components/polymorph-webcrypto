@@ -138,6 +138,11 @@ the lockfiles, runs the targets, and aggregates:
   deltic's embedder API, runtime-linked under stock Deno — no transpile;
   missing `sha1-checked` and `rsa-verify-8192`, with an expected-fail
   ledger for the Deno platform windows (#351).
+- **deltic-browser** (`run-deltic-browser`): the deltic host module
+  runtime-linked in headless Chromium (the worker is one deno-bundled
+  module — no transpile, no generated tree); the same platform posture
+  as jco-browser. Optional like jco-browser: gates in CI, locally
+  `CONFORMANCE_BROWSER=1`.
 - The **signing suite** runs under the host-backed targets
   (wasmtime-rustcrypto, jco-node, the browser-engine targets, and
   deltic-deno) only: its world imports

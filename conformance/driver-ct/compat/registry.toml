@@ -7,12 +7,19 @@
 version = "0.1"
 
 # ── Columns ──────────────────────────────────────────────────────────
-# The five platform-backed hosts first, then the two Rust
+# The platform-backed hosts first, engine-major (the two Chromium
+# columns are the same platform WebCrypto behind two host stacks —
+# jco's transpile path and deltic's runtime linking), then the two Rust
 # implementations of this repository.
 
 [[columns]]
 target = "jco-browser"
-label = "Chromium"
+label = "Chromium (jco)"
+kind = "host"
+
+[[columns]]
+target = "deltic-browser"
+label = "Chromium (deltic)"
 kind = "host"
 
 [[columns]]

@@ -64,6 +64,30 @@ pub const FEATURE_RSA_SIGN: &str = "rsa-sign";
 /// carries no feature name.
 pub const FEATURE_RSA_OAEP_DECRYPT: &str = "rsa-oaep-decrypt";
 
+/// The `rsa-verify-8192` feature: RSASSA-PKCS1-v1_5 verification with an
+/// *imported* 8192-bit public key — the whole
+/// `rsassa-pkcs1-v15-sha256-8192/wycheproof` row, both import paths
+/// (SPKI and JWK).
+///
+/// A platform capability, not a policy: Deno's `crypto.subtle` refuses
+/// to import an 8192-bit RSA public key at all ("public key error: SPKI
+/// cryptographic key data malformed", both `importKey("spki", …)` and
+/// `importKey("jwk", …)`), while happily *minting* one with
+/// `generateKey({modulusLength: 8192})` and importing 4096-bit keys —
+/// so the gap is the import of oversized moduli, and no host built on
+/// `crypto.subtle` can close it. The probe that establishes this is
+/// recorded beside the feature's declaration in
+/// `conformance/driver-ct/targets.toml`.
+///
+/// The row is gated whole. 299 of its 301 cases fail on that one cause;
+/// the two that do not (tcId 243 "no padding" and 248 "the signature is
+/// empty", from `rsa_signature_8192_sha256_test.json`) carry signatures
+/// of 6 and 0 bytes against a 1024-byte modulus, so they are refused on
+/// a length check before the key is ever used. They pass for a reason
+/// unrelated to the capability, so keeping them scheduled on a target
+/// that lacks it would assert nothing about it.
+pub const FEATURE_RSA_VERIFY_8192: &str = "rsa-verify-8192";
+
 /// Every feature name a target may declare missing — shared here so every
 /// guest validates the same names. `all` traps on names outside this set,
 /// so a misspelled declaration is a harness bug rather than a silently
@@ -73,6 +97,7 @@ pub const KNOWN_FEATURES: &[&str] = &[
     FEATURE_SHA1_CHECKED,
     FEATURE_RSA_SIGN,
     FEATURE_RSA_OAEP_DECRYPT,
+    FEATURE_RSA_VERIFY_8192,
 ];
 
 /// A probe body. Boxed because each `async fn` has its own opaque type.

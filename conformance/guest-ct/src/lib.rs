@@ -236,7 +236,10 @@ mod webcrypto {
         crate::plan::register(registry, prefix, tags)
     }
 
-    #[case_row(prefix = "rsassa-pkcs1-v15-sha256-8192/wycheproof")]
+    #[case_row(
+        prefix = "rsassa-pkcs1-v15-sha256-8192/wycheproof",
+        tags("rsa-verify-8192")
+    )]
     fn row_rsassa_pkcs1_v15_sha256_8192_wycheproof(
         registry: &mut Registry,
         prefix: &ArcStr,
@@ -722,6 +725,20 @@ mod webcrypto {
             #[case(tags("!sha1-checked"))]
             async fn minting() -> Verdict {
                 crate::plan::declined(crate::plan::features::FEATURE_SHA1_CHECKED).await
+            }
+        }
+    }
+
+    mod rsa_verify_8192 {
+        mod decline {
+            /// On a target that cannot import an 8192-bit RSA public
+            /// key, verify that the attempt is REFUSED cleanly — a WIT
+            /// error, not a trap and not a bogus success. The gated row
+            /// is scheduled out on such a target, so without this case
+            /// nothing would hold the refusal to the contract.
+            #[case(tags("!rsa-verify-8192"))]
+            async fn importing() -> Verdict {
+                crate::plan::declined(crate::plan::features::FEATURE_RSA_VERIFY_8192).await
             }
         }
     }

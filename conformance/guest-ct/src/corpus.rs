@@ -37,7 +37,13 @@ pub struct RowCorpus<T> {
 /// Every feature set a translated vector case can carry, indexed by
 /// [`RowCorpus::features`] (build.rs panics on an unlisted set, so
 /// growth is loud).
-pub const FEATURE_SETS: &[&[&str]] = &[&[]];
+///
+/// The named constant rather than a literal: this file is compiled twice
+/// (crate + `#[path]`-included by build.rs), and a feature name that
+/// disagreed between the archive written at build time and the tags read
+/// at registry build would schedule the row against a name no manifest
+/// declares.
+pub const FEATURE_SETS: &[&[&str]] = &[&[], &[conformance_harness::FEATURE_RSA_VERIFY_8192]];
 
 /// The [`FEATURE_SETS`] index of a case's feature slice.
 pub fn feature_index(features: &[&str]) -> u8 {

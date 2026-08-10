@@ -1,5 +1,14 @@
 {
   "version": "5",
+  "specifiers": {
+    "npm:playwright-core@1.62.1": "1.62.1"
+  },
+  "npm": {
+    "playwright-core@1.62.1": {
+      "integrity": "sha512-wPYSwEBJY9GHraISXqyqtx0na0LpO3XEX7jNDhntbex7tzUS7kLnZsOlFruFJB4Hi/rhDMjXGqHewDZ68nYZVw==",
+      "bin": true
+    }
+  },
   "remote": {
     "https://raw.githubusercontent.com/lann/deltic/pre-58b2404/ct-runner/src/context.ts": "366db52e3189260a7fd2fc2fdb90aea9bd6a3055d83c42acad082eb75565c634",
     "https://raw.githubusercontent.com/lann/deltic/pre-58b2404/ct-runner/src/import-analysis.ts": "64971e796ebccd98730ba2a0e78b599db38284f22b7976687fc4cad898703c32",

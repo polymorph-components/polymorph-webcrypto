@@ -23,7 +23,7 @@ use conformance_harness::stream::{
 };
 use conformance_harness::{
     b64url, describe, expect, expect_bytes, expect_err, probes, unhex, ErrKind,
-    FEATURE_SHA1_CHECKED, P256_A25_X, P256_A25_Y,
+    FEATURE_RSA_VERIFY_8192, FEATURE_SHA1_CHECKED, P256_A25_X, P256_A25_Y,
 };
 use polymorph_webcrypto_guest::bindings::aes_gcm::AesVariant;
 use polymorph_webcrypto_guest::bindings::ecdsa_verify::{
@@ -112,6 +112,8 @@ probes! {
 pub async fn run_declined(features: &[&str]) -> Result<String, String> {
     if features == [FEATURE_SHA1_CHECKED] {
         sha1_checked_minting_declined().await
+    } else if features == [FEATURE_RSA_VERIFY_8192] {
+        rsa_verify_8192_declined().await
     } else {
         Err("probe has no decline assertion for its features".into())
     }
@@ -3198,6 +3200,62 @@ async fn sha1_checked_minting_declined() -> Result<String, String> {
     )
     .map_err(|detail| format!("sha1-checked decline: {detail}"))?;
     Ok("asserted both sha1-checked constructors decline unsupported".into())
+}
+
+/// `rsa-verify-8192` decline: on a target that cannot use an IMPORTED
+/// 8192-bit RSA public key, verify that attempting it is refused
+/// cleanly on BOTH import paths the gated row covers (SPKI and JWK) —
+/// never a trap, and above all never a claimed verification.
+///
+/// The assertion deliberately does not pin one error variant or one
+/// stage. Where the refusal surfaces is a host implementation detail:
+/// a host that parses key material at import refuses there with
+/// `invalid-key`, while the deltic host (js/deltic) materializes the
+/// platform key lazily, so `import-verifying-key-*` returns a handle and
+/// the refusal surfaces at `verify` as `other` (the underlying platform
+/// message is "public key error: SPKI cryptographic key data
+/// malformed"). Both are conforming refusals of the same capability, and
+/// pinning either one would fail the other host for being differently
+/// shaped rather than for being wrong.
+///
+/// What IS pinned is the part that matters: the operation must not
+/// report the signature as verified. A valid vector's signature
+/// verifying here would mean the target can serve the capability after
+/// all and should not be declaring it missing.
+async fn rsa_verify_8192_declined() -> Result<String, String> {
+    use crate::mint::{import_rsassa_verifying_key_jwk, import_rsassa_verifying_key_spki};
+    use polymorph_webcrypto_guest::bindings::rsa::RsaVariant;
+
+    let material = crate::translate::rsa_8192_verify_material();
+    let mut refusals = Vec::new();
+    for what in ["import-verifying-key-spki", "import-verifying-key-jwk"] {
+        let imported = if what.ends_with("spki") {
+            import_rsassa_verifying_key_spki(RsaVariant::Sha256, material.spki.clone()).await
+        } else {
+            import_rsassa_verifying_key_jwk(RsaVariant::Sha256, material.jwk.clone()).await
+        };
+        match imported {
+            Err(error) => refusals.push(describe(what, &error)),
+            Ok(key) => {
+                // The import was tolerated, so the refusal must come at
+                // use. A feeder-level error is harness trouble, not a
+                // verdict, and stays an Err(String).
+                match sig_verify_op(&key, &material.msg, &material.sig, Schedule::Whole).await? {
+                    Ok(()) => {
+                        return Err(format!(
+                            "{what}: verify(sig) SUCCEEDED with an imported 8192-bit key on a \
+                             target declaring rsa-verify-8192 missing"
+                        ))
+                    }
+                    Err(error) => refusals.push(describe(&format!("{what} + verify"), &error)),
+                }
+            }
+        }
+    }
+    Ok(format!(
+        "asserted both 8192-bit import paths refuse the capability cleanly: {}",
+        refusals.join("; ")
+    ))
 }
 
 // NIST SP 800-38A F.5: the CTR known-answer inputs (the same plaintext

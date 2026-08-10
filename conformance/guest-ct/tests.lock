@@ -3,7 +3,7 @@ version = "0.1"
 
 [suite]
 name = "conformance_guest_ct"
-artifact_sha256 = "8bccea82117ee13bdebd2b72b5b7d7bf3721ef14dc78a7831c81058e5c746bca"
+artifact_sha256 = "222e9fa16a01ae8766b0c483d854db80eceadfb28db1adca190f15fb47e36550"
 
 [[case]]
 name = "probe/aead-wrap-grants"
@@ -179,6 +179,10 @@ name = "probe/x25519-format-roundtrips"
 
 [[case]]
 name = "probe/x25519-key-contract"
+
+[[case]]
+name = "rsa-verify-8192/decline/importing"
+tags = ["!rsa-verify-8192"]
 
 [[case]]
 name = "sha1-checked/decline/minting"
@@ -14779,6 +14783,7 @@ cases = [
 
 [[generated]]
 prefix = "rsassa-pkcs1-v15-sha256-8192/wycheproof"
+tags = ["rsa-verify-8192"]
 cases = [
     "tc1-spki/whole",
     "tc1-jwk/whole",

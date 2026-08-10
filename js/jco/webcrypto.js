@@ -892,10 +892,11 @@ async function generateHmacKey(resolved, length, options) {
 
 /**
  * Import an `oct` JWK as an HMAC key over the declared SHA-2 variant (the
- * `import-key-jwk` contract of both HMAC interfaces). The platform owns
- * the JWK validation: `kty`, strict base64url `k`, `alg` against the
- * requested hash, and `ext` against the options' extractability all fail
- * there and map to `{ tag: 'invalid-key', val }`.
+ * `import-key-jwk` contract of both HMAC interfaces). `kty` is pinned host-side (see
+ * `requireOctJwk`); the rest of the JWK validation is the platform's —
+ * strict base64url `k`, `alg` against the requested hash, and `ext`
+ * against the options' extractability all fail there and map to
+ * `{ tag: 'invalid-key', val }`.
  * @param {{ hash: string, blockBytes: number }} resolved
  * @param {string} jwk
  * @param {MacKeyOptions} options
@@ -905,6 +906,7 @@ async function importHmacKeyJwk(resolved, jwk, options) {
   const usages = macUsages(policy);
   const { hash } = resolved;
   const material = jwkMaterial(jwk);
+  requireOctJwk(material);
   requireStrictBase64url(material.k);
   const key = await importPlatformKeyJwk(
     "HMAC JWK",
@@ -1904,8 +1906,9 @@ async function importX25519PublicKey(raw) {
 
 /**
  * Import an RFC 8037 OKP private JWK (the `x25519.import-secret-key-jwk`
- * contract). The parse and validation are the platform's (`kty`, `crv`,
- * `d` presence, `ext` against extractability); `use`/`key_ops` are
+ * contract). `kty`/`crv` are pinned host-side (see `requireOkpJwk`);
+ * the rest of the validation is the platform's (`d` presence, `ext`
+ * against extractability); `use`/`key_ops` are
  * stripped as the JWK contract requires, and strictness of the base64url
  * members is pinned host-side. This host cannot check `x` against `d`
  * (the WIT MAY) — the platform's import steps do not mandate it — and
@@ -1918,6 +1921,7 @@ async function importX25519SecretKeyJwk(jwkText, options) {
   const policy = agreementPolicy(options);
   requireAgreementGrant(policy);
   const jwk = jwkMaterial(jwkText);
+  requireOkpJwk("X25519", jwk);
   requireStrictBase64url(jwk.x);
   requireStrictBase64url(jwk.d);
   const key = await importPlatformKeyJwk(
@@ -1968,12 +1972,14 @@ async function importX25519PublicKeySpki(spki) {
 
 /**
  * Import an X25519 public key from an OKP public JWK — a platform
- * pass-through of the material members; strictness of the base64url `x`
- * is pinned host-side.
+ * pass-through of the material members; `kty`/`crv` (see
+ * `requireOkpJwk`) and strictness of the base64url `x` are pinned
+ * host-side.
  * @param {string} jwkText
  */
 async function importX25519PublicKeyJwk(jwkText) {
   const jwk = jwkMaterial(jwkText);
+  requireOkpJwk("X25519", jwk);
   requireStrictBase64url(jwk.x);
   const key = await importPlatformKeyJwk("X25519 public JWK", jwk, "X25519", true, []);
   return new AgreementPublicKey(MINT, key);
@@ -2172,6 +2178,37 @@ function requireNamedCurveSpki(namedCurve, spki) {
 }
 
 /**
+ * Guard: rejects an EC PKCS#8 PrivateKeyInfo whose AlgorithmIdentifier is
+ * not the declared curve's named-OID form before the platform sees it —
+ * the private-key counterpart of `requireNamedCurveSpki`, and the same
+ * constants, since the AlgorithmIdentifier TLV is identical in both
+ * structures. Platform engines split on cross-curve private material:
+ * Gecko admits a P-256 PrivateKeyInfo under a P-384 import (reading the
+ * curve from the encoding rather than holding it against the declared
+ * one), where the other engines reject it and the WIT pins `invalid-key`.
+ * The check is shallow and fail-closed: one DER length decode
+ * (`spkiAlgorithmOffset`, which reads the same outer SEQUENCE header),
+ * the fixed `INTEGER 0` version, then a byte-compare of the next TLV
+ * against the constant. It can only over-reject — whatever it passes
+ * still gets the platform's full DER validation, and it never admits or
+ * transforms material the platform would refuse. Its vector coverage is
+ * the conformance probes `probe/ecdh-format-roundtrips` ("P-256 PKCS#8
+ * under p384: imported cross-curve material") and, in the signing suite,
+ * `probe/ecdsa-private-format-imports` ("P-256 pkcs8 as p384-sha384").
+ * @param {string} namedCurve
+ * @param {Uint8Array} pkcs8
+ */
+function requireNamedCurvePkcs8(namedCurve, pkcs8) {
+  const algorithm = EC_SPKI_ALGORITHM_IDENTIFIERS[namedCurve];
+  const offset = spkiAlgorithmOffset(pkcs8);
+  const versioned =
+    offset !== 0 && pkcs8[offset] === 0x02 && pkcs8[offset + 1] === 0x01 && pkcs8[offset + 2] === 0;
+  if (!versioned || !algorithm.every((byte, i) => pkcs8[offset + 3 + i] === byte)) {
+    throw errInvalidKey(`${namedCurve} PKCS#8 must name the curve by OID`);
+  }
+}
+
+/**
  * The DER AlgorithmIdentifier TLV an RSA SubjectPublicKeyInfo must open
  * with: `SEQUENCE { rsaEncryption (1.2.840.113549.1.1.1), NULL }` — the
  * form the platform's own RSA SPKI exports carry, for RSASSA-PKCS1-v1_5
@@ -2288,9 +2325,10 @@ async function importEcdhSecretKeyJwk(variant, jwkText, options) {
 }
 
 /**
- * Import an ECDH secret key from a PKCS#8 PrivateKeyInfo — a platform
- * pass-through; the platform owns the DER validation, including the
- * encoded-curve-against-variant check.
+ * Import an ECDH secret key from a PKCS#8 PrivateKeyInfo. The
+ * AlgorithmIdentifier must be the declared curve's named-OID form (see
+ * `requireNamedCurvePkcs8`); past that check the import is a platform
+ * pass-through — the platform owns the DER validation.
  * @param {string} variant
  * @param {Uint8Array} pkcs8
  * @param {AgreementKeyOptions} options
@@ -2299,6 +2337,7 @@ async function importEcdhSecretKeyPkcs8(variant, pkcs8, options) {
   const policy = agreementPolicy(options);
   requireAgreementGrant(policy);
   const entry = ecdhCurve(variant);
+  requireNamedCurvePkcs8(entry.namedCurve, pkcs8);
   const key = await importPlatformKey(
     `${variant} pkcs8`,
     "pkcs8",
@@ -3851,6 +3890,49 @@ function requireStrictBase64url(k) {
 }
 
 /**
+ * Guard: rejects an OKP JWK whose `kty` is not `OKP` or whose `crv` is not
+ * the curve the minting interface serves, before the platform sees it.
+ * Platform engines split here: Gecko admits an X25519 JWK under an
+ * Ed25519 import and the reverse (it takes the algorithm from the import
+ * call and does not hold `crv` against it), where the other engines
+ * reject and the WIT pins `invalid-key`. The check is shallow and
+ * fail-closed — two member compares, no decoding — so it can only
+ * over-reject; whatever it passes still gets the platform's full JWK
+ * validation, and it never admits or transforms material the platform
+ * would refuse. Its vector coverage is the conformance probes
+ * `probe/sig-public-format-imports` ("imported an X25519 JWK as
+ * Ed25519") and `probe/x25519-key-contract` ("imported an Ed25519 JWK as
+ * X25519").
+ * @param {string} crv the curve the importing interface serves
+ * @param {Record<string, unknown>} jwk a `jwkMaterial` result
+ */
+function requireOkpJwk(crv, jwk) {
+  if (jwk.kty !== "OKP") {
+    throw errInvalidKey(`${crv} JWK must have \`kty\` "OKP"`);
+  }
+  if (jwk.crv !== crv) {
+    throw errInvalidKey(`${crv} JWK must have \`crv\` "${crv}"`);
+  }
+}
+
+/**
+ * Guard: rejects a symmetric JWK whose `kty` is not `oct` before the
+ * platform sees it. Platform engines split here: Gecko admits an HMAC
+ * `import-key-jwk` whose `kty` names another key type, where the other
+ * engines reject and the WIT pins `invalid-key`. The check is shallow and
+ * fail-closed — one member compare — so it can only over-reject; whatever
+ * it passes still gets the platform's full JWK validation. Its vector
+ * coverage is the conformance probe `probe/jwk-rejections` ("hmac
+ * import-key-jwk (wrong kty) minted a key").
+ * @param {Record<string, unknown>} jwk a `jwkMaterial` result
+ */
+function requireOctJwk(jwk) {
+  if (jwk.kty !== "oct") {
+    throw errInvalidKey('symmetric JWK must have `kty` "oct"');
+  }
+}
+
+/**
  * Parse JWK JSON text and strip the members the WIT contract ignores.
  * `use`/`key_ops` are consumer policy — they must not reach the platform,
  * whose import would otherwise enforce them against the usages this host
@@ -4565,13 +4647,15 @@ async function importEd25519VerifyingKeySpki(spki) {
 }
 
 /**
- * Import an Ed25519 public key from an OKP public JWK: `x` is decoded for
- * the strict predicate; the JWK itself goes to the platform (which owns
- * the kty/crv/ext validation), stripped of the consumer-policy members.
+ * Import an Ed25519 public key from an OKP public JWK: `kty`/`crv` are
+ * pinned host-side (see `requireOkpJwk`) and `x` is decoded for the
+ * strict predicate; the JWK itself goes to the platform (which owns the
+ * `ext` validation), stripped of the consumer-policy members.
  * @param {string} jwkText
  */
 async function importEd25519VerifyingKeyJwk(jwkText) {
   const jwk = jwkMaterial(jwkText);
+  requireOkpJwk("Ed25519", jwk);
   requireStrictBase64url(jwk.x);
   if (typeof jwk.x !== "string" || !ed25519PointStrict(b64urlDecode(jwk.x))) {
     throw errInvalidKey("non-canonical or small-order Ed25519 public key");
@@ -4629,7 +4713,8 @@ async function importEd25519SigningKeyPkcs8(pkcs8, options) {
 /**
  * Import an Ed25519 signing key from an OKP private JWK. The platform
  * cannot promise the `x`-matches-`d` consistency check (the WIT MAY);
- * strictness of the base64url members is pinned host-side.
+ * `kty`/`crv` (see `requireOkpJwk`) and strictness of the base64url
+ * members are pinned host-side.
  * @param {string} jwkText
  * @param {SigningKeyOptions} options
  */
@@ -4637,6 +4722,7 @@ async function importEd25519SigningKeyJwk(jwkText, options) {
   const policy = signingPolicy(options);
   requireSigningGrant(policy);
   const jwk = jwkMaterial(jwkText);
+  requireOkpJwk("Ed25519", jwk);
   requireStrictBase64url(jwk.x);
   requireStrictBase64url(jwk.d);
   const key = await importPlatformKeyJwk(
@@ -4790,7 +4876,9 @@ async function generateEcdsaKey(variant, options) {
 
 /**
  * Import an ECDSA signing key from a PKCS#8 PrivateKeyInfo of the declared
- * variant's curve — a platform pass-through.
+ * variant's curve. The AlgorithmIdentifier must be that curve's named-OID
+ * form (see `requireNamedCurvePkcs8`); past that check the import is a
+ * platform pass-through.
  * @param {string} variant
  * @param {Uint8Array} pkcs8
  * @param {SigningKeyOptions} options
@@ -4799,6 +4887,7 @@ async function importEcdsaSigningKeyPkcs8(variant, pkcs8, options) {
   const policy = signingPolicy(options);
   requireSigningGrant(policy);
   const entry = ecdsaVariant(variant);
+  requireNamedCurvePkcs8(entry.namedCurve, pkcs8);
   const key = await importPlatformKey(
     `${variant} pkcs8`,
     "pkcs8",

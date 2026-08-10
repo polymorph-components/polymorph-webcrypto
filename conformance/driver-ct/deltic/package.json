@@ -1,0 +1,10 @@
+{
+  "name": "@polymorph/webcrypto-conformance-deltic-browser",
+  "private": true,
+  "type": "module",
+  "description": "Node driver + bundled worker inputs for the deltic-browser conformance rows: both suites runtime-linked inside headless Chromium with this repo's deltic host module, through the upstream page driver and deltic worker-main.",
+  "dependencies": {
+    "@polymorph/component-test-js": "github:polymorph-components/polymorph-test#4ce2a7a45d479a22bc8eb2696dd9ebe0b2a3516b",
+    "playwright-core": "1.62.1"
+  }
+}

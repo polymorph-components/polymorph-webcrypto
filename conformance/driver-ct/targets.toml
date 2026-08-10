@@ -1707,3 +1707,16 @@ tracking = "https://github.com/polymorph-components/polymorph-webcrypto/issues/3
 case = "rsassa-pkcs1-v15-sha256-8192/wycheproof/tc258/whole"
 reason = "Deno/ring: imported 8192-bit RSA public keys unusable for verify (SPKI cryptographic key data malformed); minted keys work"
 tracking = "https://github.com/polymorph-components/polymorph-webcrypto/issues/351"
+
+
+[targets.deltic-browser]
+# The deltic host module (js/deltic) runtime-linked in headless Chromium
+# — the same platform WebCrypto as jco-browser, so the same posture:
+# `sha1-checked` cannot be served (no platform carries sha1dc), and the
+# Deno parameter-window expected-fails on deltic-deno do not apply here
+# (Chromium serves those windows).
+missing-features = ["sha1-checked"]
+# Gates in CI (the Actions runner ships Chrome); locally it needs a
+# Chrome/Chromium install and runs only when opted in with
+# CONFORMANCE_BROWSER=1, so missing results files are warnings, not errors.
+optional = true

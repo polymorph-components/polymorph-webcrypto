@@ -20,7 +20,8 @@
 // suite's async exports run on the callback ABI under stock Deno.
 //
 //   just conformance-ct::run-deltic          # both legs
-//   … run.ts --translator <shim.wasm> [--suite shared|signing] [--only SUB] [--jspi]
+//   … run.ts --translator <shim.wasm> [--suite shared|signing] [--only SUB]
+//            [--fresh-cases] [--jspi]
 //
 // SUITE ARTIFACTS. Both legs run the BARE suites — the same components
 // the jco leg transpiles (jco/package.json's `transpile` /
@@ -40,6 +41,35 @@
 // gate on an undeclared one — or on a declaration that has gone stale.
 // A runner-level problem (translate error, inventory drift, missing
 // imports) still throws and exits nonzero.
+//
+// CONTAINMENT MODE. This leg runs each suite on ONE component instance
+// (ct-runner's `freshCases: false`), not the family's fresh-instance-
+// per-case convention. That convention is an artifact of wasmtime
+// economics — a fresh instance is ~free there (precompiled module,
+// CoW memory image) — while under a runtime linker each fresh instance
+// re-copies the suite's ~14 MB of embedded vectors and re-lifts all
+// 19k case handles, which multiplied out to ~95% of this leg's wall
+// time (measured: shared suite 440s fresh vs 20s reused, verdict
+// streams byte-identical).
+//
+// Reuse is sound for THESE suites specifically because they are
+// KAT-shaped — cross-case contamination cannot manufacture a quiet
+// green, only loud noise:
+//   - a positive KAT cannot pass by luck: outputs are compared against
+//     fixed vectors;
+//   - a contamination-flipped negative KAT (spurious accept) REPORTS as
+//     a failure — undeclared, so the aggregate goes red;
+//   - a contaminated pass of a declared expected-fail trips the
+//     aggregate's stale-declaration check — also red.
+//
+// The residual hazard is the L1 contract's poisoning clause
+// (wit/tests.wit: a trap poisons the suite instance; a timed-out case
+// leaves its call in flight): under reuse, rows after such an event are
+// unreliable. Both suites measure zero traps and zero timeouts (every
+// verdict is provenance `returned`), and any poisoning event mid-run
+// makes later rows either loudly wrong or correct — never quietly
+// green — per the KAT asymmetry above. When debugging any such run,
+// `--fresh-cases` restores per-case containment.
 //
 // MODULE-IDENTITY CONSTRAINT: deltic's wasi-shims module imports
 // `@deltic/runtime/embedder` by bare specifier internally; this leg's
@@ -113,10 +143,17 @@ interface Cli {
   /** Override for a single-suite run; refused for a multi-suite one. */
   out?: string;
   missing?: string[];
+  /** Opt back into fresh-instance-per-case (see CONTAINMENT MODE). */
+  freshCases: boolean;
 }
 
 function parseArgs(argv: string[]): Cli {
-  const cli: Cli = { jspi: false, target: "deltic-deno", suites: [] };
+  const cli: Cli = {
+    jspi: false,
+    target: "deltic-deno",
+    suites: [],
+    freshCases: false,
+  };
   for (let i = 0; i < argv.length; i++) {
     switch (argv[i]) {
       case "--only":
@@ -139,6 +176,9 @@ function parseArgs(argv: string[]): Cli {
         break;
       case "--missing":
         cli.missing = argv[++i].split(",").filter((s) => s.length > 0);
+        break;
+      case "--fresh-cases":
+        cli.freshCases = true;
         break;
       default:
         throw new Error(`unknown argument ${argv[i]}`);
@@ -191,6 +231,8 @@ async function runOne(spec: SuiteSpec, cli: Cli): Promise<void> {
     missing: cli.missing ?? spec.missing,
     caseTimeoutMs: CASE_TIMEOUT_MS,
     jspi: cli.jspi,
+    // One instance per suite run by default — see CONTAINMENT MODE.
+    freshCases: cli.freshCases,
     emit: (line) => lines.push(line),
   });
   await Deno.writeTextFile(out, lines.join("\n") + "\n");

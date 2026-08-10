@@ -44,6 +44,35 @@ fails on an undeclared failure *or* on a declaration that has gone stale
 (declared-but-passing). Never silence a new failure by adding an entry
 without a named cause and a tracking link.
 
+## Containment: one instance per suite run
+
+This leg runs each suite on a **single reused component instance**
+(`freshCases: false`), departing from the family's
+fresh-instance-per-case convention — a declared property of the
+`deltic-deno` target, documented at length in `run.ts`'s CONTAINMENT
+MODE header. In brief:
+
+- The convention prices fresh instances at wasmtime rates (precompiled
+  module + CoW memory ≈ free). Under a runtime linker, each fresh
+  instance re-copies the suite's ~14 MB of embedded vectors and
+  re-enumerates all 19k cases: ~95% of the leg's wall time (measured:
+  shared suite 440 s fresh vs 20 s reused, verdict streams
+  byte-identical, run 2026-08-10 against `pre-58b2404`).
+- Reuse is sound *for these suites* because they are KAT-shaped:
+  contamination cannot forge a green (outputs are compared against
+  fixed vectors; a flipped negative check reports as an undeclared
+  failure; a contaminated pass of a declared expected-fail trips the
+  stale check). Both failure directions are loud.
+- The residual hazard is trap/timeout poisoning (wit/tests.wit's
+  poisoning clause). Both suites measure zero of either — every verdict
+  is provenance `returned` — and any poisoning event is itself an
+  undeclared failure, so a poisoned run cannot go green. To debug one:
+  `run.ts --fresh-cases` restores per-case containment.
+
+This is a per-suite judgment, not family policy: a suite with
+deliberate trap cases or stateful host interactions should keep
+fresh-per-case.
+
 ## The pin
 
 deltic is pinned to a release tag in **three** places, cross-checked at

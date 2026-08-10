@@ -102,7 +102,7 @@ jobs:
         # Owns the rev derivation, the rev-keyed tools cache, the
         # install, and the pins gate; conformance-ct::_ct-tools
         # recognizes the stamped install and does not repeat it.
-        uses: polymorph-components/polymorph-test/actions/setup@aca1008344f754db1c2b88da05cb5999333f8d6a
+        uses: polymorph-components/polymorph-test/actions/setup@4ce2a7a45d479a22bc8eb2696dd9ebe0b2a3516b
         with:
           js-locks: |
             conformance/driver-ct/jco/package-lock.json
@@ -172,7 +172,7 @@ jobs:
       # input polices the `uses:` refs against the pin.
       - name: Publish the conformance matrix
         if: always() && hashFiles('conformance/driver-ct/results/*.jsonl') != ''
-        uses: polymorph-components/polymorph-test/actions/aggregate@aca1008344f754db1c2b88da05cb5999333f8d6a
+        uses: polymorph-components/polymorph-test/actions/aggregate@4ce2a7a45d479a22bc8eb2696dd9ebe0b2a3516b
         with:
           lock: conformance/guest-ct/tests.lock
           manifest: conformance/driver-ct/targets.toml
@@ -188,7 +188,7 @@ jobs:
 
       - name: Publish the signing conformance matrix
         if: always() && hashFiles('conformance/driver-ct/results/*.jsonl') != ''
-        uses: polymorph-components/polymorph-test/actions/aggregate@aca1008344f754db1c2b88da05cb5999333f8d6a
+        uses: polymorph-components/polymorph-test/actions/aggregate@4ce2a7a45d479a22bc8eb2696dd9ebe0b2a3516b
         with:
           lock: conformance/signing-guest-ct/tests.lock
           manifest: conformance/driver-ct/targets-signing.toml

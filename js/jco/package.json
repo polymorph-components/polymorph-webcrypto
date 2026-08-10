@@ -6,13 +6,13 @@
   "description": "Browser-compatible host for polymorph:webcrypto over the Web Crypto API. No dependencies; map the polymorph:webcrypto imports to webcrypto.js when transpiling with jco.",
   "exports": "./webcrypto.js",
   "scripts": {
-    "types": "component-test-jco-transpile types wit --world-name imports --async-mode jspi -o generated --feature sha1-checked --feature rsa-sign --feature rsa-oaep-decrypt",
+    "types": "node ../../scripts/jco-transpile.mjs types wit --world-name imports --async-mode jspi -o generated --feature sha1-checked --feature rsa-sign --feature rsa-oaep-decrypt",
     "typecheck": "npm run types && tsc --noEmit -p tsconfig.json",
     "test": "node --test 'test/*.test.js'"
   },
   "devDependencies": {
     "@bytecodealliance/jco-transpile": "0.5.2",
     "typescript": "^5.9.3",
-    "@polymorph/component-test-js": "github:polymorph-components/polymorph-test#aca1008344f754db1c2b88da05cb5999333f8d6a"
+    "@polymorph/component-test-js": "github:polymorph-components/polymorph-test#4ce2a7a45d479a22bc8eb2696dd9ebe0b2a3516b"
   }
 }

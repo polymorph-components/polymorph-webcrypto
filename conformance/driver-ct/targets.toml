@@ -242,3 +242,14 @@ tracking = "https://github.com/polymorph-components/polymorph-webcrypto/issues/3
 case = "aes-gcm/wycheproof/tc275/straddle"
 reason = "Deno WebCrypto: AES-GCM IV window is 96/128 bits; this case uses 1024"
 tracking = "https://github.com/polymorph-components/polymorph-webcrypto/issues/351"
+[targets.deltic-browser]
+# The deltic host module (js/deltic) runtime-linked in headless Chromium
+# — the same platform WebCrypto as jco-browser, so the same posture:
+# `sha1-checked` cannot be served (no platform carries sha1dc), and
+# neither the Deno parameter-window expected-fails nor the
+# `rsa-verify-8192` capability gap apply here (Chromium serves both).
+missing-features = ["sha1-checked"]
+# Gates in CI (the Actions runner ships Chrome); locally it needs a
+# Chrome/Chromium install and runs only when opted in with
+# CONFORMANCE_BROWSER=1, so missing results files are warnings, not errors.
+optional = true

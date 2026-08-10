@@ -84,6 +84,7 @@ _ct-tools:
     # install --save-exact github:polymorph-components/polymorph-test#<rev>` in jco/.
     "{{ct-tools}}/bin/component-test" pins --cargo-lock "{{root}}/Cargo.lock" \
         --js-lock jco/package-lock.json \
+        --js-lock deltic/package-lock.json \
         --js-lock ../../examples/jco-demo/package-lock.json \
         --js-lock ../../js/jco/package-lock.json \
         --js-lock ../../js/componentize/wpt/parity/package-lock.json \
@@ -311,6 +312,50 @@ _run-browser-if-enabled:
         echo "skipping the jco-browser conformance target (opt in with CONFORMANCE_BROWSER=1; needs Chrome/Chromium 137+)"
     fi
 
+# The deltic browser driver's npm tree (the upstream page driver +
+# worker message loop + playwright-core; no transpiler).
+_deltic-browser-prepared:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    cd deltic
+    if [ package-lock.json -nt node_modules/.package-lock.json ]; then
+        npm ci --no-audit --no-fund
+    fi
+
+# The deltic-browser target: both suites runtime-linked inside headless
+# Chromium (browser WebCrypto) against this repo's deltic host module
+# (js/deltic) — the worker is one deno-bundled module (deltic engine +
+# host module + upstream message loop; deltic/browser/worker-entry.ts),
+# so no transpile step and no generated tree. The --missing declarations
+# mirror the jco-browser entries: the platform is the same Chromium.
+run-deltic-browser: build _deltic-browser-prepared
+    #!/usr/bin/env bash
+    set -euo pipefail
+    deno run --config deltic/deno.json --frozen \
+        --allow-read={{root}} --allow-write={{root}}/target/deltic \
+        --allow-net=github.com,objects.githubusercontent.com,release-assets.githubusercontent.com \
+        deltic/fetch-translator.ts >/dev/null
+    mkdir -p {{root}}/target/deltic-browser
+    (cd deltic && deno bundle --config deno.json --platform browser \
+        -o ../{{root}}/target/deltic-browser/webcrypto-worker.mjs browser/worker-entry.ts)
+    mkdir -p results
+    (cd deltic && node run-browser.mjs \
+        --missing sha1-checked \
+        --missing-signing rsa-sign,rsa-oaep-decrypt)
+
+# run-deltic-browser when enabled (CI, or CONFORMANCE_BROWSER=1); a skip
+# note otherwise — targets.toml marks deltic-browser optional, so the
+# aggregates warn on its missing results rather than failing.
+_run-deltic-browser-if-enabled:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    if [ -n "{{conformance-browser-enabled}}" ]; then
+        just run-deltic-browser
+    else
+        rm -f results/deltic-browser.jsonl results/deltic-browser-signing.jsonl
+        echo "skipping the deltic-browser conformance target (opt in with CONFORMANCE_BROWSER=1; needs Chrome/Chromium 137+)"
+    fi
+
 # Aggregate all targets into the matrix; exits nonzero on any failure
 # or validation error. Binds against the COMMITTED lockfiles: upstream
 # ruled (polymorph-components/polymorph-test#44) that artifact hashes are provenance,
@@ -322,7 +367,8 @@ aggregate: _ct-tools
     #!/usr/bin/env bash
     set -euo pipefail
     browser=()
-    [ -f results/jco-browser.jsonl ] && browser=(--results jco-browser=results/jco-browser.jsonl)
+    [ -f results/jco-browser.jsonl ] && browser+=(--results jco-browser=results/jco-browser.jsonl)
+    [ -f results/deltic-browser.jsonl ] && browser+=(--results deltic-browser=results/deltic-browser.jsonl)
     {{ct}} aggregate \
         --lock ../guest-ct/tests.lock \
         --manifest targets.toml \
@@ -339,7 +385,8 @@ aggregate-signing: _ct-tools
     #!/usr/bin/env bash
     set -euo pipefail
     browser=()
-    [ -f results/jco-browser-signing.jsonl ] && browser=(--results jco-browser=results/jco-browser-signing.jsonl)
+    [ -f results/jco-browser-signing.jsonl ] && browser+=(--results jco-browser=results/jco-browser-signing.jsonl)
+    [ -f results/deltic-browser-signing.jsonl ] && browser+=(--results deltic-browser=results/deltic-browser-signing.jsonl)
     {{ct}} aggregate \
         --lock ../signing-guest-ct/tests.lock \
         --manifest targets-signing.toml \
@@ -376,7 +423,7 @@ all: build build-provider _ct-tools _jco-prepared
         conformance-ct::lock-check conformance-ct::class-d \
         conformance-ct::run-wasmtime conformance-ct::run-composed \
         conformance-ct::run-jco conformance-ct::_run-browser-if-enabled \
-        conformance-ct::run-deltic
+        conformance-ct::run-deltic conformance-ct::_run-deltic-browser-if-enabled
     just aggregate aggregate-signing
 
 # The class-D negative-composition gate (ported from the incumbent

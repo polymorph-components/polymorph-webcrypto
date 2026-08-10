@@ -465,3 +465,15 @@ tracking = "https://github.com/polymorph-components/polymorph-webcrypto/issues/3
 case = "rsa-oaep-sha384-3104/wycheproof-misc/tc395-jwk"
 reason = "Deno WebCrypto: valid Constructed+EncryptionWithLabel OAEP ciphertext refused (OperationError); plain-label vectors decrypt fine (the misc groups are entirely this class — modulus size was falsified as the cause, see issue)"
 tracking = "https://github.com/polymorph-components/polymorph-webcrypto/issues/351"
+
+
+[targets.deltic-browser]
+# The deltic host module (js/deltic) in headless Chromium: the same
+# fail-closed browser policy as jco-browser for the gated RSA
+# private-key mints (`rsa-sign`, `rsa-oaep-decrypt`) — the driver runs
+# the served default.
+missing-features = ["rsa-sign", "rsa-oaep-decrypt"]
+# Gates in CI (the Actions runner ships Chrome); locally it needs a
+# Chrome/Chromium install and runs only when opted in with
+# CONFORMANCE_BROWSER=1, so missing results files are warnings, not errors.
+optional = true

@@ -6,12 +6,12 @@
   "description": "crypto-demo driver for the jco host (js/jco/webcrypto.js): transpiles the guest with jco and runs it on Node 24+.",
   "scripts": {
     "build:component": "cd ../.. && just demo::build-component",
-    "transpile": "component-test-jco-transpile transpile ../crypto-demo/build/crypto-demo.component.wasm --name crypto-demo --async-mode jspi --map 'polymorph:webcrypto/*@0.1.0=../../../js/jco/webcrypto.js#*' -o generated",
+    "transpile": "node ../../scripts/jco-transpile.mjs transpile ../crypto-demo/build/crypto-demo.component.wasm --name crypto-demo --async-mode jspi --map 'polymorph:webcrypto/*@0.1.0=../../../js/jco/webcrypto.js#*' -o generated",
     "start": "node --experimental-wasm-jspi src/run.mjs",
     "test": "node --experimental-wasm-jspi src/run.mjs"
   },
   "devDependencies": {
     "@bytecodealliance/jco-transpile": "https://github.com/lann/jco/releases/download/jco-transpile-0.6.2-fa6990d/bytecodealliance-jco-transpile-0.6.2.tgz",
-    "@polymorph/component-test-js": "github:polymorph-components/polymorph-test#aca1008344f754db1c2b88da05cb5999333f8d6a"
+    "@polymorph/component-test-js": "github:polymorph-components/polymorph-test#4ce2a7a45d479a22bc8eb2696dd9ebe0b2a3516b"
   }
 }

@@ -26,8 +26,8 @@ resolver = "2"
 # override — see AGENTS.md "Build & run". Publishing component-test
 # to a registry retires this arrangement.
 [workspace.dependencies]
-component-test-sdk = { git = "https://github.com/polymorph-components/polymorph-test", rev = "aca1008344f754db1c2b88da05cb5999333f8d6a" }
-component-test-runner = { git = "https://github.com/polymorph-components/polymorph-test", rev = "aca1008344f754db1c2b88da05cb5999333f8d6a" }
+component-test-sdk = { git = "https://github.com/polymorph-components/polymorph-test", rev = "4ce2a7a45d479a22bc8eb2696dd9ebe0b2a3516b" }
+component-test-runner = { git = "https://github.com/polymorph-components/polymorph-test", rev = "4ce2a7a45d479a22bc8eb2696dd9ebe0b2a3516b" }
 
 # The mutation run's profile (`just mutants`): dependencies optimized —
 # wasmtime and the RustCrypto cores are compiled once, at baseline, and make

@@ -60,8 +60,15 @@ const ROOT = new URL("../../../", import.meta.url);
 const SUITE_DIR = new URL("target/wasm32-wasip2/release/", ROOT);
 const RESULTS = new URL("conformance/driver-ct/results/", ROOT);
 
-/** harness.mjs's per-case wall bound, as the other legs use. */
-const CASE_TIMEOUT_MS = 60_000;
+/**
+ * Per-case wall bound. The other legs use harness.mjs's 60s, but this
+ * leg's boundary-heavy worst case needs more headroom on CI hardware:
+ * `probe/large-stream` measures 6.1s on a workstation and 72s on the
+ * 2-core Actions runner (run 31394527207) — a hardware ratio, not a
+ * hang. 300s keeps the hang guard while clearing that worst case with
+ * ~4x margin; the next-slowest case is 10.3s on the same runner.
+ */
+const CASE_TIMEOUT_MS = 300_000;
 
 interface SuiteSpec {
   /** Envelope suite name; ct-runner normalizes `-` to the lockfile's `_`. */

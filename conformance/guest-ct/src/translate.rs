@@ -1748,6 +1748,10 @@ impl RsaAlg {
     }
 }
 
+/// The feature slice the 8192-bit RSASSA row carries (see
+/// [`RsaCase::features`]); must be one of `crate::corpus::FEATURE_SETS`.
+const RSA_VERIFY_8192: &[&str] = &[conformance_harness::FEATURE_RSA_VERIFY_8192];
+
 /// A vector's group public key in one of the family's two import
 /// encodings, carrying the dispatch to the matching import function.
 #[derive(Serialize, Deserialize, rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)]
@@ -1793,6 +1797,19 @@ pub struct RsaCase {
 }
 
 impl VectorCase for RsaCase {
+    /// The `rsa-verify-8192` row: RSASSA-PKCS1-v1_5 at an 8192-bit
+    /// modulus, whose *imported* public keys no `crypto.subtle` host can
+    /// use (conformance_harness::FEATURE_RSA_VERIFY_8192). Keyed on the
+    /// parameterization, so it is row-uniform by construction — a row is
+    /// exactly one (family, sha, key_bits) triple, which is what
+    /// build.rs and the census-parity test both assert.
+    fn features(&self) -> &'static [&'static str] {
+        match (self.alg.family, self.alg.key_bits) {
+            (RsaFamily::Pkcs1V15, 8192) => RSA_VERIFY_8192,
+            _ => &[],
+        }
+    }
+
     fn case_id(&self) -> String {
         // Valid vectors translate once per import path, so those ids name
         // it; a rejection runs only via SPKI and its id stays plain.
@@ -1949,6 +1966,51 @@ fn push_rsa_group(
 /// SubjectPublicKeyInfos). That file's coverage is SPKI-only: it carries
 /// no JWKs, and a plain RSA public JWK has no member that could carry the
 /// PSS AlgorithmIdentifier, so no JWK-side counterpart exists.
+/// The 8192-bit RSASSA-PKCS1-v1_5 group's public key in BOTH import
+/// encodings plus one valid (message, signature) pair: the material the
+/// `rsa-verify-8192` decline case needs to attempt the capability and
+/// verify that a target lacking it refuses cleanly.
+///
+/// Parses only that one vendored file rather than the whole RSASSA
+/// corpus — the decline case is a single case and should not pay for
+/// nine other parameterizations.
+pub struct Rsa8192Material {
+    pub spki: Vec<u8>,
+    pub jwk: String,
+    pub msg: Vec<u8>,
+    pub sig: Vec<u8>,
+}
+
+/// [`Rsa8192Material`] from `rsa_signature_8192_sha256_test.json` (the
+/// last entry of [`RSA_PKCS1_VECTORS`]; the key-size assertion makes a
+/// reordering of that table fail loudly rather than silently probe a
+/// different modulus).
+pub fn rsa_8192_verify_material() -> Rsa8192Material {
+    let text = RSA_PKCS1_VECTORS[RSA_PKCS1_VECTORS.len() - 1];
+    let file: VectorFile<RsaPkcs1Group> = serde_json::from_str(text)
+        .unwrap_or_else(|err| panic!("parsing the 8192-bit rsassa vectors: {err}"));
+    let group = file
+        .test_groups
+        .first()
+        .expect("the 8192-bit rsassa file has one group");
+    assert_eq!(
+        group.key_size, 8192,
+        "RSA_PKCS1_VECTORS' last file is no longer the 8192-bit one"
+    );
+    let test = group
+        .tests
+        .iter()
+        .find(|t| t.result == "valid")
+        .expect("the 8192-bit group has a valid vector");
+    let field = "rsassa-pkcs1-v15 8192-bit group";
+    Rsa8192Material {
+        spki: unhex(field, &group.public_key_der),
+        jwk: group.key_jwk.to_string(),
+        msg: unhex(field, &test.msg),
+        sig: unhex(field, &test.sig),
+    }
+}
+
 pub fn rsa_cases() -> Vec<RsaCase> {
     let mut cases = Vec::new();
     for text in RSA_PKCS1_VECTORS {

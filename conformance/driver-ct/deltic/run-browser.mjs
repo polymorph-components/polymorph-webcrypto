@@ -28,7 +28,10 @@ const RESULTS_DIR = fileURLToPath(new URL("../results/", import.meta.url));
 // from its cache directory).
 const TAG = "pre-58b2404";
 const WORKER_URL = "/target/deltic-browser/webcrypto-worker.mjs";
-const STALL_TIMEOUT_MS = 90_000;
+// CI hardware headroom, not a platform gap (the deno leg's 300 s case
+// timeout precedent): the 19k-case census and the slowest vector
+// batches can hold the heartbeat quiet for minutes on a 2-core runner.
+const STALL_TIMEOUT_MS = 300_000;
 
 // The per-suite missing-features declarations are passed by the justfile
 // (like run-browser's), keeping them next to the jco ones and in sync

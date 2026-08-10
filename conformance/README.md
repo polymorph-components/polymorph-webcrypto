@@ -40,9 +40,12 @@ class-d/           # the class-D gate's dedicated probe worlds (no Rust:
                    #   generic-kind exports keep those mints uncomposable
 driver-ct/         # the host driver (ct-driver: wasmtime + RustCrypto as
                    #   the SUT, component-test-runner as the harness), the
-                   #   jco/Node runner (jco/), targets.toml (target
-                   #   capability manifests), the justfile module, and the
-                   #   committed matrix.md / matrix-signing.md
+                   #   jco/Node runner (jco/), the deltic/Deno runner
+                   #   (deltic/), targets.toml (target capability
+                   #   manifests), the justfile module, the committed
+                   #   matrix.md / matrix-signing.md, and compat/ (the
+                   #   generated support matrix: registry + page +
+                   #   the `compat` binary's spec — compat/README.md)
 ```
 
 ## Cases, feature tags, and the lockfiles
@@ -109,15 +112,32 @@ the lockfiles, runs the targets, and aggregates:
   from Node 24+ against `webcrypto-jco`; missing `sha1-checked` (platform
   SHA-1 carries no sha1dc collision detection).
 - **jco-browser** (`run-browser`): the same transpiles and host module with
-  the case loop running in headless Chromium (`driver-ct/jco/harness.mjs`
-  in-page, driven by `run-browser.mjs` over
-  the upstream browser driver); missing `sha1-checked` and, for
-  the signing suite, the fail-closed RSA private-key mints
-  (`rsa-sign`, `rsa-oaep-decrypt`). Optional: it gates in CI (the runner
-  image ships Chrome) and runs locally only with `CONFORMANCE_BROWSER=1`;
-  the aggregates warn, not error, when its results are absent.
+  the case loop running in headless Chromium, driven by
+  `driver-ct/jco/run-browser.mjs` over the upstream page driver; missing
+  `sha1-checked` and, for the signing suite, the fail-closed RSA
+  private-key mints (`rsa-sign`, `rsa-oaep-decrypt`). Optional: it gates
+  in CI (the runner image ships Chrome) and runs locally only with
+  `CONFORMANCE_BROWSER=1`; the aggregates warn, not error, when its
+  results are absent.
+- **jco-firefox** (`run-firefox`): the same driver in Playwright's pinned
+  Firefox (the upstream driver applies Gecko's JSPI pref); the same
+  missing features as jco-browser, plus an expected-fail ledger for the
+  Gecko/NSS strictness windows (#356). Optional like jco-browser: gates
+  in CI, locally `CONFORMANCE_FIREFOX=1` after a one-time
+  `npx playwright-core install --with-deps firefox` in `driver-ct/jco`.
+- **jco-webkit** (`run-webkit`): the same driver in Playwright WebKit on
+  macOS — Apple's crypto backend, the Safari proxy; the driver refuses
+  other platforms, where WebKit's backend represents no shipping Safari.
+  Runs as the dedicated macOS CI job (the transpiles are built on ubuntu
+  and handed over); results reach local checkouts via the CI artifact
+  flow.
+- **deltic-deno** (`run-deltic`): the same reference host rewritten over
+  deltic's embedder API, runtime-linked under stock Deno — no transpile;
+  missing `sha1-checked` and `rsa-verify-8192`, with an expected-fail
+  ledger for the Deno platform windows (#351).
 - The **signing suite** runs under the host-backed targets
-  (wasmtime-rustcrypto, jco-node, jco-browser) only: its world imports
+  (wasmtime-rustcrypto, jco-node, the browser-engine targets, and
+  deltic-deno) only: its world imports
   `ecdsa-sign` structurally, which class D keeps out of the
   in-guest provider (see `rust/guest-provider/README.md`). The
   negative-composition gate (`just conformance-ct::class-d`, part of
@@ -130,12 +150,29 @@ the lockfiles, runs the targets, and aggregates:
   component importing *nothing withheld but* interface X can prove X
   stays unserved.
 
-Each target writes JSONL results (`driver-ct/results/`); the aggregation
+Each target writes JSONL results (`driver-ct/results/`), plus a small
+`<target>.meta.json` provenance sidecar (engine + version) where the
+runner knows them; the aggregation
 step (`component-test aggregate`) validates every results file against the
 lockfile and the target manifest and renders
 [`driver-ct/matrix.md`](driver-ct/matrix.md) /
 [`matrix-signing.md`](driver-ct/matrix-signing.md), exiting nonzero on any
-failure or transport problem.
+failure or transport problem. In CI the jco-webkit leg runs on a macOS
+job, so the gating aggregation — the committed-matrix check and the
+compat gates — happens in the `conformance-aggregate` job once every
+target's results have been merged.
+
+## The compat matrix
+
+[`driver-ct/compat/`](driver-ct/compat) generates an MDN-style support
+matrix from the same results: rows are algorithms grouped by the owning
+WIT interface, columns are the targets, and subrows appear exactly where
+targets diverge within an algorithm. `driver-ct/compat/README.md` is the
+specification (registry schema, fail-closed validation, cell semantics);
+`just conformance-ct::compat-data` builds `results/compat.json` and the
+page at `driver-ct/compat/index.html` renders it — locally over
+`just conformance-ct::web`, published on the Pages site with the latest
+main CI run's results.
 
 `just conformance-ct::web` serves the results viewer — component-test's
 `js/viewer`, staged at the pinned rev by `_viewer-prepared` with this

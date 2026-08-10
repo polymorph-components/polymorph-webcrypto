@@ -6,7 +6,8 @@ Guidance for automated agents (and humans) working in this repository.
 
 `polymorph:webcrypto`: a WIT interface plus multiple implementations that run the
 *same* guest component against real cryptography: a Wasmtime host (RustCrypto)
-and a jco host (browser Web Crypto API). It is a sibling of
+and two JS hosts over the platform Web Crypto API — deltic (runtime-linked;
+the primary JS path) and jco (transpile-based). It is a sibling of
 `polymorph:webrtc-datachannels` and deliberately mirrors its architecture — prefer
 clarity and correctness over features, and keep the implementations
 behaviourally in sync (the conformance tests and the `crypto-demo` guest's
@@ -62,6 +63,12 @@ rust/                   # the Rust library surface (directory = crate name
                         #   export policy
 js/                     # the JS library surface (directory = npm name minus
                         # the `@polymorph/webcrypto-` family root)
+  deltic/               # deltic host MODULE (src/mod.ts): the same
+                        #   reference host over deltic's embedder API,
+                        #   runtime-linked — no transpile step; the
+                        #   canonical module deltic-family consumers pin
+                        #   by URL (deno.lock frozen, release-pinned
+                        #   import maps). Gate: `just deltic-module-check`
   jco/                  # @polymorph/webcrypto-jco: jco host LIBRARY.
                         #   webcrypto.js implements the imports over the
                         #   browser-compatible Web Crypto API ONLY; no
@@ -123,9 +130,11 @@ conformance/            # cross-implementation conformance tests, on the
   signing-guest-ct/     #   the host-only suite for surfaces the in-guest
                         #     provider does not export (ecdsa-sign)
   driver-ct/            #   the wasmtime host driver (ct-driver), the
+                        #     deltic children (deltic/) serving the
+                        #     deltic-deno and deltic-browser targets, the
                         #     jco runner (jco/) serving the jco-node and
-                        #     jco-browser targets (browser gates in CI,
-                        #     locally opt-in via CONFORMANCE_BROWSER=1
+                        #     jco-browser targets (browser targets gate in
+                        #     CI, locally opt-in via CONFORMANCE_BROWSER=1
                         #     with Chrome installed), targets.toml +
                         #     targets-signing.toml (target capability
                         #     manifests), the conformance-ct justfile

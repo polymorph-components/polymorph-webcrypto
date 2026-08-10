@@ -63,9 +63,11 @@ optional = true
 # like the other browsers it fails the gated RSA private-key mints closed
 # (targets-signing.toml).
 missing-features = ["sha1-checked"]
-# Gates in CI (the conformance job installs Playwright Firefox); locally
-# opt in with CONFORMANCE_FIREFOX=1 after `npx playwright-core install
-# --with-deps firefox` in jco/, so missing results files are warnings.
+# Gates in CI as the dedicated conformance-firefox job (Firefox paces
+# the suites several times slower than Chromium, so the leg gets a
+# runner to itself); locally opt in with CONFORMANCE_FIREFOX=1 after
+# `npx playwright-core install --with-deps firefox` in jco/, so missing
+# results files are warnings.
 optional = true
 # The two Gecko/NSS strictness windows below are declared expected
 # failures (tracked debt, #356), mirroring the deltic-deno ledger: the

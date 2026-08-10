@@ -43,9 +43,8 @@ optional = true
 # fail-closed browser posture on the gated RSA private-key mints as
 # jco-browser.
 missing-features = ["rsa-sign", "rsa-oaep-decrypt"]
-# Gates in CI (the conformance job installs Playwright Firefox); locally
-# opt in with CONFORMANCE_FIREFOX=1, so missing results files are
-# warnings.
+# Gates in CI as the dedicated conformance-firefox job; locally opt in
+# with CONFORMANCE_FIREFOX=1, so missing results files are warnings.
 optional = true
 
 [targets.jco-webkit]

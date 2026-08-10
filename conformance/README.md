@@ -122,8 +122,11 @@ the lockfiles, runs the targets, and aggregates:
 - **jco-firefox** (`run-firefox`): the same driver in Playwright's pinned
   Firefox (the upstream driver applies Gecko's JSPI pref); the same
   missing features as jco-browser, plus an expected-fail ledger for the
-  Gecko/NSS strictness windows (#356). Optional like jco-browser: gates
-  in CI, locally `CONFORMANCE_FIREFOX=1` after a one-time
+  Gecko/NSS strictness windows (#356). Runs as the dedicated
+  conformance-firefox CI job — Firefox paces the suites several times
+  slower than Chromium, so the leg gets a runner to itself, with the
+  transpiled suites handed over from the conformance job; locally
+  `CONFORMANCE_FIREFOX=1` after a one-time
   `npx playwright-core install --with-deps firefox` in `driver-ct/jco`.
 - **jco-webkit** (`run-webkit`): the same driver in Playwright WebKit on
   macOS — Apple's crypto backend, the Safari proxy; the driver refuses

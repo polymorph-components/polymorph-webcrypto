@@ -16,13 +16,16 @@ provider := root + "/target/wasm32-wasip2/release/polymorph_webcrypto_guest_prov
 composed := root + "/target/conformance-composed-ct.wasm"
 
 # CI/opt-in predicates for the optional browser-engine targets:
-# non-empty when the leg should run — always under GitHub Actions (the
-# runner image ships Chrome; the conformance job installs Playwright
-# Firefox), locally only with the per-engine opt-in. jco-webkit has no
-# predicate: it runs only as the dedicated macOS CI job (or by hand on a
-# mac) — see run-webkit.
+# non-empty when the leg should run inside `all`. jco-browser runs
+# always under GitHub Actions (the runner image ships Chrome), locally
+# with CONFORMANCE_BROWSER=1. jco-firefox is NOT auto-enabled by CI —
+# the leg needs a runner to itself (Firefox paces the suites several
+# times slower than Chromium), so CI runs it as the dedicated
+# conformance-firefox job via `run-firefox`; locally opt in with
+# CONFORMANCE_FIREFOX=1. jco-webkit has no predicate: it runs only as
+# the dedicated macOS CI job (or by hand on a mac) — see run-webkit.
 conformance-browser-enabled := if env('GITHUB_ACTIONS', '') == 'true' { '1' } else if env('CONFORMANCE_BROWSER', '') == '1' { '1' } else { '' }
-conformance-firefox-enabled := if env('GITHUB_ACTIONS', '') == 'true' { '1' } else if env('CONFORMANCE_FIREFOX', '') == '1' { '1' } else { '' }
+conformance-firefox-enabled := if env('CONFORMANCE_FIREFOX', '') == '1' { '1' } else { '' }
 
 # Build both suite components (rkyv corpus) and the host driver.
 # CONFORMANCE_PREBUILT=1 skips cargo when the artifacts are already
@@ -310,9 +313,21 @@ run-browser: build _jco-prepared
 # The jco-firefox target: the same transpiles and host module in
 # Playwright's pinned Firefox (the upstream driver applies Gecko's JSPI
 # pref). Install the engine once with `npx playwright-core install
-# --with-deps firefox` from jco/. The --missing declarations mirror
-# targets.toml / targets-signing.toml's jco-firefox entries.
-run-firefox: build _jco-prepared
+# --with-deps firefox` from jco/. Runs as the dedicated conformance-firefox
+# CI job, which downloads the transpiled suites built by the conformance
+# job instead of depending on `build`; locally, `just conformance-ct::build
+# _jco-prepared` first (or run it through `all` with CONFORMANCE_FIREFOX=1).
+# The --missing declarations mirror targets.toml / targets-signing.toml's
+# jco-firefox entries.
+run-firefox:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    [ -f jco/generated/conformance-guest-ct.js ] || {
+        echo "run-firefox: no transpiled suites in jco/generated/ — run" >&2
+        echo "  just conformance-ct::build && just conformance-ct::_jco-prepared" >&2
+        echo "or download the CI conformance-suites artifact." >&2
+        exit 1
+    }
     mkdir -p results
     cd jco && node run-browser.mjs --engine firefox \
         --missing sha1-checked \

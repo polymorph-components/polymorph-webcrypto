@@ -44,14 +44,15 @@ jobs:
       - name: Run rust checks
         run: just gha::rust-checks
 
-  # The cross-implementation conformance targets that run on ubuntu
+  # The cross-implementation conformance targets that run in this job
   # (component-test stack): both suites across wasmtime-rustcrypto,
-  # composed, jco-node, jco-browser (headless Chromium), jco-firefox
-  # (Playwright Firefox), and deltic-deno (runtime-linked under stock
-  # Deno) — plus the aggregates over those targets and the deltic host
-  # module's unit gate. The jco-webkit leg runs on macOS
-  # (conformance-webkit below); the committed-matrix and compat gates
-  # run in conformance-aggregate once every target's results exist.
+  # composed, jco-node, jco-browser (headless Chromium), and deltic-deno
+  # (runtime-linked under stock Deno) — plus the aggregates over those
+  # targets and the deltic host module's unit gate. The jco-firefox and
+  # jco-webkit legs run as their own jobs below (Firefox needs a runner
+  # to itself; WebKit needs macOS); the committed-matrix and compat
+  # gates run in conformance-aggregate once every target's results
+  # exist.
   conformance:
     runs-on: ubuntu-latest
     # Warm runs take a few minutes, but a full cache bootstrap (dependency
@@ -136,14 +137,12 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
 
       - name: Cache Playwright browsers
-        # For the jco-browser and jco-firefox conformance targets (both
-        # gate in CI — GITHUB_ACTIONS enables them in
-        # conformance/driver-ct/justfile). The Chromium driver prefers the
-        # runner image's system Chrome; the Playwright Chromium below is
-        # the fallback that keeps that leg working if the image stops
-        # shipping one. Firefox is always Playwright's pinned build (the
-        # upstream driver applies Gecko's JSPI pref). Same caching scheme
-        # as the jco job's browser cache, keyed on the driver package's
+        # For the jco-browser conformance target (it gates in CI —
+        # GITHUB_ACTIONS enables it in conformance/driver-ct/justfile).
+        # The driver prefers the runner image's system Chrome; the
+        # Playwright Chromium below is the fallback that keeps the leg
+        # working if the image stops shipping one. Same caching scheme as
+        # the jco job's browser cache, keyed on the driver package's
         # lockfile (which pins playwright-core and with it the browser
         # builds).
         id: playwright-cache
@@ -153,17 +152,17 @@ jobs:
           key: playwright-conformance-${{ runner.os }}-${{ hashFiles('conformance/driver-ct/jco/package-lock.json') }}
           restore-keys: playwright-conformance-${{ runner.os }}-
 
-      - name: Install Playwright browsers
-        # On a cache hit the install only verifies the browsers are
-        # present; --with-deps (an apt run) is needed only when they were
-        # actually (re)downloaded.
+      - name: Install Playwright Chromium
+        # On a cache hit the install only verifies the browser is present;
+        # --with-deps (an apt run) is needed only when it was actually
+        # (re)downloaded.
         run: |
           cd conformance/driver-ct/jco
           npm ci --no-audit --no-fund
           if [ "${{ steps.playwright-cache.outputs.cache-hit }}" = "true" ]; then
-            npx playwright-core install firefox chromium
+            npx playwright-core install chromium
           else
-            npx playwright-core install --with-deps firefox chromium
+            npx playwright-core install --with-deps chromium
           fi
 
       - name: Run the conformance matrix
@@ -194,6 +193,79 @@ jobs:
           path: |
             conformance/driver-ct/results/*.jsonl
             conformance/driver-ct/results/*.meta.json
+          retention-days: 7
+          if-no-files-found: ignore
+
+  # The jco-firefox conformance leg runs as its own job: Firefox paces
+  # the suites several times slower than Chromium (JSPI behind the Gecko
+  # pref, heavier RSA rows), so it gets a runner to itself rather than
+  # sharing the conformance job's parallel phase. The transpiled suites
+  # are built in the conformance job and handed over; case failures do
+  # not fail this job — conformance-aggregate assesses them against the
+  # declared expected-fail ledger (#356).
+  conformance-firefox:
+    needs: conformance
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Install Node 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Install just
+        # The same pin as scripts/setup.sh, installed by the same
+        # digest-pinned cargo-binstall bootstrap (its prebuilt path needs
+        # no Rust toolchain; the compile fallback is disabled rather than
+        # assumed absent).
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          ./scripts/install-binstall.sh
+          export PATH="$HOME/.cargo/bin:$PATH"
+          mkdir -p "$HOME/.local/bin"
+          cargo-binstall --no-confirm --disable-strategies compile \
+            --install-path "$HOME/.local/bin" just@1.54.0
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      - name: Download the transpiled suites
+        uses: actions/download-artifact@v4
+        with:
+          name: conformance-suites
+          path: conformance/driver-ct/jco/generated
+
+      - name: Cache Playwright Firefox
+        id: playwright-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-conformance-firefox-${{ runner.os }}-${{ hashFiles('conformance/driver-ct/jco/package-lock.json') }}
+          restore-keys: playwright-conformance-firefox-${{ runner.os }}-
+
+      - name: Install the driver package + Playwright Firefox
+        run: |
+          cd conformance/driver-ct/jco
+          npm ci --no-audit --no-fund
+          if [ "${{ steps.playwright-cache.outputs.cache-hit }}" = "true" ]; then
+            npx playwright-core install firefox
+          else
+            npx playwright-core install --with-deps firefox
+          fi
+
+      - name: Run the jco-firefox conformance leg
+        run: just conformance-ct::run-firefox
+
+      - name: Upload the jco-firefox results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: conformance-results-firefox
+          path: |
+            conformance/driver-ct/results/jco-firefox*.jsonl
+            conformance/driver-ct/results/jco-firefox.meta.json
           retention-days: 7
           if-no-files-found: ignore
 
@@ -272,7 +344,7 @@ jobs:
   # published — the Pages viewer's and the no-Chrome matrix-refresh
   # flow's input (#306).
   conformance-aggregate:
-    needs: [conformance, conformance-webkit]
+    needs: [conformance, conformance-firefox, conformance-webkit]
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -319,6 +391,12 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: conformance-results-ubuntu
+          path: conformance/driver-ct/results
+
+      - name: Download the jco-firefox results
+        uses: actions/download-artifact@v4
+        with:
+          name: conformance-results-firefox
           path: conformance/driver-ct/results
 
       - name: Download the jco-webkit results

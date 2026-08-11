@@ -44,21 +44,31 @@ deltic-pin-check:
     fi
     echo "deltic pin OK: $v"
 
-# Build both suite components (rkyv corpus) and the host driver.
-# CONFORMANCE_PREBUILT=1 skips cargo when the artifacts are already
-# present — set by CI on an exact-source-hash cache hit (see the
-# conformance job's "Cache conformance artifacts" step), never locally.
-build:
+# Build both suite components (rkyv corpus). CONFORMANCE_PREBUILT=1
+# skips cargo when the artifacts are already present — set by CI on an
+# exact-source-hash cache hit (see the conformance job's "Restore
+# conformance artifacts" step), never locally.
+build-suites:
     #!/usr/bin/env bash
     set -euo pipefail
-    if [ "${CONFORMANCE_PREBUILT:-}" = "1" ] && [ -f "{{guest}}" ] && [ -f "{{signing}}" ] \
-        && [ -x "{{root}}/target/release/ct-driver" ] && [ -x "{{root}}/target/release/compat" ]; then
-        echo "conformance suite/driver artifacts are prebuilt (CONFORMANCE_PREBUILT=1); skipping cargo"
+    if [ "${CONFORMANCE_PREBUILT:-}" = "1" ] && [ -f "{{guest}}" ] && [ -f "{{signing}}" ]; then
+        echo "conformance suite artifacts are prebuilt (CONFORMANCE_PREBUILT=1); skipping cargo"
         exit 0
     fi
     cargo build --manifest-path {{root}}/Cargo.toml --target wasm32-wasip2 --release \
         -p conformance-guest-ct -p conformance-signing-guest-ct \
         --features conformance-guest-ct/rkyv-corpus
+
+# Build the suite components and the host driver. Prebuilt-skip as for
+# build-suites.
+build: build-suites
+    #!/usr/bin/env bash
+    set -euo pipefail
+    if [ "${CONFORMANCE_PREBUILT:-}" = "1" ] \
+        && [ -x "{{root}}/target/release/ct-driver" ] && [ -x "{{root}}/target/release/compat" ]; then
+        echo "conformance driver artifacts are prebuilt (CONFORMANCE_PREBUILT=1); skipping cargo"
+        exit 0
+    fi
     cargo build --manifest-path {{root}}/Cargo.toml --release -p conformance-driver-ct
 
 # cargo-install the component-test CLI and generic runner into
@@ -208,7 +218,7 @@ run-wasmtime: build
 # parallel phase's standalone invocations (run-jco and run-browser both
 # depend on this) serialize: the first does the work, the second sees a
 # fresh stamp and no-ops.
-_jco-prepared: build
+_jco-prepared: build-suites
     #!/usr/bin/env bash
     set -euo pipefail
     # Stamp before cd: {{guest}}/{{signing}} are valid from the recipe
@@ -324,9 +334,10 @@ run-browser: build _jco-prepared
 # Playwright's pinned Firefox (the upstream driver applies Gecko's JSPI
 # pref). Install the engine once with `npx playwright-core install
 # --with-deps firefox` from jco/. Runs as the dedicated conformance-firefox
-# CI job, which downloads the transpiled suites built by the conformance
-# job instead of depending on `build`; locally, `just conformance-ct::build
-# _jco-prepared` first (or run it through `all` with CONFORMANCE_FIREFOX=1).
+# CI job, which downloads the transpiled suites built by the
+# conformance-suites job instead of depending on `build`; locally,
+# `just conformance-ct::_jco-prepared` first (or run it through `all`
+# with CONFORMANCE_FIREFOX=1).
 # The --missing declarations mirror targets.toml / targets-signing.toml's
 # jco-firefox entries.
 run-firefox:
@@ -334,7 +345,7 @@ run-firefox:
     set -euo pipefail
     [ -f jco/generated/conformance-guest-ct.js ] || {
         echo "run-firefox: no transpiled suites in jco/generated/ — run" >&2
-        echo "  just conformance-ct::build && just conformance-ct::_jco-prepared" >&2
+        echo "  just conformance-ct::_jco-prepared" >&2
         echo "or download the CI conformance-suites artifact." >&2
         exit 1
     }
@@ -346,15 +357,16 @@ run-firefox:
 # The jco-webkit target: Playwright WebKit on macOS — Apple's crypto
 # backend, the mobile-Safari proxy (run-browser.mjs refuses other
 # platforms). Runs as the dedicated macOS CI job, which downloads the
-# transpiled suites built on ubuntu instead of depending on `build`;
-# on a mac, run `just conformance-ct::build _jco-prepared` first (and
-# `npx playwright-core install webkit` once, from jco/).
+# transpiled suites built on ubuntu (the conformance-suites job) instead
+# of depending on `build`; on a mac, run `just
+# conformance-ct::_jco-prepared` first (and `npx playwright-core install
+# webkit` once, from jco/).
 run-webkit:
     #!/usr/bin/env bash
     set -euo pipefail
     [ -f jco/generated/conformance-guest-ct.js ] || {
         echo "run-webkit: no transpiled suites in jco/generated/ — run" >&2
-        echo "  just conformance-ct::build && just conformance-ct::_jco-prepared" >&2
+        echo "  just conformance-ct::_jco-prepared" >&2
         echo "or download the CI conformance-suites artifact." >&2
         exit 1
     }

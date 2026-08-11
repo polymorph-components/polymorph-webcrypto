@@ -68,7 +68,7 @@ jobs:
       - name: Install Rust toolchain
         run: rustup show active-toolchain || rustup toolchain install
 
-      - name: Cache conformance artifacts
+      - name: Restore conformance artifacts
         # The exact products of conformance-ct::build/build-provider (the
         # suite + provider wasms and the ct-driver + compat binaries),
         # keyed on the sources that produce them. rust-cache deliberately
@@ -77,9 +77,10 @@ jobs:
         # wasmtime-embedding driver link (~2 min) even with a warm
         # dependency cache. On a hit the recipes skip cargo entirely
         # (CONFORMANCE_PREBUILT below) and the dependency cache restore is
-        # skipped too.
+        # skipped too. Restore/save are split: the save is an explicit
+        # step below, not this step's post — see its comment.
         id: ct-artifacts
-        uses: actions/cache@v4
+        uses: actions/cache/restore@v4
         with:
           path: |
             target/wasm32-wasip2/release/conformance_guest_ct.wasm
@@ -170,6 +171,27 @@ jobs:
         run: just gha::conformance-checks
         env:
           CONFORMANCE_PREBUILT: ${{ steps.ct-artifacts.outputs.cache-hit == 'true' && '1' || '' }}
+
+      - name: Save the conformance artifacts cache
+        # An explicit step, not the cache action's post: post steps run in
+        # reverse order, so a post-ordered save runs after rust-cache's
+        # cleanup — which deletes workspace artifacts from target/ whenever
+        # rust-cache saves (exactly the runs that rebuilt) — and finds the
+        # paths gone, skipping the save with only a warning (run
+        # 31429458405). always(): the artifacts' validity is keyed on the
+        # build inputs, not on the run's verdict, so a failing run's build
+        # still pays forward — the recipes verify each file on restore and
+        # fall back to cargo, so a partial save (failed build) is safe.
+        if: always() && steps.ct-artifacts.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            target/wasm32-wasip2/release/conformance_guest_ct.wasm
+            target/wasm32-wasip2/release/conformance_signing_guest_ct.wasm
+            target/wasm32-wasip2/release/polymorph_webcrypto_guest_provider.wasm
+            target/release/ct-driver
+            target/release/compat
+          key: conformance-artifacts-${{ runner.os }}-${{ hashFiles('Cargo.lock', 'Cargo.toml', 'rust-toolchain.toml', 'rust/**', 'wit/**', 'conformance/vectors/**', 'conformance/harness/**', 'conformance/guest-ct/Cargo.toml', 'conformance/guest-ct/build.rs', 'conformance/guest-ct/src/**', 'conformance/signing-guest-ct/Cargo.toml', 'conformance/signing-guest-ct/src/**', 'conformance/class-d/**', 'conformance/driver-ct/Cargo.toml', 'conformance/driver-ct/src/**') }}
 
       - name: Upload the transpiled suites
         # For the conformance-webkit macOS job: the jco transpiles are

@@ -40,9 +40,15 @@ aggregate job passes it, so the published matrix is never partial.
 version = "0.1"
 
 [[columns]]            # display order; one per manifest target
-target = "jco-browser" # manifest/results key
-label = "Chromium"
+target = "jco-firefox" # manifest/results key
+label = "Firefox"
 kind = "host"          # or "implementation"
+# merges = "..."       # a second target this column absorbs: the same
+                       # platform behind another host stack. The builder
+                       # asserts the two targets' cells are identical
+                       # wherever both have results and folds the merged
+                       # arm into the column; a divergence fails the
+                       # build, splitting the columns again.          # or "implementation"
 
 [[groups]]             # display order; the WIT generic kinds plus
 id = "mac"             # a trailing contracts group

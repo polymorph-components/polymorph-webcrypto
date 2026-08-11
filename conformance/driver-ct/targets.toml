@@ -56,6 +56,432 @@ missing-features = ["sha1-checked"]
 # CONFORMANCE_BROWSER=1, so missing results files are warnings, not errors.
 optional = true
 
+[targets.jco-firefox]
+# The same host module in Playwright's pinned Firefox (Gecko JSPI pref —
+# the upstream page driver applies it). Like every
+# platform-WebCrypto-backed target it cannot serve `sha1-checked`, and
+# like the other browsers it fails the gated RSA private-key mints closed
+# (targets-signing.toml).
+missing-features = ["sha1-checked"]
+# Gates in CI as the dedicated conformance-firefox job (Firefox paces
+# the suites several times slower than Chromium, so the leg gets a
+# runner to itself); locally opt in with CONFORMANCE_FIREFOX=1 after
+# `npx playwright-core install --with-deps firefox` in jco/, so missing
+# results files are warnings.
+optional = true
+# The two Gecko/NSS strictness windows below are declared expected
+# failures (tracked debt, #356), mirroring the deltic-deno ledger: the
+# X25519 low-order/non-canonical public-key admissions and the AES-CTR
+# narrow-counter probe. Gecko's admission LAXNESS findings (#357) are
+# not ledgered: the host guards them uniformly.
+
+[[targets.jco-firefox.expected-fail]]
+case = "probe/ctr-known-answers"
+reason = "Firefox NSS: AES-CTR refuses very narrow counter windows (the probe's 2-bit counter fails; WIT window 1-128)"
+tracking = "https://github.com/polymorph-components/polymorph-webcrypto/issues/356"
+
+[[targets.jco-firefox.expected-fail]]
+case = "x25519/wycheproof/tc32"
+reason = "Firefox NSS: low-order or non-canonical X25519 public key refused at import (contributory-behavior checks); other platforms import it and derive per RFC 7748"
+tracking = "https://github.com/polymorph-components/polymorph-webcrypto/issues/356"
+
+[[targets.jco-firefox.expected-fail]]
+case = "x25519/wycheproof/tc33"
+reason = "Firefox NSS: low-order or non-canonical X25519 public key refused at import (contributory-behavior checks); other platforms import it and derive per RFC 7748"
+tracking = "https://github.com/polymorph-components/polymorph-webcrypto/issues/356"
+
+[[targets.jco-firefox.expected-fail]]
+case = "x25519/wycheproof/tc63"
+reason = "Firefox NSS: low-order or non-canonical X25519 public key refused at import (contributory-behavior checks); other platforms import it and derive per RFC 7748"
+tracking = "https://github.com/polymorph-components/polymorph-webcrypto/issues/356"
+
+[[targets.jco-firefox.expected-fail]]
+case = "x25519/wycheproof/tc64"
+reason = "Firefox NSS: low-order or non-canonical X25519 public key refused at import (contributory-behavior checks); other platforms import it and derive per RFC 7748"
+tracking = "https://github.com/polymorph-components/polymorph-webcrypto/issues/356"
+
+[[targets.jco-firefox.expected-fail]]
+case = "x25519/wycheproof/tc65"
+reason = "Firefox NSS: low-order or non-canonical X25519 public key refused at import (contributory-behavior checks); other platforms import it and derive per RFC 7748"
+tracking = "https://github.com/polymorph-components/polymorph-webcrypto/issues/356"
+
+[[targets.jco-firefox.expected-fail]]
+case = "x25519/wycheproof/tc69"
+reason = "Firefox NSS: low-order or non-canonical X25519 public key refused at import (contributory-behavior checks); other platforms import it and derive per RFC 7748"
+tracking = "https://github.com/polymorph-components/polymorph-webcrypto/issues/356"
+
+[[targets.jco-firefox.expected-fail]]
+case = "x25519/wycheproof/tc70"
+reason = "Firefox NSS: low-order or non-canonical X25519 public key refused at import (contributory-behavior checks); other platforms import it and derive per RFC 7748"
+tracking = "https://github.com/polymorph-components/polymorph-webcrypto/issues/356"
+
+[[targets.jco-firefox.expected-fail]]
+case = "x25519/wycheproof/tc71"
+reason = "Firefox NSS: low-order or non-canonical X25519 public key refused at import (contributory-behavior checks); other platforms import it and derive per RFC 7748"
+tracking = "https://github.com/polymorph-components/polymorph-webcrypto/issues/356"
+
+[[targets.jco-firefox.expected-fail]]
+case = "x25519/wycheproof/tc72"
+reason = "Firefox NSS: low-order or non-canonical X25519 public key refused at import (contributory-behavior checks); other platforms import it and derive per RFC 7748"
+tracking = "https://github.com/polymorph-components/polymorph-webcrypto/issues/356"
+
+[[targets.jco-firefox.expected-fail]]
+case = "x25519/wycheproof/tc73"
+reason = "Firefox NSS: low-order or non-canonical X25519 public key refused at import (contributory-behavior checks); other platforms import it and derive per RFC 7748"
+tracking = "https://github.com/polymorph-components/polymorph-webcrypto/issues/356"
+
+[[targets.jco-firefox.expected-fail]]
+case = "x25519/wycheproof/tc74"
+reason = "Firefox NSS: low-order or non-canonical X25519 public key refused at import (contributory-behavior checks); other platforms import it and derive per RFC 7748"
+tracking = "https://github.com/polymorph-components/polymorph-webcrypto/issues/356"
+
+[[targets.jco-firefox.expected-fail]]
+case = "x25519/wycheproof/tc75"
+reason = "Firefox NSS: low-order or non-canonical X25519 public key refused at import (contributory-behavior checks); other platforms import it and derive per RFC 7748"
+tracking = "https://github.com/polymorph-components/polymorph-webcrypto/issues/356"
+
+[[targets.jco-firefox.expected-fail]]
+case = "x25519/wycheproof/tc83"
+reason = "Firefox NSS: low-order or non-canonical X25519 public key refused at import (contributory-behavior checks); other platforms import it and derive per RFC 7748"
+tracking = "https://github.com/polymorph-components/polymorph-webcrypto/issues/356"
+
+[[targets.jco-firefox.expected-fail]]
+case = "x25519/wycheproof/tc85"
+reason = "Firefox NSS: low-order or non-canonical X25519 public key refused at import (contributory-behavior checks); other platforms import it and derive per RFC 7748"
+tracking = "https://github.com/polymorph-components/polymorph-webcrypto/issues/356"
+
+[[targets.jco-firefox.expected-fail]]
+case = "x25519/wycheproof/tc94"
+reason = "Firefox NSS: low-order or non-canonical X25519 public key refused at import (contributory-behavior checks); other platforms import it and derive per RFC 7748"
+tracking = "https://github.com/polymorph-components/polymorph-webcrypto/issues/356"
+
+[[targets.jco-firefox.expected-fail]]
+case = "x25519/wycheproof/tc95"
+reason = "Firefox NSS: low-order or non-canonical X25519 public key refused at import (contributory-behavior checks); other platforms import it and derive per RFC 7748"
+tracking = "https://github.com/polymorph-components/polymorph-webcrypto/issues/356"
+
+[[targets.jco-firefox.expected-fail]]
+case = "x25519/wycheproof/tc117"
+reason = "Firefox NSS: low-order or non-canonical X25519 public key refused at import (contributory-behavior checks); other platforms import it and derive per RFC 7748"
+tracking = "https://github.com/polymorph-components/polymorph-webcrypto/issues/356"
+
+[[targets.jco-firefox.expected-fail]]
+case = "x25519/wycheproof/tc118"
+reason = "Firefox NSS: low-order or non-canonical X25519 public key refused at import (contributory-behavior checks); other platforms import it and derive per RFC 7748"
+tracking = "https://github.com/polymorph-components/polymorph-webcrypto/issues/356"
+
+[[targets.jco-firefox.expected-fail]]
+case = "x25519/wycheproof/tc154"
+reason = "Firefox NSS: low-order or non-canonical X25519 public key refused at import (contributory-behavior checks); other platforms import it and derive per RFC 7748"
+tracking = "https://github.com/polymorph-components/polymorph-webcrypto/issues/356"
+
+[[targets.jco-firefox.expected-fail]]
+case = "x25519/wycheproof/tc165"
+reason = "Firefox NSS: low-order or non-canonical X25519 public key refused at import (contributory-behavior checks); other platforms import it and derive per RFC 7748"
+tracking = "https://github.com/polymorph-components/polymorph-webcrypto/issues/356"
+
+[[targets.jco-firefox.expected-fail]]
+case = "x25519/wycheproof/tc166"
+reason = "Firefox NSS: low-order or non-canonical X25519 public key refused at import (contributory-behavior checks); other platforms import it and derive per RFC 7748"
+tracking = "https://github.com/polymorph-components/polymorph-webcrypto/issues/356"
+
+[[targets.jco-firefox.expected-fail]]
+case = "x25519/wycheproof-spki/tc32"
+reason = "Firefox NSS: low-order or non-canonical X25519 public key refused at import (contributory-behavior checks); other platforms import it and derive per RFC 7748"
+tracking = "https://github.com/polymorph-components/polymorph-webcrypto/issues/356"
+
+[[targets.jco-firefox.expected-fail]]
+case = "x25519/wycheproof-spki/tc33"
+reason = "Firefox NSS: low-order or non-canonical X25519 public key refused at import (contributory-behavior checks); other platforms import it and derive per RFC 7748"
+tracking = "https://github.com/polymorph-components/polymorph-webcrypto/issues/356"
+
+[[targets.jco-firefox.expected-fail]]
+case = "x25519/wycheproof-spki/tc63"
+reason = "Firefox NSS: low-order or non-canonical X25519 public key refused at import (contributory-behavior checks); other platforms import it and derive per RFC 7748"
+tracking = "https://github.com/polymorph-components/polymorph-webcrypto/issues/356"
+
+[[targets.jco-firefox.expected-fail]]
+case = "x25519/wycheproof-spki/tc64"
+reason = "Firefox NSS: low-order or non-canonical X25519 public key refused at import (contributory-behavior checks); other platforms import it and derive per RFC 7748"
+tracking = "https://github.com/polymorph-components/polymorph-webcrypto/issues/356"
+
+[[targets.jco-firefox.expected-fail]]
+case = "x25519/wycheproof-spki/tc65"
+reason = "Firefox NSS: low-order or non-canonical X25519 public key refused at import (contributory-behavior checks); other platforms import it and derive per RFC 7748"
+tracking = "https://github.com/polymorph-components/polymorph-webcrypto/issues/356"
+
+[[targets.jco-firefox.expected-fail]]
+case = "x25519/wycheproof-spki/tc69"
+reason = "Firefox NSS: low-order or non-canonical X25519 public key refused at import (contributory-behavior checks); other platforms import it and derive per RFC 7748"
+tracking = "https://github.com/polymorph-components/polymorph-webcrypto/issues/356"
+
+[[targets.jco-firefox.expected-fail]]
+case = "x25519/wycheproof-spki/tc70"
+reason = "Firefox NSS: low-order or non-canonical X25519 public key refused at import (contributory-behavior checks); other platforms import it and derive per RFC 7748"
+tracking = "https://github.com/polymorph-components/polymorph-webcrypto/issues/356"
+
+[[targets.jco-firefox.expected-fail]]
+case = "x25519/wycheproof-spki/tc71"
+reason = "Firefox NSS: low-order or non-canonical X25519 public key refused at import (contributory-behavior checks); other platforms import it and derive per RFC 7748"
+tracking = "https://github.com/polymorph-components/polymorph-webcrypto/issues/356"
+
+[[targets.jco-firefox.expected-fail]]
+case = "x25519/wycheproof-spki/tc72"
+reason = "Firefox NSS: low-order or non-canonical X25519 public key refused at import (contributory-behavior checks); other platforms import it and derive per RFC 7748"
+tracking = "https://github.com/polymorph-components/polymorph-webcrypto/issues/356"
+
+[[targets.jco-firefox.expected-fail]]
+case = "x25519/wycheproof-spki/tc73"
+reason = "Firefox NSS: low-order or non-canonical X25519 public key refused at import (contributory-behavior checks); other platforms import it and derive per RFC 7748"
+tracking = "https://github.com/polymorph-components/polymorph-webcrypto/issues/356"
+
+[[targets.jco-firefox.expected-fail]]
+case = "x25519/wycheproof-spki/tc74"
+reason = "Firefox NSS: low-order or non-canonical X25519 public key refused at import (contributory-behavior checks); other platforms import it and derive per RFC 7748"
+tracking = "https://github.com/polymorph-components/polymorph-webcrypto/issues/356"
+
+[[targets.jco-firefox.expected-fail]]
+case = "x25519/wycheproof-spki/tc75"
+reason = "Firefox NSS: low-order or non-canonical X25519 public key refused at import (contributory-behavior checks); other platforms import it and derive per RFC 7748"
+tracking = "https://github.com/polymorph-components/polymorph-webcrypto/issues/356"
+
+[[targets.jco-firefox.expected-fail]]
+case = "x25519/wycheproof-spki/tc83"
+reason = "Firefox NSS: low-order or non-canonical X25519 public key refused at import (contributory-behavior checks); other platforms import it and derive per RFC 7748"
+tracking = "https://github.com/polymorph-components/polymorph-webcrypto/issues/356"
+
+[[targets.jco-firefox.expected-fail]]
+case = "x25519/wycheproof-spki/tc85"
+reason = "Firefox NSS: low-order or non-canonical X25519 public key refused at import (contributory-behavior checks); other platforms import it and derive per RFC 7748"
+tracking = "https://github.com/polymorph-components/polymorph-webcrypto/issues/356"
+
+[[targets.jco-firefox.expected-fail]]
+case = "x25519/wycheproof-spki/tc94"
+reason = "Firefox NSS: low-order or non-canonical X25519 public key refused at import (contributory-behavior checks); other platforms import it and derive per RFC 7748"
+tracking = "https://github.com/polymorph-components/polymorph-webcrypto/issues/356"
+
+[[targets.jco-firefox.expected-fail]]
+case = "x25519/wycheproof-spki/tc95"
+reason = "Firefox NSS: low-order or non-canonical X25519 public key refused at import (contributory-behavior checks); other platforms import it and derive per RFC 7748"
+tracking = "https://github.com/polymorph-components/polymorph-webcrypto/issues/356"
+
+[[targets.jco-firefox.expected-fail]]
+case = "x25519/wycheproof-spki/tc117"
+reason = "Firefox NSS: low-order or non-canonical X25519 public key refused at import (contributory-behavior checks); other platforms import it and derive per RFC 7748"
+tracking = "https://github.com/polymorph-components/polymorph-webcrypto/issues/356"
+
+[[targets.jco-firefox.expected-fail]]
+case = "x25519/wycheproof-spki/tc118"
+reason = "Firefox NSS: low-order or non-canonical X25519 public key refused at import (contributory-behavior checks); other platforms import it and derive per RFC 7748"
+tracking = "https://github.com/polymorph-components/polymorph-webcrypto/issues/356"
+
+[[targets.jco-firefox.expected-fail]]
+case = "x25519/wycheproof-spki/tc154"
+reason = "Firefox NSS: low-order or non-canonical X25519 public key refused at import (contributory-behavior checks); other platforms import it and derive per RFC 7748"
+tracking = "https://github.com/polymorph-components/polymorph-webcrypto/issues/356"
+
+[[targets.jco-firefox.expected-fail]]
+case = "x25519/wycheproof-spki/tc165"
+reason = "Firefox NSS: low-order or non-canonical X25519 public key refused at import (contributory-behavior checks); other platforms import it and derive per RFC 7748"
+tracking = "https://github.com/polymorph-components/polymorph-webcrypto/issues/356"
+
+[[targets.jco-firefox.expected-fail]]
+case = "x25519/wycheproof-spki/tc166"
+reason = "Firefox NSS: low-order or non-canonical X25519 public key refused at import (contributory-behavior checks); other platforms import it and derive per RFC 7748"
+tracking = "https://github.com/polymorph-components/polymorph-webcrypto/issues/356"
+
+[[targets.jco-firefox.expected-fail]]
+case = "x25519/wycheproof-jwk/tc32"
+reason = "Firefox NSS: low-order or non-canonical X25519 public key refused at import (contributory-behavior checks); other platforms import it and derive per RFC 7748"
+tracking = "https://github.com/polymorph-components/polymorph-webcrypto/issues/356"
+
+[[targets.jco-firefox.expected-fail]]
+case = "x25519/wycheproof-jwk/tc33"
+reason = "Firefox NSS: low-order or non-canonical X25519 public key refused at import (contributory-behavior checks); other platforms import it and derive per RFC 7748"
+tracking = "https://github.com/polymorph-components/polymorph-webcrypto/issues/356"
+
+[[targets.jco-firefox.expected-fail]]
+case = "x25519/wycheproof-jwk/tc63"
+reason = "Firefox NSS: low-order or non-canonical X25519 public key refused at import (contributory-behavior checks); other platforms import it and derive per RFC 7748"
+tracking = "https://github.com/polymorph-components/polymorph-webcrypto/issues/356"
+
+[[targets.jco-firefox.expected-fail]]
+case = "x25519/wycheproof-jwk/tc64"
+reason = "Firefox NSS: low-order or non-canonical X25519 public key refused at import (contributory-behavior checks); other platforms import it and derive per RFC 7748"
+tracking = "https://github.com/polymorph-components/polymorph-webcrypto/issues/356"
+
+[[targets.jco-firefox.expected-fail]]
+case = "x25519/wycheproof-jwk/tc65"
+reason = "Firefox NSS: low-order or non-canonical X25519 public key refused at import (contributory-behavior checks); other platforms import it and derive per RFC 7748"
+tracking = "https://github.com/polymorph-components/polymorph-webcrypto/issues/356"
+
+[[targets.jco-firefox.expected-fail]]
+case = "x25519/wycheproof-jwk/tc69"
+reason = "Firefox NSS: low-order or non-canonical X25519 public key refused at import (contributory-behavior checks); other platforms import it and derive per RFC 7748"
+tracking = "https://github.com/polymorph-components/polymorph-webcrypto/issues/356"
+
+[[targets.jco-firefox.expected-fail]]
+case = "x25519/wycheproof-jwk/tc70"
+reason = "Firefox NSS: low-order or non-canonical X25519 public key refused at import (contributory-behavior checks); other platforms import it and derive per RFC 7748"
+tracking = "https://github.com/polymorph-components/polymorph-webcrypto/issues/356"
+
+[[targets.jco-firefox.expected-fail]]
+case = "x25519/wycheproof-jwk/tc71"
+reason = "Firefox NSS: low-order or non-canonical X25519 public key refused at import (contributory-behavior checks); other platforms import it and derive per RFC 7748"
+tracking = "https://github.com/polymorph-components/polymorph-webcrypto/issues/356"
+
+[[targets.jco-firefox.expected-fail]]
+case = "x25519/wycheproof-jwk/tc72"
+reason = "Firefox NSS: low-order or non-canonical X25519 public key refused at import (contributory-behavior checks); other platforms import it and derive per RFC 7748"
+tracking = "https://github.com/polymorph-components/polymorph-webcrypto/issues/356"
+
+[[targets.jco-firefox.expected-fail]]
+case = "x25519/wycheproof-jwk/tc73"
+reason = "Firefox NSS: low-order or non-canonical X25519 public key refused at import (contributory-behavior checks); other platforms import it and derive per RFC 7748"
+tracking = "https://github.com/polymorph-components/polymorph-webcrypto/issues/356"
+
+[[targets.jco-firefox.expected-fail]]
+case = "x25519/wycheproof-jwk/tc74"
+reason = "Firefox NSS: low-order or non-canonical X25519 public key refused at import (contributory-behavior checks); other platforms import it and derive per RFC 7748"
+tracking = "https://github.com/polymorph-components/polymorph-webcrypto/issues/356"
+
+[[targets.jco-firefox.expected-fail]]
+case = "x25519/wycheproof-jwk/tc75"
+reason = "Firefox NSS: low-order or non-canonical X25519 public key refused at import (contributory-behavior checks); other platforms import it and derive per RFC 7748"
+tracking = "https://github.com/polymorph-components/polymorph-webcrypto/issues/356"
+
+[[targets.jco-firefox.expected-fail]]
+case = "x25519/wycheproof-jwk/tc83"
+reason = "Firefox NSS: low-order or non-canonical X25519 public key refused at import (contributory-behavior checks); other platforms import it and derive per RFC 7748"
+tracking = "https://github.com/polymorph-components/polymorph-webcrypto/issues/356"
+
+[[targets.jco-firefox.expected-fail]]
+case = "x25519/wycheproof-jwk/tc85"
+reason = "Firefox NSS: low-order or non-canonical X25519 public key refused at import (contributory-behavior checks); other platforms import it and derive per RFC 7748"
+tracking = "https://github.com/polymorph-components/polymorph-webcrypto/issues/356"
+
+[[targets.jco-firefox.expected-fail]]
+case = "x25519/wycheproof-jwk/tc94"
+reason = "Firefox NSS: low-order or non-canonical X25519 public key refused at import (contributory-behavior checks); other platforms import it and derive per RFC 7748"
+tracking = "https://github.com/polymorph-components/polymorph-webcrypto/issues/356"
+
+[[targets.jco-firefox.expected-fail]]
+case = "x25519/wycheproof-jwk/tc95"
+reason = "Firefox NSS: low-order or non-canonical X25519 public key refused at import (contributory-behavior checks); other platforms import it and derive per RFC 7748"
+tracking = "https://github.com/polymorph-components/polymorph-webcrypto/issues/356"
+
+[[targets.jco-firefox.expected-fail]]
+case = "x25519/wycheproof-jwk/tc117"
+reason = "Firefox NSS: low-order or non-canonical X25519 public key refused at import (contributory-behavior checks); other platforms import it and derive per RFC 7748"
+tracking = "https://github.com/polymorph-components/polymorph-webcrypto/issues/356"
+
+[[targets.jco-firefox.expected-fail]]
+case = "x25519/wycheproof-jwk/tc118"
+reason = "Firefox NSS: low-order or non-canonical X25519 public key refused at import (contributory-behavior checks); other platforms import it and derive per RFC 7748"
+tracking = "https://github.com/polymorph-components/polymorph-webcrypto/issues/356"
+
+[[targets.jco-firefox.expected-fail]]
+case = "x25519/wycheproof-jwk/tc154"
+reason = "Firefox NSS: low-order or non-canonical X25519 public key refused at import (contributory-behavior checks); other platforms import it and derive per RFC 7748"
+tracking = "https://github.com/polymorph-components/polymorph-webcrypto/issues/356"
+
+[[targets.jco-firefox.expected-fail]]
+case = "x25519/wycheproof-jwk/tc165"
+reason = "Firefox NSS: low-order or non-canonical X25519 public key refused at import (contributory-behavior checks); other platforms import it and derive per RFC 7748"
+tracking = "https://github.com/polymorph-components/polymorph-webcrypto/issues/356"
+
+[[targets.jco-firefox.expected-fail]]
+case = "x25519/wycheproof-jwk/tc166"
+reason = "Firefox NSS: low-order or non-canonical X25519 public key refused at import (contributory-behavior checks); other platforms import it and derive per RFC 7748"
+tracking = "https://github.com/polymorph-components/polymorph-webcrypto/issues/356"
+
+[targets.jco-webkit]
+# The same host module in Playwright WebKit on macOS — Apple's crypto
+# backend, the closest CI proxy for Safari (the Linux port's backend
+# serves less and represents no shipping Safari; run-browser.mjs refuses
+# it). Like every platform-WebCrypto-backed target it cannot serve
+# `sha1-checked`, and like the other browsers it fails the gated RSA
+# private-key mints closed (targets-signing.toml). Like Deno, the
+# platform refuses imported 8192-bit RSA public keys, so the whole
+# 8192 row is the gated `rsa-verify-8192` capability gap, proved by its
+# decline case rather than ledgered case by case.
+missing-features = ["sha1-checked", "rsa-verify-8192"]
+# Runs as the dedicated macOS CI job (conformance-webkit); its results
+# reach the aggregate in the conformance-aggregate job and local
+# checkouts via the CI artifact flow, so missing results files are
+# warnings, not errors.
+optional = true
+# The Apple-platform strictness and laxness windows below are declared
+# expected failures (tracked debt, #360), mirroring the deltic-deno and
+# jco-firefox ledgers: unreduced RSASSA signatures accepted, the Ed25519
+# empty message rejected, non-deterministic Ed25519 signing, and
+# malformed AES-CBC ciphertexts accepted.
+
+[[targets.jco-webkit.expected-fail]]
+case = "rsassa-pkcs1-v15-sha256-2048/wycheproof/tc244/whole"
+reason = "WebKit WebCrypto: RSASSA verify accepts an unreduced signature (s >= n; upstream-invalid SignatureMalleability vector)"
+tracking = "https://github.com/polymorph-components/polymorph-webcrypto/issues/360"
+
+[[targets.jco-webkit.expected-fail]]
+case = "rsassa-pkcs1-v15-sha384-3072/wycheproof/tc245/whole"
+reason = "WebKit WebCrypto: RSASSA verify accepts an unreduced signature (s >= n; upstream-invalid SignatureMalleability vector)"
+tracking = "https://github.com/polymorph-components/polymorph-webcrypto/issues/360"
+
+[[targets.jco-webkit.expected-fail]]
+case = "rsassa-pkcs1-v15-sha256-4096/wycheproof/tc245/whole"
+reason = "WebKit WebCrypto: RSASSA verify accepts an unreduced signature (s >= n; upstream-invalid SignatureMalleability vector)"
+tracking = "https://github.com/polymorph-components/polymorph-webcrypto/issues/360"
+
+[[targets.jco-webkit.expected-fail]]
+case = "rsassa-pkcs1-v15-sha512-4096/wycheproof/tc245/whole"
+reason = "WebKit WebCrypto: RSASSA verify accepts an unreduced signature (s >= n; upstream-invalid SignatureMalleability vector)"
+tracking = "https://github.com/polymorph-components/polymorph-webcrypto/issues/360"
+
+[[targets.jco-webkit.expected-fail]]
+case = "ed25519/wycheproof/tc1/whole"
+reason = "WebKit WebCrypto: Ed25519 verify rejects the empty message (upstream-valid vector; tc80 is the RFC 8032 Test 1 known answer)"
+tracking = "https://github.com/polymorph-components/polymorph-webcrypto/issues/360"
+
+[[targets.jco-webkit.expected-fail]]
+case = "ed25519/wycheproof/tc71/whole"
+reason = "WebKit WebCrypto: Ed25519 verify rejects the empty message (upstream-valid vector; tc80 is the RFC 8032 Test 1 known answer)"
+tracking = "https://github.com/polymorph-components/polymorph-webcrypto/issues/360"
+
+[[targets.jco-webkit.expected-fail]]
+case = "ed25519/wycheproof/tc80/whole"
+reason = "WebKit WebCrypto: Ed25519 verify rejects the empty message (upstream-valid vector; tc80 is the RFC 8032 Test 1 known answer)"
+tracking = "https://github.com/polymorph-components/polymorph-webcrypto/issues/360"
+
+[[targets.jco-webkit.expected-fail]]
+case = "ed25519/wycheproof/tc102/whole"
+reason = "WebKit WebCrypto: Ed25519 verify rejects the empty message (upstream-valid vector; tc80 is the RFC 8032 Test 1 known answer)"
+tracking = "https://github.com/polymorph-components/polymorph-webcrypto/issues/360"
+
+[[targets.jco-webkit.expected-fail]]
+case = "probe/ed25519-private-format-imports"
+reason = "WebKit WebCrypto: Ed25519 sign does not produce the RFC 8032 deterministic signature (TEST 3 known answer; randomized signing or seed mis-decode)"
+tracking = "https://github.com/polymorph-components/polymorph-webcrypto/issues/360"
+
+[[targets.jco-webkit.expected-fail]]
+case = "aes-cbc/wycheproof/tc25/whole"
+reason = "WebKit WebCrypto: AES-CBC decrypt accepts an empty ciphertext (upstream-invalid NoPadding vector)"
+tracking = "https://github.com/polymorph-components/polymorph-webcrypto/issues/360"
+
+[[targets.jco-webkit.expected-fail]]
+case = "aes-cbc/wycheproof/tc169/whole"
+reason = "WebKit WebCrypto: AES-CBC decrypt accepts an empty ciphertext (upstream-invalid NoPadding vector)"
+tracking = "https://github.com/polymorph-components/polymorph-webcrypto/issues/360"
+
+[[targets.jco-webkit.expected-fail]]
+case = "probe/cbc-uniform-failure"
+reason = "WebKit WebCrypto: AES-CBC decrypt accepts an empty ciphertext, breaking the kind's uniform-failure contract"
+tracking = "https://github.com/polymorph-components/polymorph-webcrypto/issues/360"
+
+[[targets.jco-webkit.expected-fail]]
+case = "probe/cipher-wrap-uniform-failure"
+reason = "WebKit WebCrypto: a malformed AES-CBC wrap unwraps (CBC decrypt accepts malformed input)"
+tracking = "https://github.com/polymorph-components/polymorph-webcrypto/issues/360"
+
 [targets.deltic-deno]
 # The same reference host as jco-node/jco-browser in behavior, rewritten
 # over deltic's embedder API (js/deltic/src/mod.ts), run RUNTIME-LINKED

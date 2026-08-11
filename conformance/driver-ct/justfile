@@ -350,7 +350,7 @@ run-webkit:
     }
     mkdir -p results
     cd jco && node run-browser.mjs --engine webkit \
-        --missing sha1-checked \
+        --missing sha1-checked,rsa-verify-8192 \
         --missing-signing rsa-sign,rsa-oaep-decrypt
 
 # run-browser when enabled (CI, or CONFORMANCE_BROWSER=1); a skip note

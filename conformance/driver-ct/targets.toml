@@ -416,13 +416,86 @@ tracking = "https://github.com/polymorph-components/polymorph-webcrypto/issues/3
 # serves less and represents no shipping Safari; run-browser.mjs refuses
 # it). Like every platform-WebCrypto-backed target it cannot serve
 # `sha1-checked`, and like the other browsers it fails the gated RSA
-# private-key mints closed (targets-signing.toml).
-missing-features = ["sha1-checked"]
+# private-key mints closed (targets-signing.toml). Like Deno, the
+# platform refuses imported 8192-bit RSA public keys, so the whole
+# 8192 row is the gated `rsa-verify-8192` capability gap, proved by its
+# decline case rather than ledgered case by case.
+missing-features = ["sha1-checked", "rsa-verify-8192"]
 # Runs as the dedicated macOS CI job (conformance-webkit); its results
 # reach the aggregate in the conformance-aggregate job and local
 # checkouts via the CI artifact flow, so missing results files are
 # warnings, not errors.
 optional = true
+# The Apple-platform strictness and laxness windows below are declared
+# expected failures (tracked debt, #360), mirroring the deltic-deno and
+# jco-firefox ledgers: unreduced RSASSA signatures accepted, the Ed25519
+# empty message rejected, non-deterministic Ed25519 signing, and
+# malformed AES-CBC ciphertexts accepted.
+
+[[targets.jco-webkit.expected-fail]]
+case = "rsassa-pkcs1-v15-sha256-2048/wycheproof/tc244/whole"
+reason = "WebKit WebCrypto: RSASSA verify accepts an unreduced signature (s >= n; upstream-invalid SignatureMalleability vector)"
+tracking = "https://github.com/polymorph-components/polymorph-webcrypto/issues/360"
+
+[[targets.jco-webkit.expected-fail]]
+case = "rsassa-pkcs1-v15-sha384-3072/wycheproof/tc245/whole"
+reason = "WebKit WebCrypto: RSASSA verify accepts an unreduced signature (s >= n; upstream-invalid SignatureMalleability vector)"
+tracking = "https://github.com/polymorph-components/polymorph-webcrypto/issues/360"
+
+[[targets.jco-webkit.expected-fail]]
+case = "rsassa-pkcs1-v15-sha256-4096/wycheproof/tc245/whole"
+reason = "WebKit WebCrypto: RSASSA verify accepts an unreduced signature (s >= n; upstream-invalid SignatureMalleability vector)"
+tracking = "https://github.com/polymorph-components/polymorph-webcrypto/issues/360"
+
+[[targets.jco-webkit.expected-fail]]
+case = "rsassa-pkcs1-v15-sha512-4096/wycheproof/tc245/whole"
+reason = "WebKit WebCrypto: RSASSA verify accepts an unreduced signature (s >= n; upstream-invalid SignatureMalleability vector)"
+tracking = "https://github.com/polymorph-components/polymorph-webcrypto/issues/360"
+
+[[targets.jco-webkit.expected-fail]]
+case = "ed25519/wycheproof/tc1/whole"
+reason = "WebKit WebCrypto: Ed25519 verify rejects the empty message (upstream-valid vector; tc80 is the RFC 8032 Test 1 known answer)"
+tracking = "https://github.com/polymorph-components/polymorph-webcrypto/issues/360"
+
+[[targets.jco-webkit.expected-fail]]
+case = "ed25519/wycheproof/tc71/whole"
+reason = "WebKit WebCrypto: Ed25519 verify rejects the empty message (upstream-valid vector; tc80 is the RFC 8032 Test 1 known answer)"
+tracking = "https://github.com/polymorph-components/polymorph-webcrypto/issues/360"
+
+[[targets.jco-webkit.expected-fail]]
+case = "ed25519/wycheproof/tc80/whole"
+reason = "WebKit WebCrypto: Ed25519 verify rejects the empty message (upstream-valid vector; tc80 is the RFC 8032 Test 1 known answer)"
+tracking = "https://github.com/polymorph-components/polymorph-webcrypto/issues/360"
+
+[[targets.jco-webkit.expected-fail]]
+case = "ed25519/wycheproof/tc102/whole"
+reason = "WebKit WebCrypto: Ed25519 verify rejects the empty message (upstream-valid vector; tc80 is the RFC 8032 Test 1 known answer)"
+tracking = "https://github.com/polymorph-components/polymorph-webcrypto/issues/360"
+
+[[targets.jco-webkit.expected-fail]]
+case = "probe/ed25519-private-format-imports"
+reason = "WebKit WebCrypto: Ed25519 sign does not produce the RFC 8032 deterministic signature (TEST 3 known answer; randomized signing or seed mis-decode)"
+tracking = "https://github.com/polymorph-components/polymorph-webcrypto/issues/360"
+
+[[targets.jco-webkit.expected-fail]]
+case = "aes-cbc/wycheproof/tc25/whole"
+reason = "WebKit WebCrypto: AES-CBC decrypt accepts an empty ciphertext (upstream-invalid NoPadding vector)"
+tracking = "https://github.com/polymorph-components/polymorph-webcrypto/issues/360"
+
+[[targets.jco-webkit.expected-fail]]
+case = "aes-cbc/wycheproof/tc169/whole"
+reason = "WebKit WebCrypto: AES-CBC decrypt accepts an empty ciphertext (upstream-invalid NoPadding vector)"
+tracking = "https://github.com/polymorph-components/polymorph-webcrypto/issues/360"
+
+[[targets.jco-webkit.expected-fail]]
+case = "probe/cbc-uniform-failure"
+reason = "WebKit WebCrypto: AES-CBC decrypt accepts an empty ciphertext, breaking the kind's uniform-failure contract"
+tracking = "https://github.com/polymorph-components/polymorph-webcrypto/issues/360"
+
+[[targets.jco-webkit.expected-fail]]
+case = "probe/cipher-wrap-uniform-failure"
+reason = "WebKit WebCrypto: a malformed AES-CBC wrap unwraps (CBC decrypt accepts malformed input)"
+tracking = "https://github.com/polymorph-components/polymorph-webcrypto/issues/360"
 
 [targets.deltic-deno]
 # The same reference host as jco-node/jco-browser in behavior, rewritten

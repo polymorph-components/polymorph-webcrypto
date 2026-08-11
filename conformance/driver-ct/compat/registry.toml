@@ -170,6 +170,16 @@ label = "AES-CBC"
 wit = ["aes-cbc"]
 select = ["shared:aes-cbc/", "shared:probe/cbc-uniform-failure"]
 
+[[rows.aspects]]
+id = "malformed-ciphertexts"
+label = "Malformed ciphertexts rejected (empty input)"
+tracking = "https://github.com/polymorph-components/polymorph-webcrypto/issues/360"
+select = ["shared:probe/cbc-uniform-failure"]
+cases = [
+    "shared:aes-cbc/wycheproof/tc25/whole",
+    "shared:aes-cbc/wycheproof/tc169/whole",
+]
+
 [[rows]]
 id = "aes-ctr"
 group = "cipher"
@@ -232,12 +242,34 @@ label = "Ed25519 verify"
 wit = ["ed25519-verify"]
 select = ["shared:ed25519/"]
 
+[[rows.aspects]]
+id = "empty-message"
+label = "Verification of the empty message"
+tracking = "https://github.com/polymorph-components/polymorph-webcrypto/issues/360"
+cases = [
+    "shared:ed25519/wycheproof/tc1/whole",
+    "shared:ed25519/wycheproof/tc71/whole",
+    "shared:ed25519/wycheproof/tc80/whole",
+    "shared:ed25519/wycheproof/tc102/whole",
+]
+
 [[rows]]
 id = "rsassa-pkcs1-v15-verify"
 group = "signature"
 label = "RSASSA-PKCS1-v1_5 verify"
 wit = ["rsassa-pkcs1-v15-verify"]
 select = ["shared:rsassa-"]
+
+[[rows.aspects]]
+id = "unreduced-signatures"
+label = "Unreduced (malleable) signatures rejected — s \u2265 n"
+tracking = "https://github.com/polymorph-components/polymorph-webcrypto/issues/360"
+cases = [
+    "shared:rsassa-pkcs1-v15-sha256-2048/wycheproof/tc244/whole",
+    "shared:rsassa-pkcs1-v15-sha384-3072/wycheproof/tc245/whole",
+    "shared:rsassa-pkcs1-v15-sha256-4096/wycheproof/tc245/whole",
+    "shared:rsassa-pkcs1-v15-sha512-4096/wycheproof/tc245/whole",
+]
 
 [[rows.aspects]]
 id = "verify-8192"
@@ -270,6 +302,12 @@ select = [
     "shared:probe/signing-key-unwrap",
     "shared:probe/signing-usage-policy",
 ]
+
+[[rows.aspects]]
+id = "deterministic-signatures"
+label = "Deterministic RFC 8032 signatures"
+tracking = "https://github.com/polymorph-components/polymorph-webcrypto/issues/360"
+select = ["shared:probe/ed25519-private-format-imports"]
 
 [[rows]]
 id = "rsassa-pkcs1-v15-sign"
@@ -556,6 +594,12 @@ select = [
     "shared:probe/cipher-params-contract",
     "shared:probe/cipher-wrap-uniform-failure",
 ]
+
+[[rows.aspects]]
+id = "malformed-wraps"
+label = "Malformed CBC wraps rejected at unwrap"
+tracking = "https://github.com/polymorph-components/polymorph-webcrypto/issues/360"
+select = ["shared:probe/cipher-wrap-uniform-failure"]
 
 [[rows]]
 id = "agreement-plumbing"

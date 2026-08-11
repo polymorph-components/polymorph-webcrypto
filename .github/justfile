@@ -18,6 +18,7 @@ rust-checks:
 # jco-browser and deltic-deno), the committed-matrix check, and the
 # deltic host module's own unit gate (same module, fast local check).
 conformance-checks:
+    @just gha::_step conformance-ct::deltic-pin-check
     @just gha::_step conformance-ct::all
     @just gha::_step conformance-ct::matrix-check
     @just gha::_step deltic-module-check

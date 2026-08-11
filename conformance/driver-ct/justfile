@@ -20,6 +20,23 @@ composed := root + "/target/conformance-composed-ct.wasm"
 # Chrome), locally only with CONFORMANCE_BROWSER=1.
 conformance-browser-enabled := if env('GITHUB_ACTIONS', '') == 'true' { '1' } else if env('CONFORMANCE_BROWSER', '') == '1' { '1' } else { '' }
 
+# The one-VERSION-everywhere pin gate, replacing the old
+# assertPinConsistency script: every `jsr:@deltic/*` import across BOTH
+# deno.json files (this directory's and js/deltic's) must resolve to the
+# exact same version. Wired into the conformance CI job
+# (.github/justfile's conformance-checks) as the fail-loud point.
+deltic-pin-check:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    v=$(grep -ho 'jsr:@deltic/[a-z-]*@[^/"]*' \
+        {{root}}/js/deltic/deno.json deltic/deno.json \
+        | sed 's/.*@//' | sort -u)
+    if [ "$(printf '%s\n' "$v" | wc -l)" != 1 ]; then
+        echo "deltic pin drift: $v" >&2
+        exit 1
+    fi
+    echo "deltic pin OK: $v"
+
 # Build both suite components (rkyv corpus) and the host driver.
 # CONFORMANCE_PREBUILT=1 skips cargo when the artifacts are already
 # present — set by CI on an exact-source-hash cache hit (see the
@@ -221,14 +238,11 @@ run-jco: build _jco-prepared
 # The deltic-deno target (the same reference host as jco-node, rewritten
 # over deltic's embedder API — js/deltic/src/mod.ts — and RUNTIME-LINKED
 # under stock Deno), both suites. Unlike the jco legs there is no
-# transpile step and no npm tree: fetch-translator.ts owns the release-
-# asset pin (TAG + TRANSLATOR_SHA256, cross-checked against both
-# deno.json import maps) and run.ts owns the runs. --frozen on every
-# lock-bearing invocation; permissions scoped throughout.
-#
-# The fetch and the run are separate invocations precisely so the run
-# needs no network grant at all: the first prints the cached shim path,
-# the second only reads it.
+# transpile step and no npm tree: the exact-pinned JSR import maps (both
+# deno.json files) own the pin, cross-checked by `deltic-pin-check`, and
+# the packaged `@deltic/translator` is resolved through the module graph
+# (no fetch, no net grant) by run.ts's default translator. --frozen on
+# every lock-bearing invocation; permissions scoped throughout.
 #
 # Case failures do not fail this recipe — deltic-deno carries declared
 # expected-fail debt (targets.toml / targets-signing.toml, #351) and the
@@ -237,19 +251,13 @@ run-jco: build _jco-prepared
 run-deltic: build
     #!/usr/bin/env bash
     set -euo pipefail
-    shim=$(deno run \
-        --config {{root}}/conformance/driver-ct/deltic/deno.json --frozen \
-        --allow-read={{root}} \
-        --allow-write={{root}}/target/deltic \
-        --allow-net=github.com,objects.githubusercontent.com,release-assets.githubusercontent.com \
-        {{root}}/conformance/driver-ct/deltic/fetch-translator.ts)
     mkdir -p results
     deno run \
         --config {{root}}/conformance/driver-ct/deltic/deno.json --frozen \
         --allow-read={{root}} \
         --allow-write={{root}}/conformance/driver-ct/results \
         {{root}}/conformance/driver-ct/deltic/run.ts \
-        --translator "$shim" --target deltic-deno
+        --target deltic-deno
 
 # Build the in-guest RustCrypto provider (composed target SUT; also the
 # class-D gate's plug). Prebuilt-skip as for `build`.
@@ -325,19 +333,26 @@ _deltic-browser-prepared:
 # The deltic-browser target: both suites runtime-linked inside headless
 # Chromium (browser WebCrypto) against this repo's deltic host module
 # (js/deltic) — the worker is one deno-bundled module (deltic engine +
-# host module + upstream message loop; deltic/browser/worker-entry.ts),
-# so no transpile step and no generated tree. The --missing declarations
-# mirror the jco-browser entries: the platform is the same Chromium.
+# host module + upstream message loop; deltic/browser/worker-entry.ts,
+# which imports the engine surface through deltic/browser-bundle-entry.ts
+# rather than a raw-URL release bundle), so no transpile step and no
+# generated tree. The translator wasm is extracted from the deno.lock-
+# pinned JSR module cache (no fetch, no sha bookkeeping — see
+# extract-translator-wasm.py). The --missing declarations mirror the
+# jco-browser entries: the platform is the same Chromium.
 run-deltic-browser: build _deltic-browser-prepared
     #!/usr/bin/env bash
     set -euo pipefail
-    deno run --config deltic/deno.json --frozen \
-        --allow-read={{root}} --allow-write={{root}}/target/deltic \
-        --allow-net=github.com,objects.githubusercontent.com,release-assets.githubusercontent.com \
-        deltic/fetch-translator.ts >/dev/null
     mkdir -p {{root}}/target/deltic-browser
-    (cd deltic && deno bundle --config deno.json --platform browser \
+    (cd deltic && deno bundle --config deno.json --frozen --platform browser \
         -o ../{{root}}/target/deltic-browser/webcrypto-worker.mjs browser/worker-entry.ts)
+    deno info --json --config deltic/deno.json --frozen @deltic/translator \
+        > {{root}}/target/deltic-browser/.translator-info.json
+    pin=$(grep -o 'jsr:@deltic/runtime@[^/"]*' deltic/deno.json | head -1 | sed 's/.*@//')
+    python3 deltic/extract-translator-wasm.py \
+        {{root}}/target/deltic-browser/.translator-info.json \
+        {{root}}/target/deltic-browser/deltic-translator-shim.wasm \
+        "$pin"
     mkdir -p results
     (cd deltic && node run-browser.mjs \
         --missing sha1-checked \

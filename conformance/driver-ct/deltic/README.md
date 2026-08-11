@@ -22,8 +22,9 @@ Both suites run under the **one** target key `deltic-deno`, exactly as
 just conformance-ct::run-deltic
 ```
 
-which builds the suites, fetches (and caches) the pinned translator-shim
-release asset, and runs both suites through `ct-runner`.
+which builds the suites and runs both through `ct-runner`, resolving the
+`@deltic/translator` package's packaged wasm through the module graph
+(no fetch step, no net grant — the JSR lock carries integrity).
 
 The suite artifacts are the **bare** suites — the same components the jco
 leg transpiles, with `polymorph:webcrypto/*` still imported and served by
@@ -75,34 +76,42 @@ fresh-per-case.
 
 ## The pin
 
-deltic is pinned to a release tag in **three** places, cross-checked at
-run time by `fetch-translator.ts`:
+deltic publishes `@deltic/{runtime,translator,wasi-shims,ct-runner}` to
+JSR as `0.1.0-pre.g<shorthash>` on every green upstream commit — an
+exact-pinned, non-ordered prerelease version naming one commit (see
+deltic's README, "Consuming the unstable prereleases"). This repo pins
+that version in **two** places, cross-checked by
+`just conformance-ct::deltic-pin-check`:
 
-- `deno.json` (this directory) — import-map URLs
-  (`raw.githubusercontent.com/lann/deltic/<tag>/…`) for `@deltic/ct-runner`,
-  `@deltic/runtime/embedder`, `@deltic/runtime/shim`, `@deltic/wasi-shims`.
+- `deno.json` (this directory) — `jsr:@deltic/<pkg>@<version>` import-map
+  entries for `@deltic/ct-runner`, `@deltic/runtime/embedder`,
+  `@deltic/runtime/shim`, `@deltic/wasi-shims`, and `@deltic/translator`
+  (the packaged translator wasm loader — no separate fetch/sha step).
   `deno.lock` carries integrity hashes for that module graph, enforced
   with `--frozen`.
 - [`../../../js/deltic/deno.json`](../../../js/deltic/deno.json) — the
-  SAME `@deltic/runtime/embedder` URL (the module-identity constraint:
-  deltic's `wasi-shims` imports that specifier by bare name internally,
-  so every config resolving it must agree, or the embedder module loads
-  twice and `instanceof WitError` stops holding across the boundary).
-- `fetch-translator.ts` — `TAG` + `TRANSLATOR_SHA256` for the
-  `deltic-translator-shim.wasm` release asset (cached under
-  `target/deltic/<tag>/`).
+  SAME `@deltic/runtime/embedder` version (the module-identity
+  constraint: deltic's `wasi-shims` imports that specifier by bare name
+  internally, so every config resolving it must agree, or the embedder
+  module loads twice and `instanceof WitError` stops holding across the
+  boundary).
 
-The runtime is consumed as pinned raw **source** over those import maps,
-not as the release's prebuilt `deltic-embedder.mjs` bundle: the bundle
-would be a second, separately-pinned copy of the same modules, which is
-exactly what the module-identity constraint forbids.
+Both `deno.json` files also carry
+`"minimumDependencyAge": { "age": "P1D", "exclude": ["jsr:@deltic/*"] }`,
+required per the deltic README because the pinned prereleases are
+typically published well under 24h before consumption.
 
-To bump: update the tag in all three files (this `deno.json`,
-`js/deltic/deno.json`, and `fetch-translator.ts`) and the sha256 from the
-release's `SHA256SUMS`, delete BOTH `deno.lock` files (this directory and
-`js/deltic/`), re-run `deno cache run.ts fetch-translator.ts` here and
-`deno cache src/mod.ts tests/families_test.ts` in `js/deltic/` to
-regenerate them, then re-run `just conformance-ct::run-deltic` plus
+The browser leg's assets (the worker bundle and the translator wasm) are
+built from this SAME pinned JSR graph rather than fetched as separate
+sha-pinned GitHub release assets — see `browser-bundle-entry.ts` and the
+`run-deltic-browser` recipe.
+
+To bump: update the version in both `deno.json` files (this directory's
+and `js/deltic/deno.json`), delete BOTH `deno.lock` files (this directory
+and `js/deltic/`), re-run `deno install` in both directories (`--frozen`
+elsewhere depends on the regenerated lock), confirm
+`just conformance-ct::deltic-pin-check` passes, then re-run
+`just conformance-ct::run-deltic` plus
 `just conformance-ct::aggregate aggregate-signing` and commit the diff
 (including the regenerated matrices, via
 `just conformance-ct::matrix-update`).

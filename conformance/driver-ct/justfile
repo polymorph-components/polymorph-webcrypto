@@ -198,7 +198,7 @@ run-wasmtime: build
     mkdir -p results
     {{root}}/target/release/ct-driver {{guest}} --jobs 8 --jsonl \
         --target wasmtime-rustcrypto > results/wasmtime-rustcrypto.jsonl
-    {{root}}/target/release/ct-driver {{signing}} --jsonl \
+    {{root}}/target/release/ct-driver {{signing}} --jobs 8 --jsonl \
         --target wasmtime-rustcrypto > results/wasmtime-signing.jsonl
 
 # The jco npm tree + both transpiles, skipped when up to date. The
@@ -259,16 +259,30 @@ run-jco: build _jco-prepared
 # expected-fail debt (targets.toml / targets-signing.toml, #351) and the
 # aggregate is what assesses it. run.ts still exits nonzero on any
 # runner-level error.
+#
+# The suites run as two CONCURRENT processes: each process's case loop
+# is single-threaded (ct-runner has no shard option yet — lann/deltic#110
+# tracks one; #372 tracks the worker fan-out here), so suite-level
+# concurrency is the available parallelism, hiding the signing leg's
+# wall time under the shared leg's.
 run-deltic: build
     #!/usr/bin/env bash
     set -euo pipefail
     mkdir -p results
-    deno run \
-        --config {{root}}/conformance/driver-ct/deltic/deno.json --frozen \
-        --allow-read={{root}} \
-        --allow-write={{root}}/conformance/driver-ct/results \
-        {{root}}/conformance/driver-ct/deltic/run.ts \
-        --target deltic-deno
+    run_suite() {
+        deno run \
+            --config {{root}}/conformance/driver-ct/deltic/deno.json --frozen \
+            --allow-read={{root}} \
+            --allow-write={{root}}/conformance/driver-ct/results \
+            {{root}}/conformance/driver-ct/deltic/run.ts \
+            --target deltic-deno --suite "$1"
+    }
+    run_suite shared & shared=$!
+    run_suite signing & signing=$!
+    status=0
+    wait "$shared" || status=$?
+    wait "$signing" || status=$?
+    if [ "$status" -ne 0 ]; then exit "$status"; fi
     deno eval 'console.log(JSON.stringify({target:"deltic-deno",engine:"deno",version:"Deno "+Deno.version.deno}))' \
         > results/deltic-deno.meta.json
 

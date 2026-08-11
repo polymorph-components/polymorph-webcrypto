@@ -353,7 +353,28 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v5
 
+      - name: Restore conformance artifacts
+        # The same key the conformance job populated in this run: a hit
+        # provides the prebuilt compat binary (CONFORMANCE_PREBUILT
+        # below); the miss path rebuilds via the recipes' `build`
+        # dependency. Restored first so the hit path — the norm, since
+        # the conformance job saved this key minutes earlier — skips the
+        # Rust toolchain and cargo-cache steps below entirely: this job
+        # ends the critical path, and the toolchain only serves the miss
+        # path's rebuild.
+        id: ct-artifacts
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            target/wasm32-wasip2/release/conformance_guest_ct.wasm
+            target/wasm32-wasip2/release/conformance_signing_guest_ct.wasm
+            target/wasm32-wasip2/release/polymorph_webcrypto_guest_provider.wasm
+            target/release/ct-driver
+            target/release/compat
+          key: conformance-artifacts-${{ runner.os }}-${{ hashFiles('Cargo.lock', 'Cargo.toml', 'rust-toolchain.toml', 'rust/**', 'wit/**', 'conformance/vectors/**', 'conformance/harness/**', 'conformance/guest-ct/Cargo.toml', 'conformance/guest-ct/build.rs', 'conformance/guest-ct/src/**', 'conformance/signing-guest-ct/Cargo.toml', 'conformance/signing-guest-ct/src/**', 'conformance/class-d/**', 'conformance/driver-ct/Cargo.toml', 'conformance/driver-ct/src/**') }}
+
       - name: Install Rust toolchain
+        if: steps.ct-artifacts.outputs.cache-hit != 'true'
         run: rustup show active-toolchain || rustup toolchain install
 
       - name: Install just
@@ -368,22 +389,6 @@ jobs:
           cargo-binstall --no-confirm --disable-strategies compile \
             --install-path "$HOME/.local/bin" just@1.54.0
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
-
-      - name: Restore conformance artifacts
-        # The same key the conformance job populated in this run: a hit
-        # provides the prebuilt compat binary (CONFORMANCE_PREBUILT
-        # below); the miss path rebuilds via the recipes' `build`
-        # dependency.
-        id: ct-artifacts
-        uses: actions/cache/restore@v4
-        with:
-          path: |
-            target/wasm32-wasip2/release/conformance_guest_ct.wasm
-            target/wasm32-wasip2/release/conformance_signing_guest_ct.wasm
-            target/wasm32-wasip2/release/polymorph_webcrypto_guest_provider.wasm
-            target/release/ct-driver
-            target/release/compat
-          key: conformance-artifacts-${{ runner.os }}-${{ hashFiles('Cargo.lock', 'Cargo.toml', 'rust-toolchain.toml', 'rust/**', 'wit/**', 'conformance/vectors/**', 'conformance/harness/**', 'conformance/guest-ct/Cargo.toml', 'conformance/guest-ct/build.rs', 'conformance/guest-ct/src/**', 'conformance/signing-guest-ct/Cargo.toml', 'conformance/signing-guest-ct/src/**', 'conformance/class-d/**', 'conformance/driver-ct/Cargo.toml', 'conformance/driver-ct/src/**') }}
 
       - name: Cache cargo
         if: steps.ct-artifacts.outputs.cache-hit != 'true'

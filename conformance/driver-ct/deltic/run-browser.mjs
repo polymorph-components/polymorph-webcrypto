@@ -24,10 +24,10 @@ import { writeResultsFile } from "@polymorph/component-test-js/node-runner";
 
 const REPO_ROOT = fileURLToPath(new URL("../../../", import.meta.url));
 const RESULTS_DIR = fileURLToPath(new URL("../results/", import.meta.url));
-// Must agree with fetch-translator.ts's TAG (the translator is served
-// from its cache directory).
-const TAG = "pre-58b2404";
 const WORKER_URL = "/target/deltic-browser/webcrypto-worker.mjs";
+// Version-free: the lock owns @deltic versioning now (see the migration
+// contract), so this output path carries no tag.
+const TRANSLATOR_URL = "/target/deltic-browser/deltic-translator-shim.wasm";
 // CI hardware headroom, not a platform gap (the deno leg's 300 s case
 // timeout precedent): the 19k-case census and the slowest vector
 // batches can hold the heartbeat quiet for minutes on a 2-core runner.
@@ -47,7 +47,7 @@ const { values } = parseArgs({
 
 const common = {
   target: values.target,
-  translatorUrl: `/target/deltic/${TAG}/deltic-translator-shim.wasm`,
+  translatorUrl: TRANSLATOR_URL,
   // One suite instance per shard: this corpus's per-case fresh instances
   // outrun the renderer's wasm-memory reservations (19k cases; a trapped
   // case then poisons the rest of the shard, loudly). Every other leg of
@@ -72,7 +72,7 @@ const SUITES = [
 ];
 for (const [what, rel] of [
   ["bundled worker (run `just conformance-ct::run-deltic-browser`)", WORKER_URL],
-  ["translator asset (run fetch-translator.ts)", common.translatorUrl],
+  ["translator asset (run `just conformance-ct::run-deltic-browser`)", common.translatorUrl],
   ...SUITES.map((s) => [`suite component (run \`just conformance-ct::build\`)`, s.suiteUrl]),
 ]) {
   try {

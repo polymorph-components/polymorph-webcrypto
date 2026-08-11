@@ -1,5 +1,6 @@
 // The deltic-browser shard worker's bundle entry: the deltic engine
-// surface (the release-bundle entry at the pinned tag), the upstream
+// surface (../browser-bundle-entry.ts, resolved through this repo's
+// exact-pinned JSR import map), the upstream
 // worker message loop, and this repo's deltic host module, resolved
 // through ONE import map so the emitted bundle carries exactly one
 // embedder module instance — which is what keeps `instanceof WitError`
@@ -13,7 +14,7 @@
 // suites (shared + signing) run through this one worker; the host
 // module reads no configuration, so `suiteImports` is the plain record.
 
-import * as deltic from "@deltic/release-bundle-entry";
+import * as deltic from "../browser-bundle-entry.ts";
 import { workerMain } from "@polymorph/component-test-js/deltic-worker-main";
 import { setRsaPrivateKeyPolicy, webcryptoImports } from "../../../../js/deltic/src/mod.ts";
 

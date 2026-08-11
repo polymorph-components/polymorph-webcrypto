@@ -39,14 +39,13 @@ browser-hosted embedding should call `setRsaPrivateKeyPolicy("decline")`
 ## Module identity
 
 `deno.json`'s `@deltic/runtime/embedder` import maps to the exact same
-pinned URL as
+pinned JSR version as
 [`conformance/driver-ct/deltic/deno.json`](../../conformance/driver-ct/deltic/deno.json).
 deltic's `wasi-shims` module imports that specifier by bare name
 internally; if the two configs ever disagreed, the embedder module would
 load twice and `instanceof WitError` would stop holding across the
-boundary. Keep both import maps byte-identical for that one entry —
-`conformance/driver-ct/deltic/fetch-translator.ts`'s `assertPinConsistency`
-gate fails loudly if they drift.
+boundary. Keep both import maps' version identical for that one entry —
+`just conformance-ct::deltic-pin-check` gates that.
 
 ## Unit tests
 
@@ -63,7 +62,7 @@ deno task check
 deno task test
 ```
 
-Both run against the pinned release URLs with `deno.lock` frozen (`just
+Both run against the pinned JSR release with `deno.lock` frozen (`just
 deltic-module-check` runs the pair as CI does). The exhaustive behavioral
 surface is the real conformance suite, which lives at
 [`conformance/driver-ct/deltic/`](../../conformance/driver-ct/deltic).
@@ -71,5 +70,5 @@ surface is the real conformance suite, which lives at
 ## The pin
 
 See [`conformance/driver-ct/deltic/README.md`](../../conformance/driver-ct/deltic/README.md)
-— it owns the bump procedure for all three pin sites (this `deno.json`
+— it owns the bump procedure for both pin sites (this `deno.json`
 included).

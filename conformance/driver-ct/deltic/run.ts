@@ -20,7 +20,7 @@
 // suite's async exports run on the callback ABI under stock Deno.
 //
 //   just conformance-ct::run-deltic          # both legs
-//   … run.ts --translator <shim.wasm> [--suite shared|signing] [--only SUB]
+//   … run.ts [--translator <shim.wasm>] [--suite shared|signing] [--only SUB]
 //            [--fresh-cases] [--jspi]
 //
 // SUITE ARTIFACTS. Both legs run the BARE suites — the same components
@@ -74,14 +74,15 @@
 // MODULE-IDENTITY CONSTRAINT: deltic's wasi-shims module imports
 // `@deltic/runtime/embedder` by bare specifier internally; this leg's
 // `deno.json` AND `js/deltic/deno.json` must map that specifier to the
-// IDENTICAL pinned URL, or the embedder module loads twice and
-// `instanceof WitError` stops holding across the module boundary.
-// `fetch-translator.ts`'s `assertPinConsistency` gates that.
+// IDENTICAL exact-pinned JSR version, or the embedder module loads twice
+// and `instanceof WitError` stops holding across the module boundary.
+// `just conformance-ct::deltic-pin-check` gates that.
 
 import { Translator } from "@deltic/runtime/shim";
 import type { ComponentArtifacts } from "@deltic/runtime/embedder";
 import { runSuite } from "@deltic/ct-runner";
 import { wasiShims } from "@deltic/wasi-shims";
+import { defaultTranslator } from "@deltic/translator";
 import { webcryptoImports } from "../../../js/deltic/src/mod.ts";
 
 // This file sits at conformance/driver-ct/deltic/run.ts, so the repo root
@@ -204,12 +205,12 @@ function parseArgs(argv: string[]): Cli {
 }
 
 async function loadArtifacts(
-  translatorPath: string,
+  translatorPath: string | undefined,
   wasm: URL,
 ): Promise<ComponentArtifacts> {
-  const translator = await Translator.create(
-    await Deno.readFile(translatorPath),
-  );
+  const translator = translatorPath
+    ? await Translator.create(await Deno.readFile(translatorPath))
+    : await defaultTranslator();
   const componentBytes = await Deno.readFile(wasm);
   const { plan, adapters } = translator.translate(componentBytes);
   return { plan, componentBytes, adapters };
@@ -250,14 +251,6 @@ async function runOne(spec: SuiteSpec, cli: Cli): Promise<void> {
 
 async function main() {
   const cli = parseArgs(Deno.args);
-
-  if (!cli.translator) {
-    throw new Error(
-      "missing required --translator <path>; fetch the pinned release " +
-        "asset with `deno run ... conformance/driver-ct/deltic/fetch-translator.ts` " +
-        "(see that script for exact permissions).",
-    );
-  }
 
   await Deno.mkdir(RESULTS, { recursive: true });
   for (const key of cli.suites) await runOne(SUITES[key], cli);

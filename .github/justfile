@@ -21,6 +21,7 @@ rust-checks:
 # and the committed-matrix and compat gates run in the
 # conformance-aggregate job, where every target's results have joined.
 conformance-checks:
+    @just gha::_step conformance-ct::deltic-pin-check
     @just gha::_step conformance-ct::all
     @just gha::_step deltic-module-check
 

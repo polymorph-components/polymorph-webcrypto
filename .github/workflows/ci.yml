@@ -119,9 +119,18 @@ jobs:
             js/componentize/wpt/parity/package-lock.json
 
       - name: Install Node 24
+        # Exact-pinned, like every engine here (Deno, the Playwright
+        # builds): Node is the jco-node conformance host and the wpt
+        # parity gate's live baseline, and the parity loss set is a
+        # per-engine fact — a floating minor turns a Node WebCrypto
+        # behavior change into fleet-dependent gate flaps during the
+        # runner-image rollout (setup-node's check-latest defaults false,
+        # so the toolcache decides). Every node-version in this workflow
+        # and pages.yml moves together; a bump reruns
+        # `just wpt::update-losses` under the new version in the same PR.
         uses: actions/setup-node@v4
         with:
-          node-version: 24
+          node-version: "24.19.0"
 
       - name: Install Deno
         # For the deltic-deno conformance target and js/deltic's own unit
@@ -253,7 +262,7 @@ jobs:
       - name: Install Node 24
         uses: actions/setup-node@v4
         with:
-          node-version: 24
+          node-version: "24.19.0"
 
       - name: Install just
         # The same pin as scripts/setup.sh, installed by the same
@@ -301,7 +310,7 @@ jobs:
       - name: Install Node 24
         uses: actions/setup-node@v4
         with:
-          node-version: 24
+          node-version: "24.19.0"
 
       - name: Install just
         # The same pin as scripts/setup.sh, installed by the same
@@ -374,7 +383,7 @@ jobs:
       - name: Install Node 24
         uses: actions/setup-node@v4
         with:
-          node-version: 24
+          node-version: "24.19.0"
 
       - name: Install just
         # The same pin as scripts/setup.sh, installed by the same
@@ -622,7 +631,7 @@ jobs:
       - name: Install Node 24
         uses: actions/setup-node@v4
         with:
-          node-version: 24
+          node-version: "24.19.0"
 
       - name: Cache cargo
         uses: Swatinem/rust-cache@v2
@@ -682,7 +691,7 @@ jobs:
       - name: Install Node 24
         uses: actions/setup-node@v4
         with:
-          node-version: 24
+          node-version: "24.19.0"
 
       - name: Install just
         # The same pin as scripts/setup.sh, installed by the same
@@ -726,7 +735,7 @@ jobs:
       - name: Install Node 24
         uses: actions/setup-node@v4
         with:
-          node-version: 24
+          node-version: "24.19.0"
 
       - name: Install just
         # The same pin as scripts/setup.sh, installed by the same

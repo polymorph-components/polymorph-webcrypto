@@ -356,6 +356,19 @@ jobs:
       - name: Install Rust toolchain
         run: rustup show active-toolchain || rustup toolchain install
 
+      - name: Install just
+        # The same pin as scripts/setup.sh, installed by the same
+        # digest-pinned cargo-binstall bootstrap.
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          ./scripts/install-binstall.sh
+          export PATH="$HOME/.cargo/bin:$PATH"
+          mkdir -p "$HOME/.local/bin"
+          cargo-binstall --no-confirm --disable-strategies compile \
+            --install-path "$HOME/.local/bin" just@1.54.0
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
       - name: Restore conformance artifacts
         # The same key the conformance job populated in this run: a hit
         # provides the prebuilt compat binary (CONFORMANCE_PREBUILT

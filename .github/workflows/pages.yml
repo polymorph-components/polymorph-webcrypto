@@ -61,7 +61,7 @@ jobs:
       - name: Install Node 24
         uses: actions/setup-node@v4
         with:
-          node-version: 24
+          node-version: "24.19.0"
 
       - name: Install Deno
         # For the viewer staging's deltic release assets

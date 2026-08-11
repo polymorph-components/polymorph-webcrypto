@@ -25,6 +25,16 @@ conformance-checks:
     @just gha::_step conformance-ct::all
     @just gha::_step deltic-module-check
 
+# Everything the conformance-suites CI job runs: transpile the suite
+# components into conformance/driver-ct/jco/generated for the engine-leg
+# jobs (conformance-firefox and conformance-webkit download the artifact
+# instead of building). The suite wasms come from the
+# conformance-artifacts cache, or from a build-suites cargo run on a
+# miss — never the host-driver link, which only the conformance job
+# needs.
+conformance-suites:
+    @just gha::_step conformance-ct::_jco-prepared
+
 # Everything the conformance-aggregate CI job runs, after downloading
 # every target's results (the ubuntu legs', the jco-firefox job's, and
 # the macOS jco-webkit job's) into conformance/driver-ct/results/: the

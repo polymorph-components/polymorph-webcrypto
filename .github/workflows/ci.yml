@@ -381,7 +381,7 @@ jobs:
           save-if: false
 
       - name: Install the component-test tools at the pinned revision
-        uses: polymorph-components/polymorph-test/actions/setup@aca1008344f754db1c2b88da05cb5999333f8d6a
+        uses: polymorph-components/polymorph-test/actions/setup@4ce2a7a45d479a22bc8eb2696dd9ebe0b2a3516b
         with:
           js-locks: |
             conformance/driver-ct/jco/package-lock.json

@@ -1,16 +1,24 @@
 name: pages
 
 # Publish the Pages site: the browser WPT parity page
-# (js/componentize/wpt/web/) and the public crates' API docs. Builds the
-# WPT page's artifacts and the rustdoc, then deploys the site assembled by
-# `just gha::pages-site`. (The incumbent conformance results viewer was
-# retired at the M1.6 cutover; the component-test matrix is the committed
-# conformance/driver-ct/matrix.md.)
+# (js/componentize/wpt/web/), the conformance results viewer and compat
+# matrix, and the public crates' API docs. Builds the WPT page's
+# artifacts and the rustdoc, then deploys the site assembled by
+# `just gha::pages-site`.
 # The pages' URLs are all relative, so they serve correctly from the
 # project subpath.
+#
+# Triggered by CI COMPLETING on main, not by the push: the site stages
+# the conformance-results artifact (results, matrices, compat.json), and
+# a push-triggered build races the CI run producing it — it would always
+# publish the previous run's data against the new commit's page code.
+# The build checks out the triggering run's commit and downloads that
+# exact run's artifact, so page code and data are always same-commit.
 
 on:
-  push:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
     branches: [main]
   workflow_dispatch:
 
@@ -18,19 +26,26 @@ permissions:
   contents: read
   pages: write
   id-token: write
+  actions: read
 
-# One deployment at a time; a newer push supersedes an in-flight one.
+# One deployment at a time; a newer run supersedes an in-flight one.
 concurrency:
   group: pages
   cancel-in-progress: true
 
 jobs:
   build:
+    # A failed CI run publishes nothing (its artifact may be partial);
+    # manual dispatch builds from whatever the branch and the latest
+    # successful run provide.
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
       - name: Checkout code
         uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.ref }}
 
       - name: Install Rust toolchain
         run: rustup show active-toolchain || rustup toolchain install
@@ -71,15 +86,19 @@ jobs:
         # assets.
         run: just conformance-ct::_viewer-prepared
 
-      - name: Fetch the latest conformance results (best effort)
-        # The viewer's results pane data: the conformance-results
-        # artifact of the newest successful CI run on main. Absent
+      - name: Fetch the conformance results (best effort)
+        # The viewer's and compat page's data: the conformance-results
+        # artifact of the CI run this build follows (workflow_run), or
+        # the newest successful main run under manual dispatch. Absent
         # (expired retention, API hiccup), the page still serves — the
-        # file inputs and the live run are self-contained.
+        # file inputs are self-contained.
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          run_id=$(gh api "repos/${GITHUB_REPOSITORY}/actions/workflows/ci.yml/runs?branch=main&status=success&per_page=1" -q '.workflow_runs[0].id' || true)
+          run_id="${{ github.event.workflow_run.id }}"
+          if [ -z "$run_id" ]; then
+            run_id=$(gh api "repos/${GITHUB_REPOSITORY}/actions/workflows/ci.yml/runs?branch=main&status=success&per_page=1" -q '.workflow_runs[0].id' || true)
+          fi
           if [ -n "$run_id" ]; then
             gh run download "$run_id" -R "$GITHUB_REPOSITORY" -n conformance-results \
               -D conformance/driver-ct/results/ \

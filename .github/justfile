@@ -121,14 +121,24 @@ timing-lab-scheduled:
     fi
     exit $status
 
+# The results viewer's live-pane assets, built ahead of `pages-site`:
+# the suite component wasms (prebuilt when the pages workflow restores
+# the CI run's conformance-artifacts cache — CONFORMANCE_PREBUILT — and
+# rebuilt by the recipe's cargo fallback otherwise) and the
+# deltic-browser worker bundle + repo-pinned translator shim the staged
+# viewer's live pane loads.
+pages-live-assets:
+    just conformance-ct::build
+    just conformance-ct::_deltic-browser-bundle
+
 # Assemble the Pages site in target/conformance-site: the browser WPT
 # parity page, the conformance results viewer + live run, the public
 # crates' API docs, and the landing page linking them (used by the pages
-# workflow; assumes `wpt::web-artifacts` and
-# `conformance-ct::_viewer-prepared` already produced their artifacts).
-# Each page's subtree mirrors the repository layout, which the pages'
-# relative URLs and the transpiled components' relative imports both
-# rely on.
+# workflow; assumes `wpt::web-artifacts`,
+# `conformance-ct::_viewer-prepared`, and `gha::pages-live-assets`
+# already produced their artifacts). Each page's subtree mirrors the
+# repository layout, which the pages' relative URLs and the transpiled
+# components' relative imports both rely on.
 pages-site:
     just rust-docs
     rm -rf target/conformance-site
@@ -151,9 +161,7 @@ pages-site:
     # lockfiles/manifests, and — when the pages workflow could fetch the
     # latest main CI run's conformance-results artifact — the
     # results-JSONL (absent results leave the file inputs, which are
-    # self-contained). The live pane needs the deltic-browser worker
-    # bundle a local build produces; on the published site it reports
-    # the missing bundle rather than running (#362).
+    # self-contained).
     mkdir -p target/conformance-site/conformance/driver-ct/jco \
         target/conformance-site/conformance/guest-ct \
         target/conformance-site/conformance/signing-guest-ct
@@ -167,6 +175,19 @@ pages-site:
     cp conformance/driver-ct/results/*.jsonl target/conformance-site/conformance/driver-ct/results/ 2>/dev/null || true
     cp conformance/driver-ct/results/*.meta.json target/conformance-site/conformance/driver-ct/results/ 2>/dev/null || true
     cp conformance/driver-ct/results/compat.json target/conformance-site/conformance/driver-ct/results/ 2>/dev/null || true
+    # The live pane's run inputs (gha::pages-live-assets), at the same
+    # repo-mirroring paths the staged viewer's page-relative URLs
+    # resolve to locally: the worker bundle + its pin-matched translator
+    # shim, and both suite component wasms. Weight: the suites are
+    # multi-MB but fetched only when a visitor starts a run.
+    mkdir -p target/conformance-site/target/deltic-browser \
+        target/conformance-site/target/wasm32-wasip2/release
+    cp target/deltic-browser/webcrypto-worker.mjs \
+        target/deltic-browser/deltic-translator-shim.wasm \
+        target/conformance-site/target/deltic-browser/
+    cp target/wasm32-wasip2/release/conformance_guest_ct.wasm \
+        target/wasm32-wasip2/release/conformance_signing_guest_ct.wasm \
+        target/conformance-site/target/wasm32-wasip2/release/
     # The compat page (the MDN-style support matrix over
     # results/compat.json — conformance/driver-ct/compat/README.md).
     mkdir -p target/conformance-site/conformance/driver-ct/compat

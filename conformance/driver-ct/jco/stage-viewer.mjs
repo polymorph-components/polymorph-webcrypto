@@ -1,15 +1,19 @@
 // Stage component-test's results viewer (js/viewer at the Cargo.lock-
 // pinned checkout, argv[2]) into ./viewer/, wired to this repository's
 // data: the demo button loads the committed lockfiles/manifests plus
-// the last run's results-JSONL, and the live pane defaults to the
-// transpiled conformance suites. Every rewrite is anchored on the
-// upstream source it replaces and fails loudly when a pin bump changes
-// the page's shape — the transforms then need re-anchoring, which is
-// exactly the review the bump owes.
+// the last run's results-JSONL, and the live pane defaults to this
+// repository's suites — runtime-linked, so it needs the deltic-browser
+// worker bundle a local `just conformance-ct::run-deltic-browser`
+// produces. Every rewrite is anchored on the upstream source it
+// replaces and fails loudly when a pin bump changes the page's shape —
+// the transforms then need re-anchoring, which is exactly the review
+// the bump owes.
 //
-// Invoked by `conformance-ct::_viewer-prepared`; the viewer-aggregate
-// transpile happens in the recipe (it needs this package's
-// node_modules), and ./viewer/ is gitignored, stamped with the rev.
+// Invoked by `conformance-ct::_viewer-prepared`, which also stages the
+// viewer's wasm engine (the raw viewer-aggregate component — deltic
+// translates it in-page; no transpile) and the pinned deltic release
+// assets into viewer/generated/ and viewer/deltic/; ./viewer/ is
+// gitignored, stamped with the rev.
 import { copyFileSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
@@ -33,8 +37,9 @@ function rewrite(text, anchor, replacement, what) {
   return text.slice(0, first) + replacement + text.slice(first + anchor.length);
 }
 
-// Pass-through files.
-for (const file of ["viewer.css", "harness.mjs", "context.js", "worker.mjs"]) {
+// Pass-through files: the page's import closure — app.mjs pulls
+// harness.mjs and deltic.mjs, and harness.mjs pulls context.js.
+for (const file of ["viewer.css", "harness.mjs", "deltic.mjs", "context.js"]) {
   copyFileSync(join(from, file), join("viewer", file));
 }
 
@@ -51,7 +56,7 @@ html = rewrite(
 html = rewrite(
   html,
   `<input type="text" id="live-url" value="./suite/" spellcheck="false">`,
-  `<input type="text" id="live-url" value="/conformance/driver-ct/jco/generated/" spellcheck="false">`,
+  `<input type="text" id="live-url" value="/target/wasm32-wasip2/release/conformance_guest_ct.wasm" title="A suite COMPONENT wasm, served from the repo root (build with just conformance-ct::build)" spellcheck="false">`,
   "the live suite URL default",
 );
 html = rewrite(
@@ -113,6 +118,10 @@ const handler = `$("btn-demo").onclick = async () => {
         ["composed", "/conformance/driver-ct/results/composed.jsonl"],
         ["jco-node", "/conformance/driver-ct/results/jco-node.jsonl"],
         ["jco-browser", "/conformance/driver-ct/results/jco-browser.jsonl"],
+        ["jco-firefox", "/conformance/driver-ct/results/jco-firefox.jsonl"],
+        ["jco-webkit", "/conformance/driver-ct/results/jco-webkit.jsonl"],
+        ["deltic-deno", "/conformance/driver-ct/results/deltic-deno.jsonl"],
+        ["deltic-browser", "/conformance/driver-ct/results/deltic-browser.jsonl"],
       ],
     },
     signing: {
@@ -122,6 +131,10 @@ const handler = `$("btn-demo").onclick = async () => {
         ["wasmtime-rustcrypto", "/conformance/driver-ct/results/wasmtime-signing.jsonl"],
         ["jco-node", "/conformance/driver-ct/results/jco-node-signing.jsonl"],
         ["jco-browser", "/conformance/driver-ct/results/jco-browser-signing.jsonl"],
+        ["jco-firefox", "/conformance/driver-ct/results/jco-firefox-signing.jsonl"],
+        ["jco-webkit", "/conformance/driver-ct/results/jco-webkit-signing.jsonl"],
+        ["deltic-deno", "/conformance/driver-ct/results/deltic-deno-signing.jsonl"],
+        ["deltic-browser", "/conformance/driver-ct/results/deltic-browser-signing.jsonl"],
       ],
     },
   };
@@ -150,6 +163,17 @@ const handler = `$("btn-demo").onclick = async () => {
 // Replace [start, end + "\n};".length) — the whole upstream handler —
 // with the new one, which carries its own closing.
 app = app.slice(0, start) + handler + app.slice(end + "\n};".length);
+// app.mjs: the live pane's shard worker must serve this package's
+// imports — the suites are runtime-linked and import polymorph:webcrypto,
+// which upstream's stock (no-SUT) worker cannot satisfy — so it is the
+// deltic-browser worker bundle (deltic engine + this repo's host module),
+// built locally by `just conformance-ct::run-deltic-browser`.
+app = rewrite(
+  app,
+  `new URL("../runner-deltic/browser-worker.mjs", import.meta.url),`,
+  `"/target/deltic-browser/webcrypto-worker.mjs",`,
+  "the live pane's worker URL",
+);
 writeFileSync("viewer/app.mjs", app);
 
 console.log("staged component-test viewer into viewer/");

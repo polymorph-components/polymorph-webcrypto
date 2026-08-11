@@ -187,11 +187,14 @@ just wpt::web                # serve the browser WPT parity page locally: the
                              #   same two legs run live in your browser
 just conformance-ct::all     # the Wycheproof-derived conformance tests over the
                              #   enabled targets (component-test stack);
-                             #   renders conformance/driver-ct/matrix.md
+                             #   renders conformance/driver-ct/matrix.md and
+                             #   the support matrix (results/compat.json —
+                             #   see conformance/driver-ct/compat/)
 just conformance-ct::web     # serve the conformance results viewer + a live
                              #   in-browser run of the suites (last local
                              #   run's results; the Pages site publishes the
-                             #   same viewer with CI's results)
+                             #   same viewer with CI's results) — the support
+                             #   matrix page is at conformance/driver-ct/compat/
 just timing-lab::run         # dudect-style timing tests of the composed in-guest
                              #   provider (statistical; not part of `just ci`)
 just ci                      # everything CI runs

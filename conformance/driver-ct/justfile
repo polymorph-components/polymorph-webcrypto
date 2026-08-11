@@ -15,10 +15,17 @@ signing := root + "/target/wasm32-wasip2/release/conformance_signing_guest_ct.wa
 provider := root + "/target/wasm32-wasip2/release/polymorph_webcrypto_guest_provider.wasm"
 composed := root + "/target/conformance-composed-ct.wasm"
 
-# CI/opt-in predicate for the optional jco-browser target: non-empty when
-# it should run — always under GitHub Actions (the runner image ships
-# Chrome), locally only with CONFORMANCE_BROWSER=1.
+# CI/opt-in predicates for the optional browser-engine targets:
+# non-empty when the leg should run inside `all`. jco-browser runs
+# always under GitHub Actions (the runner image ships Chrome), locally
+# with CONFORMANCE_BROWSER=1. jco-firefox is NOT auto-enabled by CI —
+# the leg needs a runner to itself (Firefox paces the suites several
+# times slower than Chromium), so CI runs it as the dedicated
+# conformance-firefox job via `run-firefox`; locally opt in with
+# CONFORMANCE_FIREFOX=1. jco-webkit has no predicate: it runs only as
+# the dedicated macOS CI job (or by hand on a mac) — see run-webkit.
 conformance-browser-enabled := if env('GITHUB_ACTIONS', '') == 'true' { '1' } else if env('CONFORMANCE_BROWSER', '') == '1' { '1' } else { '' }
+conformance-firefox-enabled := if env('CONFORMANCE_FIREFOX', '') == '1' { '1' } else { '' }
 
 # The one-VERSION-everywhere pin gate, replacing the old
 # assertPinConsistency script: every `jsr:@deltic/*` import across BOTH
@@ -45,7 +52,7 @@ build:
     #!/usr/bin/env bash
     set -euo pipefail
     if [ "${CONFORMANCE_PREBUILT:-}" = "1" ] && [ -f "{{guest}}" ] && [ -f "{{signing}}" ] \
-        && [ -x "{{root}}/target/release/ct-driver" ]; then
+        && [ -x "{{root}}/target/release/ct-driver" ] && [ -x "{{root}}/target/release/compat" ]; then
         echo "conformance suite/driver artifacts are prebuilt (CONFORMANCE_PREBUILT=1); skipping cargo"
         exit 0
     fi
@@ -119,13 +126,14 @@ _ct-leaves: build
 
 # Stage component-test's results viewer for this repository: the page
 # files from a checkout at the Cargo.lock-pinned rev (the npm facade
-# deliberately packs only the harness core, and the viewer-aggregate
-# component must be BUILT — it is a cdylib, not installable), the
-# aggregate transpiled against this repo's preview2-shim, and the data
-# wiring applied by jco/stage-viewer.mjs (anchored transforms that fail
-# loudly when a pin bump changes the page's shape). Output:
+# deliberately packs only the harness core), the viewer's wasm engine —
+# the RAW viewer-aggregate component, which deltic translates in-page;
+# no transpile step — plus the deltic release assets at the checkout's
+# own pin (its fetch-deltic.ts owns tag + sha256; needs deno), and the
+# data wiring applied by jco/stage-viewer.mjs (anchored transforms that
+# fail loudly when a pin bump changes the page's shape). Output:
 # jco/viewer/ (gitignored), stamped with the rev.
-_viewer-prepared: _jco-prepared
+_viewer-prepared:
     #!/usr/bin/env bash
     set -euo pipefail
     block=$(grep -m1 -A2 '^name = "component-test-sdk"' "{{root}}/Cargo.lock")
@@ -145,17 +153,18 @@ _viewer-prepared: _jco-prepared
     fi
     cargo build -q --manifest-path "$src/Cargo.toml" \
         --target wasm32-wasip2 --release -p viewer-aggregate
+    fetch() { (cd "$src" && deno run \
+        --allow-read=js/runner-deltic,target --allow-write=target \
+        --allow-net=github.com,objects.githubusercontent.com,release-assets.githubusercontent.com \
+        js/runner-deltic/fetch-deltic.ts --asset "$1"); }
+    translator=$(fetch translator)
+    bundle=$(fetch embedder)
     cd jco
     node stage-viewer.mjs "$src"
-    node_modules/.bin/component-test-jco-transpile transpile \
-        "$src/target/wasm32-wasip2/release/viewer_aggregate.wasm" \
-        --name viewer-aggregate \
-        --map 'wasi:cli/*=../../node_modules/@bytecodealliance/preview2-shim/lib/browser/cli.js#*' \
-        --map 'wasi:clocks/*=../../node_modules/@bytecodealliance/preview2-shim/lib/browser/clocks.js#*' \
-        --map 'wasi:io/*=../../node_modules/@bytecodealliance/preview2-shim/lib/browser/io.js#*' \
-        --map 'wasi:random/*=../../node_modules/@bytecodealliance/preview2-shim/lib/browser/random.js#*' \
-        --map 'wasi:filesystem/*=../../node_modules/@bytecodealliance/preview2-shim/lib/browser/filesystem.js#*' \
-        -o viewer/generated
+    mkdir -p viewer/deltic viewer/generated
+    cp "$translator" "$bundle" viewer/deltic/
+    cp "$src/target/wasm32-wasip2/release/viewer_aggregate.wasm" \
+        viewer/generated/viewer-aggregate.wasm
     printf '%s' "$rev" > viewer/.rev
 
 # Serve the results viewer + live browser run: component-test's
@@ -234,6 +243,8 @@ run-jco: build _jco-prepared
     cd jco && node --experimental-wasm-jspi runner.mjs \
         --suite conformance-signing-guest-ct --jsonl --target jco-node \
         > ../results/jco-node-signing.jsonl
+    node -e 'process.stdout.write(JSON.stringify({target:"jco-node",engine:"node",version:"Node.js "+process.versions.node})+"\n")' \
+        > results/jco-node.meta.json
 
 # The deltic-deno target (the same reference host as jco-node, rewritten
 # over deltic's embedder API — js/deltic/src/mod.ts — and RUNTIME-LINKED
@@ -258,6 +269,8 @@ run-deltic: build
         --allow-write={{root}}/conformance/driver-ct/results \
         {{root}}/conformance/driver-ct/deltic/run.ts \
         --target deltic-deno
+    deno eval 'console.log(JSON.stringify({target:"deltic-deno",engine:"deno",version:"Deno "+Deno.version.deno}))' \
+        > results/deltic-deno.meta.json
 
 # Build the in-guest RustCrypto provider (composed target SUT; also the
 # class-D gate's plug). Prebuilt-skip as for `build`.
@@ -307,16 +320,60 @@ run-browser: build _jco-prepared
         --missing sha1-checked \
         --missing-signing rsa-sign,rsa-oaep-decrypt
 
+# The jco-firefox target: the same transpiles and host module in
+# Playwright's pinned Firefox (the upstream driver applies Gecko's JSPI
+# pref). Install the engine once with `npx playwright-core install
+# --with-deps firefox` from jco/. Runs as the dedicated conformance-firefox
+# CI job, which downloads the transpiled suites built by the conformance
+# job instead of depending on `build`; locally, `just conformance-ct::build
+# _jco-prepared` first (or run it through `all` with CONFORMANCE_FIREFOX=1).
+# The --missing declarations mirror targets.toml / targets-signing.toml's
+# jco-firefox entries.
+run-firefox:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    [ -f jco/generated/conformance-guest-ct.js ] || {
+        echo "run-firefox: no transpiled suites in jco/generated/ — run" >&2
+        echo "  just conformance-ct::build && just conformance-ct::_jco-prepared" >&2
+        echo "or download the CI conformance-suites artifact." >&2
+        exit 1
+    }
+    mkdir -p results
+    cd jco && node run-browser.mjs --engine firefox \
+        --missing sha1-checked \
+        --missing-signing rsa-sign,rsa-oaep-decrypt
+
+# The jco-webkit target: Playwright WebKit on macOS — Apple's crypto
+# backend, the mobile-Safari proxy (run-browser.mjs refuses other
+# platforms). Runs as the dedicated macOS CI job, which downloads the
+# transpiled suites built on ubuntu instead of depending on `build`;
+# on a mac, run `just conformance-ct::build _jco-prepared` first (and
+# `npx playwright-core install webkit` once, from jco/).
+run-webkit:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    [ -f jco/generated/conformance-guest-ct.js ] || {
+        echo "run-webkit: no transpiled suites in jco/generated/ — run" >&2
+        echo "  just conformance-ct::build && just conformance-ct::_jco-prepared" >&2
+        echo "or download the CI conformance-suites artifact." >&2
+        exit 1
+    }
+    mkdir -p results
+    cd jco && node run-browser.mjs --engine webkit \
+        --missing sha1-checked,rsa-verify-8192 \
+        --missing-signing rsa-sign,rsa-oaep-decrypt
+
 # run-browser when enabled (CI, or CONFORMANCE_BROWSER=1); a skip note
 # otherwise — targets.toml marks jco-browser optional, so the aggregates
-# warn on its missing results rather than failing.
+# warn on its missing results rather than failing. Skips clear stale
+# results so an aggregate never reads a previous run's files.
 _run-browser-if-enabled:
     #!/usr/bin/env bash
     set -euo pipefail
     if [ -n "{{conformance-browser-enabled}}" ]; then
         just run-browser
     else
-        rm -f results/jco-browser.jsonl results/jco-browser-signing.jsonl
+        rm -f results/jco-browser.jsonl results/jco-browser-signing.jsonl results/jco-browser.meta.json
         echo "skipping the jco-browser conformance target (opt in with CONFORMANCE_BROWSER=1; needs Chrome/Chromium 137+)"
     fi
 
@@ -371,6 +428,18 @@ _run-deltic-browser-if-enabled:
         echo "skipping the deltic-browser conformance target (opt in with CONFORMANCE_BROWSER=1; needs Chrome/Chromium 137+)"
     fi
 
+# run-firefox when enabled (CONFORMANCE_FIREFOX=1); mirrors
+# _run-browser-if-enabled.
+_run-firefox-if-enabled:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    if [ -n "{{conformance-firefox-enabled}}" ]; then
+        just run-firefox
+    else
+        rm -f results/jco-firefox.jsonl results/jco-firefox-signing.jsonl results/jco-firefox.meta.json
+        echo "skipping the jco-firefox conformance target (opt in with CONFORMANCE_FIREFOX=1; needs Playwright Firefox)"
+    fi
+
 # Aggregate all targets into the matrix; exits nonzero on any failure
 # or validation error. Binds against the COMMITTED lockfiles: upstream
 # ruled (polymorph-components/polymorph-test#44) that artifact hashes are provenance,
@@ -381,9 +450,10 @@ _run-deltic-browser-if-enabled:
 aggregate: _ct-tools
     #!/usr/bin/env bash
     set -euo pipefail
-    browser=()
-    [ -f results/jco-browser.jsonl ] && browser+=(--results jco-browser=results/jco-browser.jsonl)
-    [ -f results/deltic-browser.jsonl ] && browser+=(--results deltic-browser=results/deltic-browser.jsonl)
+    optional=()
+    for t in jco-browser deltic-browser jco-firefox jco-webkit; do
+        [ -f "results/$t.jsonl" ] && optional+=(--results "$t=results/$t.jsonl")
+    done
     {{ct}} aggregate \
         --lock ../guest-ct/tests.lock \
         --manifest targets.toml \
@@ -391,24 +461,25 @@ aggregate: _ct-tools
         --results composed=results/composed.jsonl \
         --results jco-node=results/jco-node.jsonl \
         --results deltic-deno=results/deltic-deno.jsonl \
-        ${browser[@]+"${browser[@]}"} \
+        ${optional[@]+"${optional[@]}"} \
         -o results/matrix.md
 
-# The signing suite (host-only: wasmtime, jco-node, jco-browser, and
-# deltic-deno).
+# The signing suite (host-only: wasmtime, jco-node, the browser-engine
+# targets, and deltic-deno).
 aggregate-signing: _ct-tools
     #!/usr/bin/env bash
     set -euo pipefail
-    browser=()
-    [ -f results/jco-browser-signing.jsonl ] && browser+=(--results jco-browser=results/jco-browser-signing.jsonl)
-    [ -f results/deltic-browser-signing.jsonl ] && browser+=(--results deltic-browser=results/deltic-browser-signing.jsonl)
+    optional=()
+    for t in jco-browser deltic-browser jco-firefox jco-webkit; do
+        [ -f "results/$t-signing.jsonl" ] && optional+=(--results "$t=results/$t-signing.jsonl")
+    done
     {{ct}} aggregate \
         --lock ../signing-guest-ct/tests.lock \
         --manifest targets-signing.toml \
         --results wasmtime-rustcrypto=results/wasmtime-signing.jsonl \
         --results jco-node=results/jco-node-signing.jsonl \
         --results deltic-deno=results/deltic-deno-signing.jsonl \
-        ${browser[@]+"${browser[@]}"} \
+        ${optional[@]+"${optional[@]}"} \
         -o results/matrix-signing.md
 
 # Refresh the committed matrices from a FULL run (all targets incl.
@@ -426,6 +497,23 @@ matrix-check:
     diff -u matrix.md results/matrix.md
     diff -u matrix-signing.md results/matrix-signing.md
 
+# Validate the compat registry and build results/compat.json — the
+# MDN-style support matrix the compat page (compat/index.html) renders —
+# from whatever results are present (absent targets become no-data
+# columns; see compat/README.md). The CI aggregate job runs it with
+# --require-all over every target's merged results, so the published
+# matrix is never partial.
+compat-data: build
+    {{root}}/target/release/compat --root . \
+        --commit "$(git -C {{root}} rev-parse HEAD)" \
+        -o results/compat.json
+
+# Validation only (registry hygiene, ledger agreement, aspect
+# liveness); pass --require-all to also fail on any missing target
+# results, as the CI aggregate job does.
+compat-check *args: build
+    {{root}}/target/release/compat --root . {{args}}
+
 # Everything: build, then every check and target in parallel (the
 # incumbent gate's topology: wall time is bounded by the slowest
 # target, not the sum). The pre-phase builds everything the parallel
@@ -438,8 +526,9 @@ all: build build-provider _ct-tools _jco-prepared
         conformance-ct::lock-check conformance-ct::class-d \
         conformance-ct::run-wasmtime conformance-ct::run-composed \
         conformance-ct::run-jco conformance-ct::_run-browser-if-enabled \
+        conformance-ct::_run-firefox-if-enabled \
         conformance-ct::run-deltic conformance-ct::_run-deltic-browser-if-enabled
-    just aggregate aggregate-signing
+    just aggregate aggregate-signing compat-data
 
 # The class-D negative-composition gate (ported from the incumbent
 # harness), in two halves.

@@ -14,14 +14,31 @@ rust-checks:
     @just gha::_step demo::test-composed
 
 # Everything the conformance CI job runs: the cross-implementation
-# conformance matrix (component-test stack, all five targets including
-# jco-browser and deltic-deno), the committed-matrix check, and the
-# deltic host module's own unit gate (same module, fast local check).
+# conformance targets that share its runner (wasmtime-rustcrypto,
+# composed, jco-node, jco-browser, deltic-deno), their aggregates, and
+# the deltic host module's own unit gate (same module, fast local
+# check). The jco-firefox and jco-webkit legs run as their own CI jobs,
+# and the committed-matrix and compat gates run in the
+# conformance-aggregate job, where every target's results have joined.
 conformance-checks:
     @just gha::_step conformance-ct::deltic-pin-check
     @just gha::_step conformance-ct::all
-    @just gha::_step conformance-ct::matrix-check
     @just gha::_step deltic-module-check
+
+# Everything the conformance-aggregate CI job runs, after downloading
+# every target's results (the ubuntu legs', the jco-firefox job's, and
+# the macOS jco-webkit job's) into conformance/driver-ct/results/: the
+# full aggregates, the committed-matrix check, and the compat
+# build+check (--require-all: the published matrix is never partial).
+# The job restores the conformance artifacts cache the conformance job
+# saved in the same run, so the recipes' `build` dependency no-ops
+# under CONFORMANCE_PREBUILT.
+conformance-aggregate-checks:
+    @just gha::_step conformance-ct::aggregate
+    @just gha::_step conformance-ct::aggregate-signing
+    @just gha::_step conformance-ct::matrix-check
+    @just gha::_step conformance-ct::compat-data
+    @just gha::_step "conformance-ct::compat-check --require-all"
 
 # Everything the jco CI job runs. The three WPT parity engines run in
 # parallel over one shared artifact build (wpt::_parity-gates).
@@ -118,29 +135,33 @@ pages-site:
         target/conformance-site/js/componentize/wpt/build/
     cp -r js/componentize/wpt/parity/generated-web \
         target/conformance-site/js/componentize/wpt/parity/
-    # The conformance results viewer + live run: the staged
-    # component-test page, the transpiled suites and their import
-    # targets, the committed lockfiles/manifests, and — when the pages
-    # workflow could fetch the latest main CI run's conformance-results
-    # artifact — the results-JSONL (absent results leave the file
-    # inputs and the live pane, which are self-contained).
+    # The conformance results viewer: the staged component-test page
+    # (self-contained: the deltic release assets and the raw
+    # viewer-aggregate component ride inside viewer/), the committed
+    # lockfiles/manifests, and — when the pages workflow could fetch the
+    # latest main CI run's conformance-results artifact — the
+    # results-JSONL (absent results leave the file inputs, which are
+    # self-contained). The live pane needs the deltic-browser worker
+    # bundle a local build produces; on the published site it reports
+    # the missing bundle rather than running (#362).
     mkdir -p target/conformance-site/conformance/driver-ct/jco \
         target/conformance-site/conformance/guest-ct \
-        target/conformance-site/conformance/signing-guest-ct \
-        target/conformance-site/conformance/driver-ct/jco/node_modules/@bytecodealliance/preview2-shim
+        target/conformance-site/conformance/signing-guest-ct
     cp -r conformance/driver-ct/jco/viewer target/conformance-site/conformance/driver-ct/jco/viewer
     rm -f target/conformance-site/conformance/driver-ct/jco/viewer/.rev
-    cp -r conformance/driver-ct/jco/generated target/conformance-site/conformance/driver-ct/jco/generated
-    rm -f target/conformance-site/conformance/driver-ct/jco/generated/.stamp
-    cp conformance/driver-ct/context.js target/conformance-site/conformance/driver-ct/
-    cp -r conformance/driver-ct/jco/node_modules/@bytecodealliance/preview2-shim/lib \
-        target/conformance-site/conformance/driver-ct/jco/node_modules/@bytecodealliance/preview2-shim/
     cp conformance/guest-ct/tests.lock target/conformance-site/conformance/guest-ct/
     cp conformance/signing-guest-ct/tests.lock target/conformance-site/conformance/signing-guest-ct/
     cp conformance/driver-ct/targets.toml conformance/driver-ct/targets-signing.toml \
         target/conformance-site/conformance/driver-ct/
     mkdir -p target/conformance-site/conformance/driver-ct/results
     cp conformance/driver-ct/results/*.jsonl target/conformance-site/conformance/driver-ct/results/ 2>/dev/null || true
+    cp conformance/driver-ct/results/*.meta.json target/conformance-site/conformance/driver-ct/results/ 2>/dev/null || true
+    cp conformance/driver-ct/results/compat.json target/conformance-site/conformance/driver-ct/results/ 2>/dev/null || true
+    # The compat page (the MDN-style support matrix over
+    # results/compat.json — conformance/driver-ct/compat/README.md).
+    mkdir -p target/conformance-site/conformance/driver-ct/compat
+    cp conformance/driver-ct/compat/index.html conformance/driver-ct/compat/app.mjs \
+        target/conformance-site/conformance/driver-ct/compat/
     cp -r target/doc target/conformance-site/doc
     cp .github/pages/index.html target/conformance-site/index.html
 

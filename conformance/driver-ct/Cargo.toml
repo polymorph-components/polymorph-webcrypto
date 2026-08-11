@@ -9,9 +9,16 @@ description = "component-test host-embed driver for the ported conformance suite
 name = "ct-driver"
 path = "src/main.rs"
 
+[[bin]]
+name = "compat"
+path = "src/bin/compat.rs"
+
 [dependencies]
 component-test-runner = { workspace = true }
 polymorph-webcrypto-wasmtime = { path = "../../rust/wasmtime" }
 wasmtime = { version = "47", features = ["component-model", "component-model-async", "async", "runtime"] }
 wasmtime-wasi = "47"
 anyhow = "1"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+toml = "0.9"

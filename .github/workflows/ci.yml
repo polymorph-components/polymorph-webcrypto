@@ -44,18 +44,23 @@ jobs:
       - name: Run rust checks
         run: just gha::rust-checks
 
-  # The cross-implementation conformance matrix (component-test stack):
-  # both suites across all five targets — wasmtime-rustcrypto, composed,
-  # jco-node, jco-browser (headless Chromium), and deltic-deno
-  # (runtime-linked under stock Deno) — plus the aggregates, the
-  # committed-matrix check, and the deltic host module's unit gate.
+  # The cross-implementation conformance targets that run in this job
+  # (component-test stack): both suites across wasmtime-rustcrypto,
+  # composed, jco-node, jco-browser (headless Chromium via jco),
+  # deltic-browser (headless Chromium via deltic), and deltic-deno
+  # (runtime-linked under stock Deno) — plus the aggregates over those
+  # targets and the deltic host module's unit gate. The jco-firefox and
+  # jco-webkit legs run as their own jobs below (Firefox needs a runner
+  # to itself; WebKit needs macOS); the committed-matrix and compat
+  # gates run in conformance-aggregate once every target's results
+  # exist.
   conformance:
     runs-on: ubuntu-latest
     # Warm runs take a few minutes, but a full cache bootstrap (dependency
     # cache + component-test tools + the artifact cache, all cold) needs
     # ~20; a timeout kill skips the cache-save post steps, so too small a
     # budget here can never bootstrap.
-    timeout-minutes: 30
+    timeout-minutes: 40
     steps:
       - name: Checkout code
         uses: actions/checkout@v5
@@ -65,13 +70,14 @@ jobs:
 
       - name: Cache conformance artifacts
         # The exact products of conformance-ct::build/build-provider (the
-        # suite + provider wasms and the ct-driver binary), keyed on the
-        # sources that produce them. rust-cache deliberately excludes
-        # workspace-crate artifacts, so without this every run repays the
-        # guest builds (rkyv corpus generation) and the wasmtime-embedding
-        # driver link (~2 min) even with a warm dependency cache. On a hit
-        # the recipes skip cargo entirely (CONFORMANCE_PREBUILT below) and
-        # the dependency cache restore is skipped too.
+        # suite + provider wasms and the ct-driver + compat binaries),
+        # keyed on the sources that produce them. rust-cache deliberately
+        # excludes workspace-crate artifacts, so without this every run
+        # repays the guest builds (rkyv corpus generation) and the
+        # wasmtime-embedding driver link (~2 min) even with a warm
+        # dependency cache. On a hit the recipes skip cargo entirely
+        # (CONFORMANCE_PREBUILT below) and the dependency cache restore is
+        # skipped too.
         id: ct-artifacts
         uses: actions/cache@v4
         with:
@@ -80,6 +86,7 @@ jobs:
             target/wasm32-wasip2/release/conformance_signing_guest_ct.wasm
             target/wasm32-wasip2/release/polymorph_webcrypto_guest_provider.wasm
             target/release/ct-driver
+            target/release/compat
           # Key = enumerated *build inputs* of these artifacts (the crates
           # that produce them, the vectors/harness they embed, the wit,
           # the pins), NOT conformance/** wholesale — prose, committed
@@ -164,6 +171,260 @@ jobs:
         env:
           CONFORMANCE_PREBUILT: ${{ steps.ct-artifacts.outputs.cache-hit == 'true' && '1' || '' }}
 
+      - name: Upload the transpiled suites
+        # For the conformance-webkit macOS job: the jco transpiles are
+        # built here (the wasm builds and the transpiler run on ubuntu);
+        # the macOS job serves them to Playwright WebKit unchanged.
+        if: always() && hashFiles('conformance/driver-ct/jco/generated/*.js') != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: conformance-suites
+          path: conformance/driver-ct/jco/generated
+          retention-days: 7
+
+      - name: Upload the ubuntu conformance results
+        # Interim: conformance-aggregate merges these with the macOS
+        # jco-webkit results and publishes the full conformance-results
+        # artifact (the Pages viewer's and the matrix-refresh flow's
+        # input).
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: conformance-results-ubuntu
+          path: |
+            conformance/driver-ct/results/*.jsonl
+            conformance/driver-ct/results/*.meta.json
+          retention-days: 7
+          if-no-files-found: ignore
+
+  # The jco-firefox conformance leg runs as its own job: even with the
+  # reuse worker (one component instance per shard — see
+  # conformance/driver-ct/jco/reuse-worker.mjs) Firefox paces the suites
+  # slower than Chromium, and a runner to itself keeps the conformance
+  # job's budget engine-independent. The transpiled suites are built in
+  # the conformance job and handed over; case failures do not fail this
+  # job — conformance-aggregate assesses them against the declared
+  # expected-fail ledger (#356).
+  conformance-firefox:
+    needs: conformance
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Install Node 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Install just
+        # The same pin as scripts/setup.sh, installed by the same
+        # digest-pinned cargo-binstall bootstrap (its prebuilt path needs
+        # no Rust toolchain; the compile fallback is disabled rather than
+        # assumed absent).
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          ./scripts/install-binstall.sh
+          export PATH="$HOME/.cargo/bin:$PATH"
+          mkdir -p "$HOME/.local/bin"
+          cargo-binstall --no-confirm --disable-strategies compile \
+            --install-path "$HOME/.local/bin" just@1.54.0
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      - name: Download the transpiled suites
+        uses: actions/download-artifact@v4
+        with:
+          name: conformance-suites
+          path: conformance/driver-ct/jco/generated
+
+      - name: Cache Playwright Firefox
+        id: playwright-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-conformance-firefox-${{ runner.os }}-${{ hashFiles('conformance/driver-ct/jco/package-lock.json') }}
+          restore-keys: playwright-conformance-firefox-${{ runner.os }}-
+
+      - name: Install the driver package + Playwright Firefox
+        run: |
+          cd conformance/driver-ct/jco
+          npm ci --no-audit --no-fund
+          if [ "${{ steps.playwright-cache.outputs.cache-hit }}" = "true" ]; then
+            npx playwright-core install firefox
+          else
+            npx playwright-core install --with-deps firefox
+          fi
+
+      - name: Run the jco-firefox conformance leg
+        run: just conformance-ct::run-firefox
+
+      - name: Upload the jco-firefox results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: conformance-results-firefox
+          path: |
+            conformance/driver-ct/results/jco-firefox*.jsonl
+            conformance/driver-ct/results/jco-firefox.meta.json
+          retention-days: 7
+          if-no-files-found: ignore
+
+  # The jco-webkit conformance leg runs on macOS: Playwright's WebKit
+  # there uses Apple's crypto backend — the closest CI proxy for Safari —
+  # where the Linux port's backend serves less and represents no shipping
+  # Safari (run-browser.mjs refuses it off darwin). The transpiled suites
+  # are built on ubuntu (the conformance job) and handed over; case
+  # failures do not fail this job — conformance-aggregate assesses them
+  # against the declared expected-fail ledger.
+  conformance-webkit:
+    needs: conformance
+    runs-on: macos-15
+    timeout-minutes: 40
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Install Node 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Install just
+        # The same pin as scripts/setup.sh, installed by the same
+        # digest-pinned cargo-binstall bootstrap (its prebuilt path needs
+        # no Rust toolchain; the compile fallback is disabled rather than
+        # assumed absent).
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          ./scripts/install-binstall.sh
+          export PATH="$HOME/.cargo/bin:$PATH"
+          mkdir -p "$HOME/.local/bin"
+          cargo-binstall --no-confirm --disable-strategies compile \
+            --install-path "$HOME/.local/bin" just@1.54.0
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      - name: Download the transpiled suites
+        uses: actions/download-artifact@v4
+        with:
+          name: conformance-suites
+          path: conformance/driver-ct/jco/generated
+
+      - name: Cache Playwright WebKit
+        # Same scheme as the jco job's browser cache (macOS cache path).
+        uses: actions/cache@v4
+        with:
+          path: ~/Library/Caches/ms-playwright
+          key: playwright-conformance-${{ runner.os }}-${{ hashFiles('conformance/driver-ct/jco/package-lock.json') }}
+          restore-keys: playwright-conformance-${{ runner.os }}-
+
+      - name: Install the driver package + Playwright WebKit
+        run: |
+          cd conformance/driver-ct/jco
+          npm ci --no-audit --no-fund
+          npx playwright-core install webkit
+
+      - name: Run the jco-webkit conformance leg
+        run: just conformance-ct::run-webkit
+
+      - name: Upload the jco-webkit results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: conformance-results-webkit
+          path: |
+            conformance/driver-ct/results/jco-webkit*.jsonl
+            conformance/driver-ct/results/jco-webkit.meta.json
+          retention-days: 7
+          if-no-files-found: ignore
+
+  # Every target's results in one place: the full aggregates, the
+  # committed-matrix check, and the compat matrix (build + --require-all
+  # check) run here, then the merged conformance-results artifact is
+  # published — the Pages viewer's and the no-Chrome matrix-refresh
+  # flow's input (#306).
+  conformance-aggregate:
+    needs: [conformance, conformance-firefox, conformance-webkit]
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Install Rust toolchain
+        run: rustup show active-toolchain || rustup toolchain install
+
+      - name: Install just
+        # The same pin as scripts/setup.sh, installed by the same
+        # digest-pinned cargo-binstall bootstrap.
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          ./scripts/install-binstall.sh
+          export PATH="$HOME/.cargo/bin:$PATH"
+          mkdir -p "$HOME/.local/bin"
+          cargo-binstall --no-confirm --disable-strategies compile \
+            --install-path "$HOME/.local/bin" just@1.54.0
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      - name: Restore conformance artifacts
+        # The same key the conformance job populated in this run: a hit
+        # provides the prebuilt compat binary (CONFORMANCE_PREBUILT
+        # below); the miss path rebuilds via the recipes' `build`
+        # dependency.
+        id: ct-artifacts
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            target/wasm32-wasip2/release/conformance_guest_ct.wasm
+            target/wasm32-wasip2/release/conformance_signing_guest_ct.wasm
+            target/wasm32-wasip2/release/polymorph_webcrypto_guest_provider.wasm
+            target/release/ct-driver
+            target/release/compat
+          key: conformance-artifacts-${{ runner.os }}-${{ hashFiles('Cargo.lock', 'Cargo.toml', 'rust-toolchain.toml', 'rust/**', 'wit/**', 'conformance/vectors/**', 'conformance/harness/**', 'conformance/guest-ct/Cargo.toml', 'conformance/guest-ct/build.rs', 'conformance/guest-ct/src/**', 'conformance/signing-guest-ct/Cargo.toml', 'conformance/signing-guest-ct/src/**', 'conformance/class-d/**', 'conformance/driver-ct/Cargo.toml', 'conformance/driver-ct/src/**') }}
+
+      - name: Cache cargo
+        if: steps.ct-artifacts.outputs.cache-hit != 'true'
+        uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: conformance
+          cache-all-crates: true
+          save-if: false
+
+      - name: Install the component-test tools at the pinned revision
+        uses: polymorph-components/polymorph-test/actions/setup@4ce2a7a45d479a22bc8eb2696dd9ebe0b2a3516b
+        with:
+          js-locks: |
+            conformance/driver-ct/jco/package-lock.json
+            examples/jco-demo/package-lock.json
+            js/jco/package-lock.json
+            js/componentize/wpt/parity/package-lock.json
+
+      - name: Download the ubuntu conformance results
+        uses: actions/download-artifact@v4
+        with:
+          name: conformance-results-ubuntu
+          path: conformance/driver-ct/results
+
+      - name: Download the jco-firefox results
+        uses: actions/download-artifact@v4
+        with:
+          name: conformance-results-firefox
+          path: conformance/driver-ct/results
+
+      - name: Download the jco-webkit results
+        uses: actions/download-artifact@v4
+        with:
+          name: conformance-results-webkit
+          path: conformance/driver-ct/results
+
+      - name: Run the aggregate checks
+        run: just gha::conformance-aggregate-checks
+        env:
+          CONFORMANCE_PREBUILT: ${{ steps.ct-artifacts.outputs.cache-hit == 'true' && '1' || '' }}
+
       # Presentation, not verdict: the just gate above already ran and
       # gated the same aggregates; these re-run them through
       # component-test's composite action for the job summary and
@@ -181,6 +442,9 @@ jobs:
             composed=conformance/driver-ct/results/composed.jsonl
             jco-node=conformance/driver-ct/results/jco-node.jsonl
             jco-browser=conformance/driver-ct/results/jco-browser.jsonl
+            deltic-browser=conformance/driver-ct/results/deltic-browser.jsonl
+            jco-firefox=conformance/driver-ct/results/jco-firefox.jsonl
+            jco-webkit=conformance/driver-ct/results/jco-webkit.jsonl
             deltic-deno=conformance/driver-ct/results/deltic-deno.jsonl
           summary-title: Conformance matrix
           cli: target/ct-tools/bin/component-test
@@ -196,22 +460,27 @@ jobs:
             wasmtime-rustcrypto=conformance/driver-ct/results/wasmtime-signing.jsonl
             jco-node=conformance/driver-ct/results/jco-node-signing.jsonl
             jco-browser=conformance/driver-ct/results/jco-browser-signing.jsonl
+            deltic-browser=conformance/driver-ct/results/deltic-browser-signing.jsonl
+            jco-firefox=conformance/driver-ct/results/jco-firefox-signing.jsonl
+            jco-webkit=conformance/driver-ct/results/jco-webkit-signing.jsonl
             deltic-deno=conformance/driver-ct/results/deltic-deno-signing.jsonl
           summary-title: Signing conformance matrix
           cli: target/ct-tools/bin/component-test
           cargo-lock: Cargo.lock
 
       - name: Upload the conformance results
-        # Feeds the Pages viewer (the latest main run's results pane)
-        # and the no-Chrome matrix-regeneration path (#306).
+        # Feeds the Pages viewer + compat page (the latest main run's
+        # results pane) and the no-Chrome matrix-regeneration path (#306).
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: conformance-results
           path: |
             conformance/driver-ct/results/*.jsonl
+            conformance/driver-ct/results/*.meta.json
             conformance/driver-ct/results/matrix.md
             conformance/driver-ct/results/matrix-signing.md
+            conformance/driver-ct/results/compat.json
           retention-days: 30
           if-no-files-found: ignore
 

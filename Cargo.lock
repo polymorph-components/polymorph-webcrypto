@@ -414,6 +414,9 @@ dependencies = [
  "anyhow",
  "component-test-runner",
  "polymorph-webcrypto-wasmtime",
+ "serde",
+ "serde_json",
+ "toml",
  "wasmtime",
  "wasmtime-wasi",
 ]

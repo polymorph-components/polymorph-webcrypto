@@ -38,6 +38,24 @@ missing-features = ["rsa-sign", "rsa-oaep-decrypt"]
 # CONFORMANCE_BROWSER=1, so missing results files are warnings, not errors.
 optional = true
 
+[targets.jco-firefox]
+# The same host module in Playwright's pinned Firefox; the same
+# fail-closed browser posture on the gated RSA private-key mints as
+# jco-browser.
+missing-features = ["rsa-sign", "rsa-oaep-decrypt"]
+# Gates in CI as the dedicated conformance-firefox job; locally opt in
+# with CONFORMANCE_FIREFOX=1, so missing results files are warnings.
+optional = true
+
+[targets.jco-webkit]
+# The same host module in Playwright WebKit on macOS (see targets.toml);
+# the same fail-closed browser posture on the gated RSA private-key
+# mints as jco-browser.
+missing-features = ["rsa-sign", "rsa-oaep-decrypt"]
+# Runs as the dedicated macOS CI job; missing results files are
+# warnings, not errors.
+optional = true
+
 [targets.deltic-deno]
 # Deno's WebCrypto serves the gated RSA private-key mints by default, so
 # the deltic host module takes the same posture as jco-node — the

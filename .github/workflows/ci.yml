@@ -197,17 +197,18 @@ jobs:
           retention-days: 7
           if-no-files-found: ignore
 
-  # The jco-firefox conformance leg runs as its own job: Firefox paces
-  # the suites several times slower than Chromium (JSPI behind the Gecko
-  # pref, heavier RSA rows), so it gets a runner to itself rather than
-  # sharing the conformance job's parallel phase. The transpiled suites
-  # are built in the conformance job and handed over; case failures do
-  # not fail this job — conformance-aggregate assesses them against the
-  # declared expected-fail ledger (#356).
+  # The jco-firefox conformance leg runs as its own job: even with the
+  # reuse worker (one component instance per shard — see
+  # conformance/driver-ct/jco/reuse-worker.mjs) Firefox paces the suites
+  # slower than Chromium, and a runner to itself keeps the conformance
+  # job's budget engine-independent. The transpiled suites are built in
+  # the conformance job and handed over; case failures do not fail this
+  # job — conformance-aggregate assesses them against the declared
+  # expected-fail ledger (#356).
   conformance-firefox:
     needs: conformance
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 30
     steps:
       - name: Checkout code
         uses: actions/checkout@v5

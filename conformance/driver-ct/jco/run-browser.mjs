@@ -6,7 +6,10 @@
 // results/<target>-signing.jsonl plus a results/<target>.meta.json
 // provenance sidecar (engine + version, consumed by the compat page).
 // This file is the frame: engine selection, core-URL enumeration,
-// per-suite configuration, results writing.
+// per-suite configuration, results writing. The shard worker is the
+// local reuse-worker.mjs — one component instance per shard, the
+// deltic legs' measured-and-argued containment trade (its header) —
+// unless --fresh-cases restores the upstream per-case worker.
 //
 // Engine → target key: chromium → jco-browser, firefox → jco-firefox,
 // webkit → jco-webkit. Chromium prefers a system Chrome (findChrome —
@@ -79,6 +82,11 @@ const { values } = parseArgs({
     // hardware-based count). Lower it when a slow engine build needs
     // memory or CPU headroom.
     jobs: { type: "string", default: "" },
+    // Restore the upstream worker's fresh-instance-per-case containment
+    // (see reuse-worker.mjs: reuse is the default — one instance per
+    // shard — because per-case instantiation dominates wall time under
+    // browser engines and the suites are KAT-shaped).
+    "fresh-cases": { type: "boolean", default: false },
   },
 });
 const ENGINE = values.engine;
@@ -170,7 +178,14 @@ const outcome = await runPageHarness({
   repoRoot: REPO_ROOT,
   html: buildHarnessPage({
     title: "polymorph:webcrypto conformance (component-test stack)",
-    config: { suites: SUITES, ...(values.jobs && { jobs: Number(values.jobs) }) },
+    config: {
+      suites: SUITES,
+      // The shard worker: one component instance per shard (reuse) by
+      // default — reuse-worker.mjs carries the rationale — or the
+      // upstream per-case-containment worker with --fresh-cases.
+      ...(values["fresh-cases"] ? {} : { workerUrl: `${BASE}/reuse-worker.mjs` }),
+      ...(values.jobs && { jobs: Number(values.jobs) }),
+    },
   }),
   stallTimeoutMs: STALL_TIMEOUT_MS[ENGINE],
 });

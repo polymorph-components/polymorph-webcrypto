@@ -15,10 +15,12 @@ const SYMBOLS = {
   yes: { text: "✓", cls: "yes", label: "supported" },
   partial: { text: "◐", cls: "partial", label: "partial — a subrow diverges" },
   no: { text: "✗", cls: "no", label: "not supported" },
+  // Feature-gated absences (row and aspect cells alike): the target
+  // declares the tagged feature missing — a recorded posture or
+  // capability gap, not a divergence from the contract.
+  unsupported: { text: "⊘", cls: "gated", label: "not served — feature gated" },
   absent: { text: "—", cls: "absent", label: "not part of this target's world" },
   "no-data": { text: "·", cls: "nodata", label: "no data in this run" },
-  // Aspect cell states.
-  unsupported: { text: "✗", cls: "no", label: "not supported" },
 };
 
 function el(tag, attrs = {}, children = []) {

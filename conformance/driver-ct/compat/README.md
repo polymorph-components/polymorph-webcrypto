@@ -113,11 +113,12 @@ the cases or ids involved.
 ## Cell semantics (`compat.json`)
 
 Per (row, target): `yes` (core and every aspect pass), `partial` (core
-passes, some aspect does not), `no` (the core itself is `xfail` or
-`na`), `absent` (structural), `no-data`. Aspect cells: `yes`, `no`
-(`xfail`), `unsupported` (`na`, with the feature name), `absent`,
-`no-data`. `no`/`partial` cells carry the tracking links of the
-aspects (or the ledger entries) behind them.
+passes, some aspect does not), `no` (the core is `xfail` — a ledgered
+divergence), `unsupported` (the core is `na` — a feature the target
+declares missing, with the feature names), `absent` (structural),
+`no-data`. Aspect cells: `yes`, `no` (`xfail`), `unsupported` (`na`,
+with the feature name), `absent`, `no-data`. `no`/`partial` cells carry
+the tracking links of the aspects (or the ledger entries) behind them.
 
 The output also carries the column list (labels, kinds, per-target
 meta sidecars when present) and a provenance block (`--commit`, ISO

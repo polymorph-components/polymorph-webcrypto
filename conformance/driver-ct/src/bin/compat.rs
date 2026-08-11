@@ -1203,6 +1203,10 @@ fn build(
                         "partial"
                     }
                 }
+                // A feature-gated absence (the target declares the tagged
+                // feature missing) renders apart from a ledgered
+                // divergence, mirroring the aspect states.
+                "na" => "unsupported",
                 _ => "no",
             };
             let mut tracking: Vec<String> = Vec::new();
@@ -1682,7 +1686,7 @@ note = "class D"
         assert_eq!(cell(&out, "hmac-sha2", "jco-node").support, "yes");
         // `na` for a declared missing feature is unsupported.
         let sha1 = cell(&out, "sha1-checked", "jco-node");
-        assert_eq!(sha1.support, "no");
+        assert_eq!(sha1.support, "unsupported");
         assert_eq!(
             sha1.features.as_deref(),
             Some(&["sha1-checked".to_string()][..])

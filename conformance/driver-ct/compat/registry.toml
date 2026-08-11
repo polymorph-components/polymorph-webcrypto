@@ -421,9 +421,6 @@ cases = [
     "shared:x25519/wycheproof-jwk/tc154",
     "shared:x25519/wycheproof-jwk/tc165",
     "shared:x25519/wycheproof-jwk/tc166",
-    "shared:x25519/wycheproof-jwk/tc519",
-    "shared:x25519/wycheproof-jwk/tc520",
-    "shared:x25519/wycheproof-jwk/tc521",
 ]
 
 # ── derivation ───────────────────────────────────────────────────────

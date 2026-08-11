@@ -395,21 +395,6 @@ case = "x25519/wycheproof-jwk/tc166"
 reason = "Firefox NSS: low-order or non-canonical X25519 public key refused at import (contributory-behavior checks); other platforms import it and derive per RFC 7748"
 tracking = "https://github.com/polymorph-components/polymorph-webcrypto/issues/356"
 
-[[targets.jco-firefox.expected-fail]]
-case = "x25519/wycheproof-jwk/tc519"
-reason = "Firefox NSS: low-order or non-canonical X25519 public key refused at import (contributory-behavior checks); other platforms import it and derive per RFC 7748"
-tracking = "https://github.com/polymorph-components/polymorph-webcrypto/issues/356"
-
-[[targets.jco-firefox.expected-fail]]
-case = "x25519/wycheproof-jwk/tc520"
-reason = "Firefox NSS: low-order or non-canonical X25519 public key refused at import (contributory-behavior checks); other platforms import it and derive per RFC 7748"
-tracking = "https://github.com/polymorph-components/polymorph-webcrypto/issues/356"
-
-[[targets.jco-firefox.expected-fail]]
-case = "x25519/wycheproof-jwk/tc521"
-reason = "Firefox NSS: low-order or non-canonical X25519 public key refused at import (contributory-behavior checks); other platforms import it and derive per RFC 7748"
-tracking = "https://github.com/polymorph-components/polymorph-webcrypto/issues/356"
-
 [targets.jco-webkit]
 # The same host module in Playwright WebKit on macOS — Apple's crypto
 # backend, the closest CI proxy for Safari (the Linux port's backend

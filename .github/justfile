@@ -134,23 +134,20 @@ pages-site:
         target/conformance-site/js/componentize/wpt/build/
     cp -r js/componentize/wpt/parity/generated-web \
         target/conformance-site/js/componentize/wpt/parity/
-    # The conformance results viewer + live run: the staged
-    # component-test page, the transpiled suites and their import
-    # targets, the committed lockfiles/manifests, and — when the pages
-    # workflow could fetch the latest main CI run's conformance-results
-    # artifact — the results-JSONL (absent results leave the file
-    # inputs and the live pane, which are self-contained).
+    # The conformance results viewer: the staged component-test page
+    # (self-contained: the deltic release assets and the raw
+    # viewer-aggregate component ride inside viewer/), the committed
+    # lockfiles/manifests, and — when the pages workflow could fetch the
+    # latest main CI run's conformance-results artifact — the
+    # results-JSONL (absent results leave the file inputs, which are
+    # self-contained). The live pane needs the deltic-browser worker
+    # bundle a local build produces; on the published site it reports
+    # the missing bundle rather than running (#362).
     mkdir -p target/conformance-site/conformance/driver-ct/jco \
         target/conformance-site/conformance/guest-ct \
-        target/conformance-site/conformance/signing-guest-ct \
-        target/conformance-site/conformance/driver-ct/jco/node_modules/@bytecodealliance/preview2-shim
+        target/conformance-site/conformance/signing-guest-ct
     cp -r conformance/driver-ct/jco/viewer target/conformance-site/conformance/driver-ct/jco/viewer
     rm -f target/conformance-site/conformance/driver-ct/jco/viewer/.rev
-    cp -r conformance/driver-ct/jco/generated target/conformance-site/conformance/driver-ct/jco/generated
-    rm -f target/conformance-site/conformance/driver-ct/jco/generated/.stamp
-    cp conformance/driver-ct/context.js target/conformance-site/conformance/driver-ct/
-    cp -r conformance/driver-ct/jco/node_modules/@bytecodealliance/preview2-shim/lib \
-        target/conformance-site/conformance/driver-ct/jco/node_modules/@bytecodealliance/preview2-shim/
     cp conformance/guest-ct/tests.lock target/conformance-site/conformance/guest-ct/
     cp conformance/signing-guest-ct/tests.lock target/conformance-site/conformance/signing-guest-ct/
     cp conformance/driver-ct/targets.toml conformance/driver-ct/targets-signing.toml \

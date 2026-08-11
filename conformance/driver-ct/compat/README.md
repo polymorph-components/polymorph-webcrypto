@@ -40,9 +40,15 @@ aggregate job passes it, so the published matrix is never partial.
 version = "0.1"
 
 [[columns]]            # display order; one per manifest target
-target = "jco-browser" # manifest/results key
-label = "Chromium"
+target = "jco-firefox" # manifest/results key
+label = "Firefox"
 kind = "host"          # or "implementation"
+# merges = "..."       # a second target this column absorbs: the same
+                       # platform behind another host stack. The builder
+                       # asserts the two targets' cells are identical
+                       # wherever both have results and folds the merged
+                       # arm into the column; a divergence fails the
+                       # build, splitting the columns again.          # or "implementation"
 
 [[groups]]             # display order; the WIT generic kinds plus
 id = "mac"             # a trailing contracts group
@@ -113,11 +119,12 @@ the cases or ids involved.
 ## Cell semantics (`compat.json`)
 
 Per (row, target): `yes` (core and every aspect pass), `partial` (core
-passes, some aspect does not), `no` (the core itself is `xfail` or
-`na`), `absent` (structural), `no-data`. Aspect cells: `yes`, `no`
-(`xfail`), `unsupported` (`na`, with the feature name), `absent`,
-`no-data`. `no`/`partial` cells carry the tracking links of the
-aspects (or the ledger entries) behind them.
+passes, some aspect does not), `no` (the core is `xfail` — a ledgered
+divergence), `unsupported` (the core is `na` — a feature the target
+declares missing, with the feature names), `absent` (structural),
+`no-data`. Aspect cells: `yes`, `no` (`xfail`), `unsupported` (`na`,
+with the feature name), `absent`, `no-data`. `no`/`partial` cells carry
+the tracking links of the aspects (or the ledger entries) behind them.
 
 The output also carries the column list (labels, kinds, per-target
 meta sidecars when present) and a provenance block (`--commit`, ISO

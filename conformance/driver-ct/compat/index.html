@@ -10,6 +10,7 @@
     --pass: #1a7f37;
     --partial: #9a6700;
     --fail: #cf222e;
+    --gated: #8250df;
     --dim: #656d76;
     --line: #d0d7de;
     --hover: #f6f8fa;
@@ -80,6 +81,7 @@
   .yes { color: var(--pass); font-weight: 600; }
   .partial { color: var(--partial); font-weight: 600; }
   .no { color: var(--fail); font-weight: 600; }
+  .gated { color: var(--gated); font-weight: 600; }
   .absent, .nodata { color: var(--dim); }
   td a { text-decoration: none; }
   td .feat {
@@ -111,6 +113,7 @@
     <span><span class="yes">✓</span> supported</span>
     <span><span class="partial">◐</span> partial — a subrow diverges</span>
     <span><span class="no">✗</span> not supported</span>
+    <span><span class="gated">⊘</span> not served — feature gated</span>
     <span><span class="absent">—</span> not part of this target's world</span>
     <span><span class="nodata">·</span> no data in this run</span>
   </div>

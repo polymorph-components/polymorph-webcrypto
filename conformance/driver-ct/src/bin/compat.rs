@@ -239,6 +239,13 @@ struct RegColumn {
     target: String,
     label: String,
     kind: String,
+    /// A second target this column absorbs: the same platform behind
+    /// another host stack. The builder asserts the two targets' cells
+    /// are identical wherever both have results — the merge is sound
+    /// exactly while the arms agree, and a divergence fails the build,
+    /// forcing the columns apart (or the divergence fixed).
+    #[serde(default)]
+    merges: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -630,11 +637,26 @@ fn build(
         }
     }
 
-    // Columns must exactly cover the union of the manifests' targets.
+    // Columns must exactly cover the union of the manifests' targets;
+    // a target may be covered by the column that names it or by one
+    // absorbing it via `merges`.
     let mut column_targets: BTreeSet<&str> = BTreeSet::new();
+    let mut merged_into: BTreeMap<&str, &str> = BTreeMap::new();
     for c in &registry.columns {
         if !column_targets.insert(&c.target) {
             errs.push(format!("registry: duplicate column target `{}`", c.target));
+        }
+        if let Some(m) = &c.merges {
+            if merged_into.insert(m.as_str(), c.target.as_str()).is_some() {
+                errs.push(format!("registry: target `{m}` is merged by two columns"));
+            }
+        }
+    }
+    for (m, primary) in &merged_into {
+        if column_targets.contains(m) {
+            errs.push(format!(
+                "registry: target `{m}` is both a column and merged into `{primary}`"
+            ));
         }
     }
     let mut manifest_targets: BTreeSet<&str> = BTreeSet::new();
@@ -644,7 +666,7 @@ fn build(
         }
     }
     for t in &manifest_targets {
-        if !column_targets.contains(t) {
+        if !column_targets.contains(t) && !merged_into.contains_key(t) {
             errs.push(format!("registry: no column for manifest target `{t}`"));
         }
     }
@@ -652,6 +674,13 @@ fn build(
         if !manifest_targets.contains(t) {
             errs.push(format!(
                 "registry: column target `{t}` is in no target manifest"
+            ));
+        }
+    }
+    for m in merged_into.keys() {
+        if !manifest_targets.contains(m) {
+            errs.push(format!(
+                "registry: merged target `{m}` is in no target manifest"
             ));
         }
     }
@@ -1055,11 +1084,19 @@ fn build(
         let manifest = manifest_of(suite);
         let mut aspects_out: Vec<OutAspect> = Vec::new();
 
-        // Aspect cells first: the row's support reads them.
+        // Aspect cells first: the row's support reads them. Cells are
+        // computed for every column target AND every merged arm — the
+        // merged-column pass then asserts the arms agree and folds
+        // them, so a merged target is fully validated, never skipped.
+        let cell_targets: Vec<&String> = registry
+            .columns
+            .iter()
+            .flat_map(|c| [Some(&c.target), c.merges.as_ref()])
+            .flatten()
+            .collect();
         for (aspect, cases) in &plan.aspects {
             let mut cells: BTreeMap<String, OutAspectCell> = BTreeMap::new();
-            for column in &registry.columns {
-                let target = &column.target;
+            for &target in &cell_targets {
                 if !manifest.targets.contains_key(target) {
                     cells.insert(
                         target.clone(),
@@ -1142,8 +1179,7 @@ fn build(
         }
 
         let mut cells: BTreeMap<String, OutCell> = BTreeMap::new();
-        for column in &registry.columns {
-            let target = &column.target;
+        for &target in &cell_targets {
             if !manifest.targets.contains_key(target) {
                 cells.insert(
                     target.clone(),
@@ -1203,6 +1239,10 @@ fn build(
                         "partial"
                     }
                 }
+                // A feature-gated absence (the target declares the tagged
+                // feature missing) renders apart from a ledgered
+                // divergence, mirroring the aspect states.
+                "na" => "unsupported",
                 _ => "no",
             };
             let mut tracking: Vec<String> = Vec::new();
@@ -1248,32 +1288,108 @@ fn build(
         }
     }
 
+    // --- merged columns -----------------------------------------------------
+    // A column's `merges` target must agree with the column wherever
+    // both have data; its cells then fold into the column's key and
+    // leave the emitted maps. Comparison skips no-data (a run-shape
+    // fact, not behavior); with --require-all every cell has data, so
+    // the gate is total in CI.
+    fn fold_merged<C: PartialEq>(
+        errs: &mut Vec<String>,
+        who: &str,
+        cells: &mut BTreeMap<String, C>,
+        primary: &str,
+        merged: &str,
+        is_no_data: impl Fn(&C) -> bool,
+        render: impl Fn(&C) -> String,
+    ) {
+        let Some(m) = cells.remove(merged) else {
+            return;
+        };
+        match cells.get(primary) {
+            None => {
+                cells.insert(primary.to_string(), m);
+            }
+            Some(p) if is_no_data(p) && !is_no_data(&m) => {
+                cells.insert(primary.to_string(), m);
+            }
+            Some(p) => {
+                if !is_no_data(&m) && *p != m {
+                    errs.push(format!(
+                        "{who}: the merged column arms diverge — `{primary}` reports {} \
+                         where `{merged}` reports {}; split the columns",
+                        render(p),
+                        render(&m)
+                    ));
+                }
+            }
+        }
+    }
+    for c in &registry.columns {
+        let Some(merged) = &c.merges else { continue };
+        for g in &mut groups {
+            for row in &mut g.rows {
+                fold_merged(
+                    &mut errs,
+                    &format!("row `{}`", row.id),
+                    &mut row.cells,
+                    &c.target,
+                    merged,
+                    |cell| cell.support == "no-data",
+                    |cell| format!("`{}`", cell.support),
+                );
+                for aspect in &mut row.aspects {
+                    fold_merged(
+                        &mut errs,
+                        &format!("row `{}` aspect `{}`", row.id, aspect.id),
+                        &mut aspect.cells,
+                        &c.target,
+                        merged,
+                        |cell| cell.state == "no-data",
+                        |cell| format!("`{}`", cell.state),
+                    );
+                }
+            }
+        }
+    }
+
     // --- columns ------------------------------------------------------------
 
     let mut columns: Vec<OutColumn> = Vec::new();
     for c in &registry.columns {
-        let meta_path = root.join("results").join(format!("{}.meta.json", c.target));
-        let meta = match std::fs::read_to_string(&meta_path) {
-            Ok(text) => match serde_json::from_str::<Meta>(&text) {
-                Ok(m) => Some(OutMeta {
-                    target: m.target,
-                    engine: m.engine,
-                    version: m.version,
-                }),
-                Err(e) => {
-                    errs.push(format!("{}: {e}", meta_path.display()));
-                    None
+        // Provenance: the column's own sidecar, else the merged arm's —
+        // the equality gate makes them the same platform.
+        let mut meta = None;
+        for t in [Some(&c.target), c.merges.as_ref()].into_iter().flatten() {
+            let meta_path = root.join("results").join(format!("{t}.meta.json"));
+            let Ok(text) = std::fs::read_to_string(&meta_path) else {
+                continue;
+            };
+            match serde_json::from_str::<Meta>(&text) {
+                Ok(m) => {
+                    meta = Some(OutMeta {
+                        target: m.target,
+                        engine: m.engine,
+                        version: m.version,
+                    });
                 }
-            },
-            Err(_) => None,
+                Err(e) => errs.push(format!("{}: {e}", meta_path.display())),
+            }
+            break;
+        }
+        let arm_present = |suite: &'static str| {
+            results.contains_key(&(suite, c.target.clone()))
+                || c.merges
+                    .as_ref()
+                    .is_some_and(|m| results.contains_key(&(suite, m.clone())))
         };
         columns.push(OutColumn {
             target: c.target.clone(),
             label: c.label.clone(),
             kind: c.kind.clone(),
             present: OutPresent {
-                shared: results.contains_key(&(SHARED, c.target.clone())),
-                signing: results.contains_key(&(SIGNING, c.target.clone())),
+                shared: arm_present(SHARED),
+                signing: arm_present(SIGNING),
             },
             meta,
         });
@@ -1682,7 +1798,7 @@ note = "class D"
         assert_eq!(cell(&out, "hmac-sha2", "jco-node").support, "yes");
         // `na` for a declared missing feature is unsupported.
         let sha1 = cell(&out, "sha1-checked", "jco-node");
-        assert_eq!(sha1.support, "no");
+        assert_eq!(sha1.support, "unsupported");
         assert_eq!(
             sha1.features.as_deref(),
             Some(&["sha1-checked".to_string()][..])
@@ -2055,6 +2171,95 @@ note = "class D"
         );
         let errs = f.errors(false);
         assert_mentions(&errs, "dead case `shared:aes-gcm/wycheproof/tc2/`");
+    }
+
+    fn merge_node_into_wasmtime(f: &Fixture) {
+        replace_registry(
+            f,
+            "[[columns]]\ntarget = \"wasmtime-rustcrypto\"\nlabel = \"Wasmtime\"\nkind = \"implementation\"\n\n[[columns]]\ntarget = \"jco-node\"\nlabel = \"Node\"\nkind = \"host\"\n",
+            "[[columns]]\ntarget = \"wasmtime-rustcrypto\"\nlabel = \"Wasmtime\"\nkind = \"implementation\"\nmerges = \"jco-node\"\n",
+        );
+    }
+
+    /// Arms that agree fold into one column: the merged target's cells
+    /// leave the output and the column carries both arms' presence.
+    #[test]
+    fn merged_column_folds_identical_arms() {
+        let f = fixture();
+        merge_node_into_wasmtime(&f);
+        // Make the jco-node arm identical to wasmtime's: it serves
+        // sha1-checked too.
+        replace_targets(
+            &f,
+            "missing-features = [\"sha1-checked\"]",
+            "missing-features = []",
+        );
+        patch_result(
+            &f,
+            "results/jco-node.jsonl",
+            "\"case\":\"sha1/wycheproof/tc1/whole\",\"status\":\"not-applicable\"",
+            "\"case\":\"sha1/wycheproof/tc1/whole\",\"status\":\"pass\"",
+        );
+        patch_result(
+            &f,
+            "results/jco-node.jsonl",
+            "\"case\":\"sha1/wycheproof/tc2/whole\",\"status\":\"not-applicable\"",
+            "\"case\":\"sha1/wycheproof/tc2/whole\",\"status\":\"pass\"",
+        );
+        let out = f.run(false).expect("identical arms fold");
+        for row in out.groups.iter().flat_map(|g| &g.rows) {
+            assert!(
+                !row.cells.contains_key("jco-node"),
+                "row `{}` still carries the folded arm",
+                row.id
+            );
+        }
+        assert_eq!(
+            cell(&out, "sha1-checked", "wasmtime-rustcrypto").support,
+            "yes"
+        );
+        let col = out
+            .columns
+            .iter()
+            .find(|c| c.target == "wasmtime-rustcrypto")
+            .expect("the merged column exists");
+        assert!(col.present.shared && col.present.signing);
+        assert!(!out.columns.iter().any(|c| c.target == "jco-node"));
+    }
+
+    /// Arms that disagree fail the build: the merge is sound exactly
+    /// while the platforms behave identically.
+    #[test]
+    fn merged_column_divergence_is_an_error() {
+        let f = fixture();
+        merge_node_into_wasmtime(&f);
+        let errs = f.errors(false);
+        assert_mentions(&errs, "merged column arms diverge");
+    }
+
+    /// A no-data primary takes the merged arm's cells instead of
+    /// erroring: run shape is not behavior.
+    #[test]
+    fn merged_column_folds_over_no_data() {
+        let f = fixture();
+        merge_node_into_wasmtime(&f);
+        f.remove("results/wasmtime-rustcrypto.jsonl");
+        f.remove("results/wasmtime-signing.jsonl");
+        let out = f.run(false).expect("the present arm serves the column");
+        assert_eq!(
+            cell(&out, "sha1-checked", "wasmtime-rustcrypto").support,
+            "unsupported"
+        );
+        assert_eq!(
+            cell(&out, "hmac-sha2", "wasmtime-rustcrypto").support,
+            "yes"
+        );
+        let col = out
+            .columns
+            .iter()
+            .find(|c| c.target == "wasmtime-rustcrypto")
+            .expect("the merged column exists");
+        assert!(col.present.shared && col.present.signing);
     }
 
     // --- fixture editing helpers -------------------------------------------

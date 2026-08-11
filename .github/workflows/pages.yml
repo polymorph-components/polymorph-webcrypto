@@ -48,6 +48,14 @@ jobs:
         with:
           node-version: 24
 
+      - name: Install Deno
+        # For the viewer staging's deltic release assets
+        # (conformance-ct::_viewer-prepared runs the checkout's
+        # fetch-deltic.ts). Version-pinned as in ci.yml.
+        uses: denoland/setup-deno@v2
+        with:
+          deno-version: "2.9.5"
+
       - name: Install dependencies
         run: ./scripts/setup.sh
         env:
@@ -57,9 +65,10 @@ jobs:
         run: just wpt::web-artifacts
 
       - name: Build the conformance viewer artifacts
-        # component-test's results viewer staged at the pin, plus the
-        # transpiled suites its live pane runs (conformance-ct's
-        # _jco-prepared dependency builds them).
+        # component-test's results viewer staged at the pin: the page
+        # files, the raw viewer-aggregate component (deltic translates
+        # it in-page — no transpile), and the pinned deltic release
+        # assets.
         run: just conformance-ct::_viewer-prepared
 
       - name: Fetch the latest conformance results (best effort)

@@ -138,7 +138,12 @@ select = [
 [[rows.aspects]]
 id = "iv-window"
 label = "IVs other than 96/128 bits (WIT window: 12–128 bytes)"
-tracking = "https://github.com/polymorph-components/polymorph-webcrypto/issues/351"
+note = """
+Web Cryptography's AES-GCM takes any nonzero-length IV — the operation is
+defined over NIST SP 800-38D, which admits IVs from 1 to 2^64-1 bits — and
+this package narrows the window to 12–128 bytes. Deno's implementation
+serves only 96- and 128-bit IVs and rejects the rest of the window.
+"""
 select = [
     "shared:probe/gcm-nonce-window",
     "shared:aes-gcm/wycheproof/tc259/",
@@ -153,13 +158,34 @@ select = [
     "shared:aes-gcm/wycheproof/tc275/",
 ]
 
+[[rows.aspects.links]]
+label = "Web Cryptography API, AES-GCM"
+url = "https://www.w3.org/TR/WebCryptoAPI/#aes-gcm"
+
+[[rows.aspects.links]]
+label = "NIST SP 800-38D (GCM)"
+url = "https://csrc.nist.gov/pubs/sp/800/38/d/final"
+
 [[rows.aspects]]
 id = "tag-window"
 label = "Decryption tags shorter than 128 bits (WIT window: 32–128, multiples of 8)"
-tracking = "https://github.com/polymorph-components/polymorph-webcrypto/issues/351"
+note = """
+Web Cryptography's AesGcmParams admits tag lengths of 32, 64, 96, 104, 112,
+120 and 128 bits; NIST SP 800-38D's appendices bound the forgery risk of
+truncated tags. Deno's implementation refuses to open a message whose tag
+is shorter than 128 bits.
+"""
 select = ["shared:probe/gcm-full-parameters"]
 
 # ── cipher ───────────────────────────────────────────────────────────
+
+[[rows.aspects.links]]
+label = "Web Cryptography API, AES-GCM"
+url = "https://www.w3.org/TR/WebCryptoAPI/#aes-gcm"
+
+[[rows.aspects.links]]
+label = "NIST SP 800-38D (GCM), Appendix B"
+url = "https://csrc.nist.gov/pubs/sp/800/38/d/final"
 
 [[rows]]
 id = "aes-cbc"
@@ -171,12 +197,25 @@ select = ["shared:aes-cbc/", "shared:probe/cbc-uniform-failure"]
 [[rows.aspects]]
 id = "malformed-ciphertexts"
 label = "Malformed ciphertexts rejected (empty input)"
-tracking = "https://github.com/polymorph-components/polymorph-webcrypto/issues/360"
+note = """
+Web Cryptography's AES-CBC decrypts then unpads per PKCS #7, so a valid
+ciphertext is a nonzero multiple of 16 bytes and the empty ciphertext must
+fail. WebKit's decrypt accepts the empty ciphertext (Wycheproof's
+upstream-invalid NoPadding vectors) instead of failing the padding check.
+"""
 select = ["shared:probe/cbc-uniform-failure"]
 cases = [
     "shared:aes-cbc/wycheproof/tc25/whole",
     "shared:aes-cbc/wycheproof/tc169/whole",
 ]
+
+[[rows.aspects.links]]
+label = "Web Cryptography API, AES-CBC"
+url = "https://www.w3.org/TR/WebCryptoAPI/#aes-cbc"
+
+[[rows.aspects.links]]
+label = "Project Wycheproof"
+url = "https://github.com/C2SP/wycheproof"
 
 [[rows]]
 id = "aes-ctr"
@@ -188,10 +227,24 @@ select = ["shared:aes-ctr/", "shared:probe/ctr-known-answers"]
 [[rows.aspects]]
 id = "counter-widths"
 label = "Counter widths other than 32/64/128 bits (WIT window: 1–128)"
-tracking = "https://github.com/polymorph-components/polymorph-webcrypto/issues/351"
+note = """
+AesCtrParams.length — how many low-order bits of the counter block
+increment — is specified for 1 through 128, over NIST SP 800-38A's standard
+incrementing function. Deno serves only 32-, 64- and 128-bit widths, and
+Firefox refuses very narrow counters (a 2-bit width fails with
+OperationError).
+"""
 select = ["shared:probe/ctr-known-answers"]
 
 # ── key-wrap ─────────────────────────────────────────────────────────
+
+[[rows.aspects.links]]
+label = "Web Cryptography API, AES-CTR"
+url = "https://www.w3.org/TR/WebCryptoAPI/#aes-ctr"
+
+[[rows.aspects.links]]
+label = "NIST SP 800-38A (CTR), Appendix B"
+url = "https://csrc.nist.gov/pubs/sp/800/38/a/final"
 
 [[rows]]
 id = "aes-kw"
@@ -243,13 +296,27 @@ select = ["shared:ed25519/"]
 [[rows.aspects]]
 id = "empty-message"
 label = "Verification of the empty message"
-tracking = "https://github.com/polymorph-components/polymorph-webcrypto/issues/360"
+note = """
+RFC 8032 defines Ed25519 over messages of any length including the empty
+message — its first test vector (TEST 1) signs the empty string — and Web
+Cryptography's Ed25519 (the Secure Curves draft) takes the RFC unchanged.
+WebKit rejects verification of the empty message where every other platform
+verifies it.
+"""
 cases = [
     "shared:ed25519/wycheproof/tc1/whole",
     "shared:ed25519/wycheproof/tc71/whole",
     "shared:ed25519/wycheproof/tc80/whole",
     "shared:ed25519/wycheproof/tc102/whole",
 ]
+
+[[rows.aspects.links]]
+label = "RFC 8032, §7.1 (test vectors)"
+url = "https://www.rfc-editor.org/rfc/rfc8032#section-7.1"
+
+[[rows.aspects.links]]
+label = "Secure Curves in the Web Cryptography API"
+url = "https://wicg.github.io/webcrypto-secure-curves/"
 
 [[rows]]
 id = "rsassa-pkcs1-v15-verify"
@@ -261,7 +328,13 @@ select = ["shared:rsassa-"]
 [[rows.aspects]]
 id = "unreduced-signatures"
 label = "Unreduced (malleable) signatures rejected — s \u2265 n"
-tracking = "https://github.com/polymorph-components/polymorph-webcrypto/issues/360"
+note = """
+RSASSA-PKCS1-v1_5 verification applies RSAVP1, which rejects any signature
+representative outside [0, n-1] (RFC 8017 §5.2.2); s' = s + n is the classic
+malleability form. WebKit's verify accepts such unreduced signatures —
+Wycheproof's SignatureMalleability vectors — where every other
+implementation rejects them.
+"""
 cases = [
     "shared:rsassa-pkcs1-v15-sha256-2048/wycheproof/tc244/whole",
     "shared:rsassa-pkcs1-v15-sha384-3072/wycheproof/tc245/whole",
@@ -269,11 +342,34 @@ cases = [
     "shared:rsassa-pkcs1-v15-sha512-4096/wycheproof/tc245/whole",
 ]
 
+[[rows.aspects.links]]
+label = "RFC 8017, §5.2.2 (RSAVP1)"
+url = "https://www.rfc-editor.org/rfc/rfc8017#section-5.2.2"
+
+[[rows.aspects.links]]
+label = "Project Wycheproof"
+url = "https://github.com/C2SP/wycheproof"
+
 [[rows.aspects]]
 id = "verify-8192"
 label = "Imported 8192-bit public keys"
-tracking = "https://github.com/polymorph-components/polymorph-webcrypto/issues/351"
+note = """
+RFC 8017 places no upper bound on the RSA modulus, and Web Cryptography's
+import steps defer to the implementation. Deno and WebKit (macOS) refuse to
+import 8192-bit public keys in every format while serving smaller moduli —
+an implementation ceiling, not a policy; Deno even generates 8192-bit keys
+it cannot re-import. The hosts declare the capability missing (the
+rsa-verify-8192 gate) rather than work around the platform importer.
+"""
 select = ["shared:rsassa-pkcs1-v15-sha256-8192/"]
+
+[[rows.aspects.links]]
+label = "RFC 8017 (PKCS #1 v2.2)"
+url = "https://www.rfc-editor.org/rfc/rfc8017"
+
+[[rows.aspects.links]]
+label = "Web Cryptography API, RSASSA-PKCS1-v1_5"
+url = "https://www.w3.org/TR/WebCryptoAPI/#rsassa-pkcs1"
 
 [[rows]]
 id = "rsa-pss-verify"
@@ -304,8 +400,23 @@ select = [
 [[rows.aspects]]
 id = "deterministic-signatures"
 label = "Deterministic RFC 8032 signatures"
-tracking = "https://github.com/polymorph-components/polymorph-webcrypto/issues/360"
+note = """
+Ed25519 signing is deterministic: RFC 8032 §5.1.6 derives the nonce from
+the private key and the message, so a (key, message) pair has exactly one
+signature and the RFC's vectors pin sign output byte for byte. WebKit
+returns a different signature than the RFC 8032 TEST 3 known answer for a
+PKCS#8-imported key — randomized signing or a key-decode divergence; its
+own verify accepts the output.
+"""
 select = ["shared:probe/ed25519-private-format-imports"]
+
+[[rows.aspects.links]]
+label = "RFC 8032, §5.1.6 (sign)"
+url = "https://www.rfc-editor.org/rfc/rfc8032#section-5.1.6"
+
+[[rows.aspects.links]]
+label = "Secure Curves in the Web Cryptography API"
+url = "https://wicg.github.io/webcrypto-secure-curves/"
 
 [[rows]]
 id = "rsassa-pkcs1-v15-sign"
@@ -354,7 +465,14 @@ select = [
 [[rows.aspects]]
 id = "public-key-admission"
 label = "Low-order / non-canonical public keys accepted at import"
-tracking = "https://github.com/polymorph-components/polymorph-webcrypto/issues/356"
+note = """
+RFC 7748 defines X25519 over any 32-byte u-coordinate: decoding masks the
+high bit, low-order inputs yield the all-zero shared secret, and §6.1 leaves
+checking that output to the protocol (MAY). Firefox/NSS takes the strict
+posture and rejects low-order and non-canonical public keys at import —
+the same contributory-behavior stance libsodium documents — where other
+platforms import them and let the derivation produce its defined result.
+"""
 cases = [
     "shared:x25519/wycheproof/tc32",
     "shared:x25519/wycheproof/tc33",
@@ -423,6 +541,18 @@ cases = [
 
 # ── derivation ───────────────────────────────────────────────────────
 
+[[rows.aspects.links]]
+label = "RFC 7748, §5–§6.1"
+url = "https://www.rfc-editor.org/rfc/rfc7748#section-6.1"
+
+[[rows.aspects.links]]
+label = "libsodium, point validation in scalar multiplication"
+url = "https://doc.libsodium.org/advanced/scalar_multiplication"
+
+[[rows.aspects.links]]
+label = "Secure Curves in the Web Cryptography API"
+url = "https://wicg.github.io/webcrypto-secure-curves/"
+
 [[rows]]
 id = "hkdf-sha2"
 group = "derivation"
@@ -486,7 +616,13 @@ select = [
 [[rows.aspects]]
 id = "oaep-labels"
 label = "Ciphertexts bound to a non-empty OAEP label"
-tracking = "https://github.com/polymorph-components/polymorph-webcrypto/issues/351"
+note = """
+RSAES-OAEP binds an optional label into the encoding (RFC 8017 §7.1; Web
+Cryptography's RsaOaepParams.label): decrypting with the matching label
+recovers the message, a mismatch fails. Deno decrypts plain-label
+ciphertexts but refuses valid ciphertexts bound to a non-empty label with
+OperationError.
+"""
 select = [
     "signing:rsa-oaep-sha256-2048/wycheproof/tc33-",
     "signing:rsa-oaep-sha256-2048/wycheproof/tc34-",
@@ -533,6 +669,14 @@ select = [
 ]
 
 # ── contracts ────────────────────────────────────────────────────────
+
+[[rows.aspects.links]]
+label = "RFC 8017, §7.1 (RSAES-OAEP)"
+url = "https://www.rfc-editor.org/rfc/rfc8017#section-7.1"
+
+[[rows.aspects.links]]
+label = "Web Cryptography API, RSA-OAEP"
+url = "https://www.w3.org/TR/WebCryptoAPI/#rsa-oaep"
 
 [[rows]]
 id = "streaming"
@@ -593,8 +737,21 @@ select = [
 [[rows.aspects]]
 id = "malformed-wraps"
 label = "Malformed CBC wraps rejected at unwrap"
-tracking = "https://github.com/polymorph-components/polymorph-webcrypto/issues/360"
+note = """
+Unwrapping over AES-CBC decrypts and unpads the wrapped bytes before
+minting a key, so a malformed wrap must fail like any malformed ciphertext.
+WebKit's CBC decrypt accepts inputs the padding rules reject (see the
+AES-CBC note), so a malformed CBC wrap unwraps into a key.
+"""
 select = ["shared:probe/cipher-wrap-uniform-failure"]
+
+[[rows.aspects.links]]
+label = "Web Cryptography API, AES-CBC"
+url = "https://www.w3.org/TR/WebCryptoAPI/#aes-cbc"
+
+[[rows.aspects.links]]
+label = "Project Wycheproof"
+url = "https://github.com/C2SP/wycheproof"
 
 [[rows]]
 id = "agreement-plumbing"
@@ -702,3 +859,73 @@ note = "class D: the provider never exports rsa-oaep-decrypt"
 target = "composed"
 row = "rsa-sign-family"
 note = "class D: the signing suite cannot compose with the provider"
+
+# ── Feature gates ────────────────────────────────────────────────────
+# The rationale sections the page links from every cell reporting a
+# gated feature. Internal tracking stays in targets.toml's ledgers.
+
+[[features]]
+id = "sha1-checked"
+note = """
+The interface serves SHA-1 with collision detection: the sha1dc
+construction detects inputs exercising the known SHA-1 collision
+attacks and reports them instead of returning a plain digest — the
+hardening git adopted after the SHAttered collision. Platform WebCrypto
+exposes only plain SHA-1, so every platform-backed host declares the
+feature missing; the Rust implementations serve it.
+"""
+[[features.links]]
+label = "sha1collisiondetection (Stevens, Karpman)"
+url = "https://github.com/cr-marcstevens/sha1collisiondetection"
+[[features.links]]
+label = "SHAttered: the first SHA-1 collision"
+url = "https://shattered.io/"
+
+[[features]]
+id = "rsa-sign"
+note = """
+RSA private-key operations leak through timing, and a browser is an
+attacker-observable timing domain — Kocher's original timing attack
+recovered RSA private keys, and the Marvin attack demonstrated the
+class is alive across modern implementations. The browser hosts
+therefore fail the gated RSASSA-PKCS1-v1_5 and RSA-PSS signing mints
+closed by default, with an explicit deployer opt-in; Node and Deno
+serve them by default.
+"""
+[[features.links]]
+label = "Kocher, Timing Attacks on Implementations of Diffie-Hellman, RSA, DSS (1996)"
+url = "https://paulkocher.com/doc/TimingAttacks.pdf"
+[[features.links]]
+label = "The Marvin Attack (Red Hat)"
+url = "https://people.redhat.com/~hkario/marvin/"
+
+[[features]]
+id = "rsa-oaep-decrypt"
+note = """
+RSA decryption in an attacker-observable timing domain is a decryption
+oracle: Manger's chosen-ciphertext attack recovers OAEP plaintexts from
+a decoder that leaks where it fails, and the Marvin attack demonstrated
+practical RSA decryption timing oracles across modern stacks. The
+browser hosts therefore fail the gated RSA-OAEP decryption mints closed
+by default, with an explicit deployer opt-in; Node and Deno serve them
+by default.
+"""
+[[features.links]]
+label = "The Marvin Attack (Red Hat)"
+url = "https://people.redhat.com/~hkario/marvin/"
+[[features.links]]
+label = "RFC 8017, §7.1.2 (RSAES-OAEP decryption)"
+url = "https://www.rfc-editor.org/rfc/rfc8017#section-7.1.2"
+
+[[features]]
+id = "rsa-verify-8192"
+note = """
+A platform capability gap, not a policy: Deno and WebKit (macOS) refuse
+to import 8192-bit RSA public keys in every format while serving
+smaller moduli, and Deno generates 8192-bit keys it cannot re-import.
+RFC 8017 places no bound on the modulus; the affected hosts declare the
+capability missing rather than work around the platform importer.
+"""
+[[features.links]]
+label = "RFC 8017 (PKCS #1 v2.2)"
+url = "https://www.rfc-editor.org/rfc/rfc8017"

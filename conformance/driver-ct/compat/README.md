@@ -65,7 +65,18 @@ select = ["shared:hmac-sha256/", "shared:hmac-sha384/"]
 id = "example"
 label = "what diverges, phrased as the capability"
 select = ["shared:hmac-sha256/wycheproof/tc1/"]
-tracking = "https://github.com/..."   # optional
+note = """what differs and why it matters — the divergence note the
+page's subrow anchors to"""
+[[rows.aspects.links]] # authoritative sources: specs, upstream
+label = "RFC 0000"     # discussions — never this repository's tracker
+url = "https://..."    # (the targets.toml ledger is the bookkeeping home)
+
+[[features]]           # a gate-rationale note, anchored from every cell
+id = "sha1-checked"    # reporting the feature
+note = """why the gate exists"""
+[[features.links]]
+label = "..."
+url = "https://..."
 
 [[excluded]]           # cases the matrix deliberately does not render
 select = ["shared:sha1-checked/decline/"]
@@ -115,6 +126,13 @@ the cases or ids involved.
 - **Statuses.** Only `pass`, `fail`, and `na` may appear in results
   feeding the matrix; anything else (`skip`, `deselected`, unknown)
   errors — a filtered or partial run must not publish.
+- **Notes.** Every aspect carries a divergence note and at least one
+  authoritative source (specs, upstream discussions); every feature
+  that can surface on a cell (a census tag some target declares
+  missing) carries a gate-rationale note. Links must be absolute
+  https URLs and must not point at this repository's tracker — the
+  targets.toml ledger is the bookkeeping home. A note for a feature no
+  cell can report is dead and errors.
 
 ## Cell semantics (`compat.json`)
 
@@ -123,8 +141,9 @@ passes, some aspect does not), `no` (the core is `xfail` — a ledgered
 divergence), `unsupported` (the core is `na` — a feature the target
 declares missing, with the feature names), `absent` (structural),
 `no-data`. Aspect cells: `yes`, `no` (`xfail`), `unsupported` (`na`,
-with the feature name), `absent`, `no-data`. `no`/`partial` cells carry
-the tracking links of the aspects (or the ledger entries) behind them.
+with the feature name), `absent`, `no-data`. Aspects carry their
+divergence `note` and `links`; the top-level `features` array carries
+the gate-rationale notes the feature names anchor to.
 
 The output also carries the column list (labels, kinds, per-target
 meta sidecars when present) and a provenance block (`--commit`, ISO

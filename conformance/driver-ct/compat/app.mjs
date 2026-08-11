@@ -1,13 +1,16 @@
 // Renders results/compat.json (the compat binary's output — see
 // README.md in this directory for the schema and semantics) as the
 // MDN-style support matrix: one table per WIT group, one column per
-// target, aspect subrows where targets diverge. Static and
-// dependency-free, like the WPT parity page; served over the repository
-// root locally (`just conformance-ct::web`) and on the Pages site with
-// the latest main CI run's data.
+// target, aspect subrows where targets diverge, and a notes section the
+// subrows and feature-gated cells anchor into — divergence notes with
+// authoritative sources, and gate-rationale notes per feature. Static
+// and dependency-free, like the WPT parity page; served over the
+// repository root locally (`just conformance-ct::web`) and on the Pages
+// site with the latest main CI run's data.
 
 const status = document.getElementById("status");
 const matrix = document.getElementById("matrix");
+const notes = document.getElementById("notes");
 const provenance = document.getElementById("provenance");
 
 const SYMBOLS = {
@@ -17,11 +20,15 @@ const SYMBOLS = {
   no: { text: "✗", cls: "no", label: "not supported" },
   // Feature-gated absences (row and aspect cells alike): the target
   // declares the tagged feature missing — a recorded posture or
-  // capability gap, not a divergence from the contract.
+  // capability gap, not a divergence from the contract. The feature
+  // names beneath the glyph anchor to the gate-rationale notes.
   unsupported: { text: "⊘", cls: "gated", label: "not served — feature gated" },
   absent: { text: "—", cls: "absent", label: "not part of this target's world" },
   "no-data": { text: "·", cls: "nodata", label: "no data in this run" },
 };
+
+const noteAnchor = (rowId, aspectId) => `note-${rowId}-${aspectId}`;
+const gateAnchor = (feature) => `gate-${feature}`;
 
 function el(tag, attrs = {}, children = []) {
   const node = document.createElement(tag);
@@ -36,18 +43,20 @@ function el(tag, attrs = {}, children = []) {
 function cellNode(cell, column) {
   const state = cell.support ?? cell.state;
   const sym = SYMBOLS[state] ?? { text: state, cls: "nodata", label: state };
-  const bits = [];
+  const bits = [el("span", { class: sym.cls, text: sym.text })];
   const titleParts = [`${column.label}: ${sym.label}`];
-  if (cell.features?.length) titleParts.push(`feature: ${cell.features.join(", ")}`);
   if (cell.note) titleParts.push(cell.note);
-  let symbol = el("span", { class: sym.cls, text: sym.text });
-  if (cell.tracking?.length) {
-    titleParts.push(cell.tracking.join("\n"));
-    symbol = el("a", { href: cell.tracking[0], title: "" }, [symbol]);
-  }
-  bits.push(symbol);
   if (cell.features?.length) {
-    bits.push(el("span", { class: "feat", text: cell.features.join(" ") }));
+    bits.push(
+      el(
+        "span",
+        { class: "feat" },
+        cell.features.flatMap((f, i) => [
+          i ? " " : "",
+          el("a", { href: `#${gateAnchor(f)}`, text: f, title: "why this gate exists" }),
+        ]),
+      ),
+    );
   }
   const td = el("td", { class: column.kind === "implementation" ? "impl" : "" }, bits);
   td.title = titleParts.join("\n");
@@ -78,9 +87,11 @@ function render(data) {
         el("tr", {}, [head, ...columns.map((c) => cellNode(row.cells[c.target] ?? { support: "no-data" }, c))]),
       );
       for (const aspect of row.aspects ?? []) {
-        const label = aspect.tracking
-          ? el("a", { href: aspect.tracking, text: aspect.label })
-          : aspect.label;
+        const label = el("a", {
+          href: `#${noteAnchor(row.id, aspect.id)}`,
+          text: aspect.label,
+          title: "what diverges, and the sources",
+        });
         tbody.append(
           el("tr", { class: "aspect" }, [
             el("td", { class: "rowhead" }, [label]),
@@ -91,6 +102,35 @@ function render(data) {
     }
     section.append(el("table", {}, [thead, tbody]));
     matrix.append(section);
+  }
+
+  // The notes the matrix anchors into: divergences first (in matrix
+  // order), then the feature gates.
+  const divergences = data.groups.flatMap((g) =>
+    g.rows.flatMap((row) =>
+      (row.aspects ?? []).map((aspect) =>
+        el("section", { class: "note", id: noteAnchor(row.id, aspect.id) }, [
+          el("h3", {}, [`${row.label} — ${aspect.label}`]),
+          el("p", { text: aspect.note }),
+          el("ul", {}, aspect.links.map((l) => el("li", {}, [el("a", { href: l.url, text: l.label })]))),
+        ]),
+      ),
+    ),
+  );
+  if (divergences.length) {
+    notes.append(el("h2", { text: "Divergence notes" }), ...divergences);
+  }
+  if (data.features?.length) {
+    notes.append(
+      el("h2", { text: "Feature gates" }),
+      ...data.features.map((f) =>
+        el("section", { class: "note", id: gateAnchor(f.id) }, [
+          el("h3", {}, [el("code", { text: f.id })]),
+          el("p", { text: f.note }),
+          el("ul", {}, f.links.map((l) => el("li", {}, [el("a", { href: l.url, text: l.label })]))),
+        ]),
+      ),
+    );
   }
 
   const versions = columns

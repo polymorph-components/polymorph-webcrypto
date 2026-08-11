@@ -21,7 +21,7 @@
 //
 // Three aspects of the jco runtime's host-facing surface are conventions
 // rather than documented API, so they are isolated and version-anchored
-// here. Validated against jco-transpile 0.5.2 (the version pinned by this
+// here. Validated against jco-transpile 0.7.0 (the version pinned by this
 // repo's npm consumers); revalidate when bumping it.
 //
 // - **Error lifting** (`witError`, and every throw site through it): a WIT
@@ -3718,8 +3718,9 @@ async function withCollectedInput(stream, op) {
  * bytes the host actually retains.
  *
  * The return is deliberately `ReadableStream<any>`-shaped: the generated
- * interface types spell `stream<u8>` as `ReadableStream<number>`, while
- * jco actually ingests `Uint8Array` chunks (batching is the runtime's).
+ * interface types spell `stream<u8>` as `AsyncIterable<number>` — which a
+ * web `ReadableStream` satisfies — while jco actually ingests `Uint8Array`
+ * chunks (batching is the runtime's).
  * @param {ByteStream} stream
  * @param {(message: Uint8Array<ArrayBuffer>) => Promise<Uint8Array>} op
  * @returns {Promise<ReadableStream>}

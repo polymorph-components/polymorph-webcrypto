@@ -10,7 +10,7 @@
     "run:browser": "node run-browser.mjs"
   },
   "dependencies": {
-    "@bytecodealliance/jco-transpile": "https://github.com/lann/jco/releases/download/jco-transpile-0.6.2-fa6990d/bytecodealliance-jco-transpile-0.6.2.tgz",
+    "@bytecodealliance/jco-transpile": "0.7.0",
     "@bytecodealliance/preview2-shim": "0.17.9",
     "@polymorph/component-test-js": "github:polymorph-components/polymorph-test#4ce2a7a45d479a22bc8eb2696dd9ebe0b2a3516b",
     "playwright-core": "1.62.1"

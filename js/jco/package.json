@@ -11,7 +11,7 @@
     "test": "node --test 'test/*.test.js'"
   },
   "devDependencies": {
-    "@bytecodealliance/jco-transpile": "0.5.2",
+    "@bytecodealliance/jco-transpile": "0.7.0",
     "typescript": "^5.9.3",
     "@polymorph/component-test-js": "github:polymorph-components/polymorph-test#4ce2a7a45d479a22bc8eb2696dd9ebe0b2a3516b"
   }

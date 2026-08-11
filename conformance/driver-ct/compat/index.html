@@ -90,6 +90,23 @@
     font-size: 0.78em;
     font-family: ui-monospace, monospace;
   }
+  td .feat a {
+    color: inherit;
+    text-decoration: underline dotted;
+  }
+  #notes section.note {
+    max-width: 60rem;
+    margin: 1rem 0;
+  }
+  #notes h3 {
+    font-size: 0.95rem;
+    margin: 1.2rem 0 0.3rem;
+  }
+  #notes p { margin: 0.2rem 0; }
+  #notes ul { margin: 0.3rem 0; padding-left: 1.4rem; }
+  #notes section.note:target h3 {
+    background: #fff8c5;
+  }
   footer {
     color: var(--dim);
     border-top: 1px solid var(--line);
@@ -106,8 +123,9 @@
     What each host and implementation serves of the package surface,
     derived from the conformance suites' results: rows are algorithms
     grouped by the WIT interface that owns them, and subrows appear
-    exactly where targets diverge within an algorithm. Cells link the
-    tracking issue for the divergence behind them.
+    exactly where targets diverge within an algorithm. Subrows link to
+    divergence notes at the bottom of the page; feature names under a
+    gated cell link to the gate's rationale.
   </p>
   <div id="legend">
     <span><span class="yes">✓</span> supported</span>
@@ -121,6 +139,7 @@
 <main>
   <div id="status">Loading <code>results/compat.json</code>…</div>
   <div id="matrix"></div>
+  <div id="notes"></div>
   <footer id="provenance" hidden></footer>
 </main>
 <script type="module" src="./app.mjs"></script>

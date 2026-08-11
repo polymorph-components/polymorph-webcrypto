@@ -209,8 +209,11 @@ struct ManifestTarget {
 #[derive(Deserialize)]
 struct ExpectedFail {
     case: String,
+    // reason and tracking are the ledger's documentation; the aggregate
+    // consumes them, and this binary needs only the case identity.
     #[allow(dead_code)]
     reason: Option<String>,
+    #[allow(dead_code)]
     tracking: Option<String>,
 }
 
@@ -232,6 +235,8 @@ struct Registry {
     excluded: Vec<RegExcluded>,
     #[serde(default)]
     structural: Vec<RegStructural>,
+    #[serde(default)]
+    features: Vec<RegFeature>,
 }
 
 #[derive(Deserialize)]
@@ -277,7 +282,30 @@ struct RegAspect {
     select: Vec<String>,
     #[serde(default)]
     cases: Vec<String>,
-    tracking: Option<String>,
+    /// The divergence note the page's subrow links to: what differs and
+    /// why it matters, with authoritative sources (specs, upstream
+    /// discussions) — never this repository's issues, which stay in the
+    /// targets.toml ledger.
+    #[serde(default)]
+    note: String,
+    #[serde(default)]
+    links: Vec<RegLink>,
+}
+
+#[derive(Deserialize, Serialize, Clone)]
+struct RegLink {
+    label: String,
+    url: String,
+}
+
+/// A gate-rationale section: why a feature-gated absence exists, linked
+/// from every cell that reports the feature.
+#[derive(Deserialize)]
+struct RegFeature {
+    id: String,
+    note: String,
+    #[serde(default)]
+    links: Vec<RegLink>,
 }
 
 #[derive(Deserialize)]
@@ -317,6 +345,16 @@ struct Output {
     provenance: Provenance,
     columns: Vec<OutColumn>,
     groups: Vec<OutGroup>,
+    features: Vec<OutFeature>,
+}
+
+/// A gate-rationale note the page anchors from every cell reporting the
+/// feature.
+#[derive(Serialize)]
+struct OutFeature {
+    id: String,
+    note: String,
+    links: Vec<RegLink>,
 }
 
 #[derive(Serialize)]
@@ -373,8 +411,6 @@ struct OutCell {
     #[serde(skip_serializing_if = "Option::is_none")]
     features: Option<Vec<String>>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    tracking: Option<Vec<String>>,
-    #[serde(skip_serializing_if = "Option::is_none")]
     note: Option<String>,
 }
 
@@ -382,8 +418,8 @@ struct OutCell {
 struct OutAspect {
     id: String,
     label: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    tracking: Option<String>,
+    note: String,
+    links: Vec<RegLink>,
     cells: BTreeMap<String, OutAspectCell>,
 }
 
@@ -402,7 +438,7 @@ struct OutAspectCell {
 #[derive(Clone, PartialEq, Eq)]
 enum Eff {
     Pass,
-    Xfail(Option<String>),
+    Xfail,
     Na(Vec<String>),
 }
 
@@ -410,7 +446,7 @@ impl Eff {
     fn kind(&self) -> &'static str {
         match self {
             Eff::Pass => "pass",
-            Eff::Xfail(_) => "xfail",
+            Eff::Xfail => "xfail",
             Eff::Na(_) => "na",
         }
     }
@@ -685,6 +721,47 @@ fn build(
         }
     }
 
+    // Gate-rationale coverage: a feature can surface on a cell when a
+    // census case carries its tag and some target in that suite's
+    // manifest declares it missing; each such feature needs a
+    // [[features]] note, and a note no cell can reach is dead.
+    let mut surfaceable: BTreeSet<String> = BTreeSet::new();
+    for suite in [SHARED, SIGNING] {
+        let census = census_of(suite);
+        let declared: BTreeSet<&str> = manifest_of(suite)
+            .targets
+            .values()
+            .flat_map(|t| t.missing_features.iter().map(String::as_str))
+            .collect();
+        for case in &census.order {
+            for tag in census.positive_tags(case) {
+                if declared.contains(tag.as_str()) {
+                    surfaceable.insert(tag);
+                }
+            }
+        }
+    }
+    let mut noted: BTreeSet<&str> = BTreeSet::new();
+    for f in &registry.features {
+        if !noted.insert(&f.id) {
+            errs.push(format!("registry: duplicate feature note `{}`", f.id));
+        }
+        check_note(&mut errs, &format!("feature `{}`", f.id), &f.note, &f.links);
+        if !surfaceable.contains(f.id.as_str()) {
+            errs.push(format!(
+                "registry: feature note `{}` matches no feature a cell can report",
+                f.id
+            ));
+        }
+    }
+    for feat in &surfaceable {
+        if !noted.contains(feat.as_str()) {
+            errs.push(format!(
+                "registry: feature `{feat}` can surface on cells but has no [[features]] note"
+            ));
+        }
+    }
+
     // --- ownership ----------------------------------------------------------
 
     struct RowPlan<'a> {
@@ -781,6 +858,12 @@ fn build(
         let mut aspect_owned: BTreeMap<String, &str> = BTreeMap::new();
         let mut consumed: BTreeSet<String> = BTreeSet::new();
         for a in &r.aspects {
+            check_note(
+                &mut errs,
+                &format!("row `{}` aspect `{}`", r.id, a.id),
+                &a.note,
+                &a.links,
+            );
             for sel in &a.select {
                 if matched_one(census, suite, sel).is_empty() {
                     errs.push(format!(
@@ -941,7 +1024,7 @@ fn build(
     }
 
     // The expected-fail ledgers, keyed by (suite, target, case).
-    let mut ledger: BTreeMap<(&str, &str, &str), Option<String>> = BTreeMap::new();
+    let mut ledger: BTreeSet<(&str, &str, &str)> = BTreeSet::new();
     for suite in [SHARED, SIGNING] {
         let census = census_of(suite);
         for (target, entry) in &manifest_of(suite).targets {
@@ -954,7 +1037,7 @@ fn build(
                     ));
                     continue;
                 }
-                ledger.insert((suite, target, &xf.case), xf.tracking.clone());
+                ledger.insert((suite, target, &xf.case));
                 if let Some(statuses) = results.get(&(suite, target.clone())) {
                     match statuses.get(&xf.case).map(String::as_str) {
                         Some("fail") => {}
@@ -990,13 +1073,14 @@ fn build(
                 };
                 let eff = match status.as_str() {
                     "pass" => Eff::Pass,
-                    "fail" => match ledger.get(&(suite, target.as_str(), case.as_str())) {
-                        Some(tracking) => Eff::Xfail(tracking.clone()),
-                        None => {
+                    "fail" => {
+                        if ledger.contains(&(suite, target.as_str(), case.as_str())) {
+                            Eff::Xfail
+                        } else {
                             errs.push(format!("{target} ({suite}): undeclared failure `{case}`"));
                             continue;
                         }
-                    },
+                    }
                     "not-applicable" => {
                         let features: Vec<String> = census
                             .positive_tags(case)
@@ -1173,7 +1257,8 @@ fn build(
             aspects_out.push(OutAspect {
                 id: aspect.id.clone(),
                 label: aspect.label.clone(),
-                tracking: aspect.tracking.clone(),
+                note: aspect.note.clone(),
+                links: aspect.links.clone(),
                 cells,
             });
         }
@@ -1186,7 +1271,6 @@ fn build(
                     OutCell {
                         support: "absent".into(),
                         features: None,
-                        tracking: None,
                         note: structural
                             .get(&(target.as_str(), plan.row.id.as_str()))
                             .map(|n| n.to_string()),
@@ -1200,7 +1284,6 @@ fn build(
                     OutCell {
                         support: "no-data".into(),
                         features: None,
-                        tracking: None,
                         note: None,
                     },
                 );
@@ -1245,18 +1328,6 @@ fn build(
                 "na" => "unsupported",
                 _ => "no",
             };
-            let mut tracking: Vec<String> = Vec::new();
-            for e in &effs {
-                if let Eff::Xfail(Some(t)) = e {
-                    tracking.push(t.clone());
-                }
-            }
-            for a in &non_yes_aspects {
-                if let Some(t) = &a.tracking {
-                    tracking.push(t.clone());
-                }
-            }
-            let tracking = dedup(tracking);
             let features = match &state {
                 Eff::Na(f) => Some(dedup(f.clone())),
                 _ => None,
@@ -1266,11 +1337,6 @@ fn build(
                 OutCell {
                     support: support.into(),
                     features,
-                    tracking: if support == "yes" || tracking.is_empty() {
-                        None
-                    } else {
-                        Some(tracking)
-                    },
                     note: None,
                 },
             );
@@ -1408,6 +1474,15 @@ fn build(
         },
         columns,
         groups,
+        features: registry
+            .features
+            .iter()
+            .map(|f| OutFeature {
+                id: f.id.clone(),
+                note: f.note.clone(),
+                links: f.links.clone(),
+            })
+            .collect(),
     }))
 }
 
@@ -1448,6 +1523,36 @@ fn uniform(
         detail.join(", ")
     ));
     None
+}
+
+/// The note discipline for aspects and feature gates: a description and
+/// at least one authoritative source, absolute URLs only, and never
+/// this repository's tracker — the targets.toml ledger is the
+/// bookkeeping home.
+fn check_note(errs: &mut Vec<String>, what: &str, note: &str, links: &[RegLink]) {
+    if note.trim().is_empty() {
+        errs.push(format!("registry: {what} has no note"));
+    }
+    if links.is_empty() {
+        errs.push(format!(
+            "registry: {what} has no links (cite the relevant spec or upstream discussion)"
+        ));
+    }
+    for l in links {
+        if l.label.trim().is_empty() || !l.url.starts_with("https://") {
+            errs.push(format!(
+                "registry: {what}: link `{}` needs a label and an absolute https URL",
+                l.url
+            ));
+        }
+        if l.url.contains("polymorph-webcrypto/issues") {
+            errs.push(format!(
+                "registry: {what}: link `{}` points at this repository's tracker; \
+                 the targets.toml ledger is the bookkeeping home",
+                l.url
+            ));
+        }
+    }
 }
 
 fn dedup(mut v: Vec<String>) -> Vec<String> {
@@ -1671,7 +1776,10 @@ select = ["shared:aes-gcm/"]
 id = "tc2"
 label = "the second vector"
 select = ["shared:aes-gcm/wycheproof/tc2/"]
-tracking = "https://example.invalid/aspect"
+note = "the second vector diverges on the composed target"
+[[rows.aspects.links]]
+label = "an authoritative source"
+url = "https://example.invalid/spec"
 
 [[rows]]
 id = "ecdsa-sign"
@@ -1688,6 +1796,13 @@ why = "decline cases prove refusal"
 target = "composed"
 row = "ecdsa-sign"
 note = "class D"
+
+[[features]]
+id = "sha1-checked"
+note = "platform hosts carry no collision-detecting SHA-1"
+[[features.links]]
+label = "an authoritative source"
+url = "https://example.invalid/sha1"
 "#,
         );
 
@@ -1812,10 +1927,7 @@ note = "class D"
         assert_eq!(cell(&out, "aes-gcm", "wasmtime-rustcrypto").support, "yes");
         let gcm = cell(&out, "aes-gcm", "composed");
         assert_eq!(gcm.support, "partial");
-        assert_eq!(
-            gcm.tracking.as_deref(),
-            Some(&["https://example.invalid/aspect".to_string()][..])
-        );
+        assert!(gcm.features.is_none());
         let aspect = &out
             .groups
             .iter()
@@ -2188,11 +2300,24 @@ note = "class D"
         let f = fixture();
         merge_node_into_wasmtime(&f);
         // Make the jco-node arm identical to wasmtime's: it serves
-        // sha1-checked too.
+        // sha1-checked too — which also retires the feature's gate note
+        // (no target declares it missing any more).
         replace_targets(
             &f,
             "missing-features = [\"sha1-checked\"]",
             "missing-features = []",
+        );
+        replace_registry(
+            &f,
+            concat!(
+                "[[features]]\n",
+                "id = \"sha1-checked\"\n",
+                "note = \"platform hosts carry no collision-detecting SHA-1\"\n",
+                "[[features.links]]\n",
+                "label = \"an authoritative source\"\n",
+                "url = \"https://example.invalid/sha1\"\n",
+            ),
+            "",
         );
         patch_result(
             &f,
@@ -2260,6 +2385,55 @@ note = "class D"
             .find(|c| c.target == "wasmtime-rustcrypto")
             .expect("the merged column exists");
         assert!(col.present.shared && col.present.signing);
+    }
+
+    /// Every aspect carries a divergence note: the page's subrows link
+    /// to them.
+    #[test]
+    fn aspect_note_required() {
+        let f = fixture();
+        replace_registry(
+            &f,
+            "note = \"the second vector diverges on the composed target\"\n",
+            "",
+        );
+        assert_mentions(&f.errors(false), "aspect `tc2` has no note");
+    }
+
+    /// Every note cites at least one authoritative source.
+    #[test]
+    fn aspect_links_required() {
+        let f = fixture();
+        replace_registry(
+            &f,
+            "[[rows.aspects.links]]\nlabel = \"an authoritative source\"\nurl = \"https://example.invalid/spec\"\n",
+            "",
+        );
+        assert_mentions(&f.errors(false), "aspect `tc2` has no links");
+    }
+
+    /// A feature that can surface on a cell needs its gate-rationale
+    /// note.
+    #[test]
+    fn feature_note_required() {
+        let f = fixture();
+        replace_registry(&f, "id = \"sha1-checked\"\n", "id = \"other-feature\"\n");
+        let errs = f.errors(false);
+        assert_mentions(&errs, "feature `sha1-checked` can surface on cells");
+        assert_mentions(&errs, "feature note `other-feature` matches no feature");
+    }
+
+    /// The published page never links this repository's tracker; the
+    /// targets.toml ledger is the bookkeeping home.
+    #[test]
+    fn repository_tracker_links_rejected() {
+        let f = fixture();
+        replace_registry(
+            &f,
+            "url = \"https://example.invalid/spec\"",
+            "url = \"https://github.com/polymorph-components/polymorph-webcrypto/issues/1\"",
+        );
+        assert_mentions(&f.errors(false), "bookkeeping home");
     }
 
     // --- fixture editing helpers -------------------------------------------

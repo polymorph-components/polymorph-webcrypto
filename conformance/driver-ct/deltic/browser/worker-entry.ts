@@ -8,11 +8,13 @@
 // (workers resolve no import maps, so bundling is the only sound shape;
 // see @polymorph/component-test-js's runner-deltic README).
 //
-// Built by `just conformance-ct::run-deltic-browser` with
+// Built by `just conformance-ct::_deltic-browser-bundle` with
 // `deno bundle --platform browser` into target/deltic-browser/, and
-// served to the page from there as runSuitesInPage's workerUrl. Both
-// suites (shared + signing) run through this one worker; the host
-// module reads no configuration, so `suiteImports` is the plain record.
+// served to the page from there: as runSuitesInPage's workerUrl by the
+// conformance leg, and as the staged results viewer's live-pane worker
+// (locally and on the published Pages site). Both suites (shared +
+// signing) run through this one worker; the host module reads no
+// configuration, so `suiteImports` is the plain record.
 
 import * as deltic from "../browser-bundle-entry.ts";
 import { workerMain } from "@polymorph/component-test-js/deltic-worker-main";

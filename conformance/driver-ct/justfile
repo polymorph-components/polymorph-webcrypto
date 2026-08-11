@@ -413,17 +413,19 @@ _deltic-browser-prepared:
         npm ci --no-audit --no-fund
     fi
 
-# The deltic-browser target: both suites runtime-linked inside headless
-# Chromium (browser WebCrypto) against this repo's deltic host module
-# (js/deltic) — the worker is one deno-bundled module (deltic engine +
-# host module + upstream message loop; deltic/browser/worker-entry.ts,
-# which imports the engine surface through deltic/browser-bundle-entry.ts
-# rather than a raw-URL release bundle), so no transpile step and no
-# generated tree. The translator wasm is extracted from the deno.lock-
-# pinned JSR module cache (no fetch, no sha bookkeeping — see
-# extract-translator-wasm.py). The --missing declarations mirror the
-# jco-browser entries: the platform is the same Chromium.
-run-deltic-browser: build _deltic-browser-prepared
+# The deltic-browser shard worker bundle + the repo-pinned translator
+# shim, into target/deltic-browser/. The worker is one deno-bundled
+# module (deltic engine + this repo's deltic host module + upstream
+# message loop; deltic/browser/worker-entry.ts, which imports the engine
+# surface through deltic/browser-bundle-entry.ts rather than a raw-URL
+# release bundle), so no transpile step and no generated tree. The
+# translator wasm is extracted from the deno.lock-pinned JSR module
+# cache (no fetch, no sha bookkeeping — see extract-translator-wasm.py)
+# at the same pin as the bundled engine, which is why the pair must
+# travel together. Consumed by run-deltic-browser (the conformance
+# leg) and by the pages build (the staged viewer's live pane serves
+# both files).
+_deltic-browser-bundle: _deltic-browser-prepared
     #!/usr/bin/env bash
     set -euo pipefail
     mkdir -p {{root}}/target/deltic-browser
@@ -436,10 +438,17 @@ run-deltic-browser: build _deltic-browser-prepared
         {{root}}/target/deltic-browser/.translator-info.json \
         {{root}}/target/deltic-browser/deltic-translator-shim.wasm \
         "$pin"
+
+# The deltic-browser target: both suites runtime-linked inside headless
+# Chromium (browser WebCrypto) against this repo's deltic host module
+# (js/deltic), through the worker bundle _deltic-browser-bundle builds.
+# The --missing declarations mirror the jco-browser entries: the
+# platform is the same Chromium.
+run-deltic-browser: build _deltic-browser-bundle
     mkdir -p results
-    (cd deltic && node run-browser.mjs \
+    cd deltic && node run-browser.mjs \
         --missing sha1-checked \
-        --missing-signing rsa-sign,rsa-oaep-decrypt)
+        --missing-signing rsa-sign,rsa-oaep-decrypt
 
 # run-deltic-browser when enabled (CI, or CONFORMANCE_BROWSER=1); a skip
 # note otherwise — targets.toml marks deltic-browser optional, so the

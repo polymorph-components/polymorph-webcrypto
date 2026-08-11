@@ -2,12 +2,16 @@
 // pinned checkout, argv[2]) into ./viewer/, wired to this repository's
 // data: the demo button loads the committed lockfiles/manifests plus
 // the last run's results-JSONL, and the live pane defaults to this
-// repository's suites — runtime-linked, so it needs the deltic-browser
-// worker bundle a local `just conformance-ct::run-deltic-browser`
-// produces. Every rewrite is anchored on the upstream source it
-// replaces and fails loudly when a pin bump changes the page's shape —
-// the transforms then need re-anchoring, which is exactly the review
-// the bump owes.
+// repository's suites — runtime-linked through the deltic-browser
+// worker bundle (built by `just conformance-ct::_deltic-browser-bundle`).
+// Every injected path is RELATIVE to the viewer page: the page is
+// served from two roots that both mirror the repository layout — the
+// repo root locally (`just conformance-ct::web`) and the project
+// subpath on the published Pages site — and only page-relative URLs
+// resolve inside both. Every rewrite is anchored on the upstream source
+// it replaces and fails loudly when a pin bump changes the page's
+// shape — the transforms then need re-anchoring, which is exactly the
+// review the bump owes.
 //
 // Invoked by `conformance-ct::_viewer-prepared`, which also stages the
 // viewer's wasm engine (the raw viewer-aggregate component — deltic
@@ -56,7 +60,7 @@ html = rewrite(
 html = rewrite(
   html,
   `<input type="text" id="live-url" value="./suite/" spellcheck="false">`,
-  `<input type="text" id="live-url" value="/target/wasm32-wasip2/release/conformance_guest_ct.wasm" title="A suite COMPONENT wasm, served from the repo root (build with just conformance-ct::build)" spellcheck="false">`,
+  `<input type="text" id="live-url" value="../../../../target/wasm32-wasip2/release/conformance_guest_ct.wasm" title="A suite COMPONENT wasm, page-relative or absolute (locally: build with just conformance-ct::build)" spellcheck="false">`,
   "the live suite URL default",
 );
 html = rewrite(
@@ -80,7 +84,7 @@ html = rewrite(
 html = rewrite(
   html,
   `<input type="text" id="live-target" value="native" spellcheck="false">`,
-  `<input type="text" id="live-target" value="jco-browser" spellcheck="false">`,
+  `<input type="text" id="live-target" value="deltic-browser" spellcheck="false">`,
   "the live target default",
 );
 writeFileSync("viewer/index.html", html);
@@ -106,43 +110,49 @@ const handler = `$("btn-demo").onclick = async () => {
   // This repository's committed inventory and manifests, plus the
   // results-JSONL under conformance/driver-ct/results/ — locally the
   // last \`just conformance-ct::all\` run, on the published page the
-  // latest main CI run's artifact. Absent streams (e.g. the optional
-  // jco-browser leg of a local run) are skipped; the aggregate then
-  // reports the absence per the manifest's optionality.
+  // latest main CI run's artifact. Paths are page-relative (the page is
+  // served from a repo-layout-mirroring root both locally and on the
+  // published site); \`at\` resolves them against this module. Absent
+  // streams (e.g. the optional jco-browser leg of a local run) are
+  // skipped; the aggregate then reports the absence per the manifest's
+  // optionality.
+  const at = (path) => new URL(path, import.meta.url).href;
+  const ROOT = "../../../../";
+  const RESULTS = ROOT + "conformance/driver-ct/results/";
   const SUITES = {
     shared: {
-      lock: "/conformance/guest-ct/tests.lock",
-      manifest: "/conformance/driver-ct/targets.toml",
+      lock: ROOT + "conformance/guest-ct/tests.lock",
+      manifest: ROOT + "conformance/driver-ct/targets.toml",
       streams: [
-        ["wasmtime-rustcrypto", "/conformance/driver-ct/results/wasmtime-rustcrypto.jsonl"],
-        ["composed", "/conformance/driver-ct/results/composed.jsonl"],
-        ["jco-node", "/conformance/driver-ct/results/jco-node.jsonl"],
-        ["jco-browser", "/conformance/driver-ct/results/jco-browser.jsonl"],
-        ["jco-firefox", "/conformance/driver-ct/results/jco-firefox.jsonl"],
-        ["jco-webkit", "/conformance/driver-ct/results/jco-webkit.jsonl"],
-        ["deltic-deno", "/conformance/driver-ct/results/deltic-deno.jsonl"],
-        ["deltic-browser", "/conformance/driver-ct/results/deltic-browser.jsonl"],
+        ["wasmtime-rustcrypto", RESULTS + "wasmtime-rustcrypto.jsonl"],
+        ["composed", RESULTS + "composed.jsonl"],
+        ["jco-node", RESULTS + "jco-node.jsonl"],
+        ["jco-browser", RESULTS + "jco-browser.jsonl"],
+        ["jco-firefox", RESULTS + "jco-firefox.jsonl"],
+        ["jco-webkit", RESULTS + "jco-webkit.jsonl"],
+        ["deltic-deno", RESULTS + "deltic-deno.jsonl"],
+        ["deltic-browser", RESULTS + "deltic-browser.jsonl"],
       ],
     },
     signing: {
-      lock: "/conformance/signing-guest-ct/tests.lock",
-      manifest: "/conformance/driver-ct/targets-signing.toml",
+      lock: ROOT + "conformance/signing-guest-ct/tests.lock",
+      manifest: ROOT + "conformance/driver-ct/targets-signing.toml",
       streams: [
-        ["wasmtime-rustcrypto", "/conformance/driver-ct/results/wasmtime-signing.jsonl"],
-        ["jco-node", "/conformance/driver-ct/results/jco-node-signing.jsonl"],
-        ["jco-browser", "/conformance/driver-ct/results/jco-browser-signing.jsonl"],
-        ["jco-firefox", "/conformance/driver-ct/results/jco-firefox-signing.jsonl"],
-        ["jco-webkit", "/conformance/driver-ct/results/jco-webkit-signing.jsonl"],
-        ["deltic-deno", "/conformance/driver-ct/results/deltic-deno-signing.jsonl"],
-        ["deltic-browser", "/conformance/driver-ct/results/deltic-browser-signing.jsonl"],
+        ["wasmtime-rustcrypto", RESULTS + "wasmtime-signing.jsonl"],
+        ["jco-node", RESULTS + "jco-node-signing.jsonl"],
+        ["jco-browser", RESULTS + "jco-browser-signing.jsonl"],
+        ["jco-firefox", RESULTS + "jco-firefox-signing.jsonl"],
+        ["jco-webkit", RESULTS + "jco-webkit-signing.jsonl"],
+        ["deltic-deno", RESULTS + "deltic-deno-signing.jsonl"],
+        ["deltic-browser", RESULTS + "deltic-browser-signing.jsonl"],
       ],
     },
   };
   const pick = SUITES[$("demo-suite")?.value] ?? SUITES.shared;
   const get = async (path) => {
-    const res = await fetch(path);
+    const res = await fetch(at(path));
     if (!res.ok)
-      throw new Error(\`\${path}: \${res.status} (serve from the repo root: just conformance-ct::web)\`);
+      throw new Error(\`\${path}: \${res.status} (locally, serve from the repo root: just conformance-ct::web)\`);
     return res.text();
   };
   try {
@@ -150,7 +160,7 @@ const handler = `$("btn-demo").onclick = async () => {
     state.manifest = await get(pick.manifest);
     state.streams = [];
     for (const [target, path] of pick.streams) {
-      const res = await fetch(path);
+      const res = await fetch(at(path));
       if (!res.ok) continue;
       state.streams.push({ target, text: await res.text(), source: path.split("/").pop() });
     }
@@ -167,12 +177,30 @@ app = app.slice(0, start) + handler + app.slice(end + "\n};".length);
 // imports — the suites are runtime-linked and import polymorph:webcrypto,
 // which upstream's stock (no-SUT) worker cannot satisfy — so it is the
 // deltic-browser worker bundle (deltic engine + this repo's host module),
-// built locally by `just conformance-ct::run-deltic-browser`.
+// built by `just conformance-ct::_deltic-browser-bundle` and served from
+// target/deltic-browser/ (page-relative: the repo root is four levels up
+// from viewer/). The translator must match the bundled engine's pin —
+// this repository's deltic pin, not the viewer checkout's — so the
+// worker message's translatorUrl is rewritten to the shim extracted
+// beside the bundle instead of the viewer's own deltic assets.
 app = rewrite(
   app,
   `new URL("../runner-deltic/browser-worker.mjs", import.meta.url),`,
-  `"/target/deltic-browser/webcrypto-worker.mjs",`,
+  `new URL("../../../../target/deltic-browser/webcrypto-worker.mjs", import.meta.url),`,
   "the live pane's worker URL",
+);
+app = rewrite(
+  app,
+  `            bundleUrl,
+            translatorUrl,
+            suiteUrl,`,
+  `            bundleUrl,
+            translatorUrl: new URL(
+              "../../../../target/deltic-browser/deltic-translator-shim.wasm",
+              import.meta.url,
+            ).href,
+            suiteUrl,`,
+  "the live pane's translator URL",
 );
 writeFileSync("viewer/app.mjs", app);
 

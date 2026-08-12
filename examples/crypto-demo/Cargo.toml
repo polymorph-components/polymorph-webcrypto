@@ -8,14 +8,15 @@ publish = false
 crate-type = ["cdylib"]
 
 [features]
-# The RSA-OAEP key-transport check, forwarding to the SDK's
-# `rsa-oaep-decrypt`. Off by default, exactly like that feature and the
-# WIT gate behind it: enabling it adds the withheld-by-default RSA op
-# interfaces to the component's imports, which only hosts that
-# deliberately serve them can satisfy — the in-guest provider does not
-# (class D), so the default build is what stays composable. The wasmtime
-# and jco demo legs opt in.
-rsa-oaep = ["polymorph-webcrypto-guest/rsa-oaep-decrypt"]
+# The checks whose imports the in-guest provider withholds (class D):
+# the RSA-OAEP key transport and the ECDSA signing-key mints. Off by
+# default, exactly like the SDK feature and WIT gate behind the RSA
+# half: enabling it adds withheld interfaces to the component's imports,
+# which only hosts that deliberately serve them can satisfy — the
+# default build is what stays composable. The wasmtime and jco demo legs
+# run the opt-in artifact, named after the conformance architecture's
+# host-only suite.
+host-only = ["polymorph-webcrypto-guest/rsa-oaep-decrypt"]
 
 [dependencies]
 # Failure reporting inside the checks (`context`/`ensure!`); rendered with

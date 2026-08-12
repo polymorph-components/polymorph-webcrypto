@@ -5,7 +5,7 @@
 host — one platform-WebCrypto-backed implementation of every
 `polymorph:webcrypto@0.1.0` interface — rewritten over deltic's embedder
 API (typed `Stream<T>` rather than jco's bare-payload `Stream`, and
-`WitError` throws rather than `throw { tag, val }`). It was developed as
+`ComponentException` throws rather than `throw { tag, val }`). It was developed as
 deltic's own `ports/webcrypto` reference-host port and is upstreamed here
 per [lann/deltic#40](https://github.com/lann/deltic/pull/40); the WIT
 contract is [`wit/`](../../wit), and every doc comment quoting a contract
@@ -43,7 +43,7 @@ pinned JSR version as
 [`conformance/driver-ct/deltic/deno.json`](../../conformance/driver-ct/deltic/deno.json).
 deltic's `wasi-shims` module imports that specifier by bare name
 internally; if the two configs ever disagreed, the embedder module would
-load twice and `instanceof WitError` would stop holding across the
+load twice and `instanceof ComponentException` would stop holding across the
 boundary. Keep both import maps' version identical for that one entry —
 `just conformance-ct::deltic-pin-check` gates that.
 

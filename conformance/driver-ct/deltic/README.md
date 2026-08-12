@@ -93,7 +93,7 @@ that version in **two** places, cross-checked by
   SAME `@deltic/runtime/embedder` version (the module-identity
   constraint: deltic's `wasi-shims` imports that specifier by bare name
   internally, so every config resolving it must agree, or the embedder
-  module loads twice and `instanceof WitError` stops holding across the
+  module loads twice and `instanceof ComponentException` stops holding across the
   boundary).
 
 Both `deno.json` files also carry

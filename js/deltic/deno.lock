@@ -1,16 +1,23 @@
 {
   "version": "5",
   "specifiers": {
-    "jsr:@deltic/runtime@0.1.0-pre.ga67ee83": "0.1.0-pre.ga67ee83"
+    "jsr:@deltic/protocol@0.2": "0.2.0",
+    "jsr:@deltic/runtime@0.1.0-pre.g078aa15": "0.1.0-pre.g078aa15"
   },
   "jsr": {
-    "@deltic/runtime@0.1.0-pre.ga67ee83": {
-      "integrity": "2a2b0949031747a2340dc186299e654ea9f361ae39ac6bd633019940682db4ed"
+    "@deltic/protocol@0.2.0": {
+      "integrity": "028be6a3623c5e910598aa7a199209b85e8931ae484ac7f6638d610ddb0e19fa"
+    },
+    "@deltic/runtime@0.1.0-pre.g078aa15": {
+      "integrity": "5e64f8dc6d32190ecd394d6ad9881eb0fa97b6598b1e7f2ef1d52cff4674287c",
+      "dependencies": [
+        "jsr:@deltic/protocol"
+      ]
     }
   },
   "workspace": {
     "dependencies": [
-      "jsr:@deltic/runtime@0.1.0-pre.ga67ee83"
+      "jsr:@deltic/runtime@0.1.0-pre.g078aa15"
     ]
   }
 }

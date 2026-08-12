@@ -7,6 +7,15 @@ publish = false
 [lib]
 crate-type = ["cdylib"]
 
+[features]
+# The RSA-OAEP key-transport check. Default on — the Wasmtime and jco
+# hosts serve the interfaces. The fully in-guest composition builds
+# `--no-default-features`: the in-guest provider withholds the RSA op
+# interfaces (class D), and since a component's imports are derived from
+# the calls it makes, only the featureless build stays composable.
+default = ["rsa-oaep"]
+rsa-oaep = ["polymorph-webcrypto-guest/rsa-oaep-decrypt"]
+
 [dependencies]
 # Failure reporting inside the checks (`context`/`ensure!`); rendered with
 # `{:#}` at the WIT `result<string, string>` boundary.

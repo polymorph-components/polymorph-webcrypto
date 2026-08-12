@@ -15,22 +15,33 @@ root := `git rev-parse --show-toplevel`
 firefox-enabled := if env('GITHUB_ACTIONS', '') == 'true' { '1' } else if env('WPT_PARITY_FIREFOX', '') == '1' { '1' } else { '' }
 chromium-enabled := if env('GITHUB_ACTIONS', '') == 'true' { '1' } else if env('WPT_PARITY_CHROMIUM', '') == '1' { '1' } else { '' }
 
-# Build the crypto-demo guest component into examples/crypto-demo/build/.
-# The output is renamed into place: `wasm-tools component new -o` truncates
-# in place, so a direct write would expose an empty or partial component to
-# a concurrent reader (the wasmtime-demo tests load this path).
+# Build the crypto-demo guest component into examples/crypto-demo/build/ —
+# both artifacts: the default build (every check, including the
+# `rsa-oaep` feature's) and the `--no-default-features` COMPOSABLE build
+# the in-guest composition plugs, whose call graph must not reach the
+# RSA op interfaces the provider withholds (class D). Sequential on
+# purpose: the two builds share the cargo target dir. The outputs are
+# renamed into place: `wasm-tools component new -o` truncates in place,
+# so a direct write would expose an empty or partial component to a
+# concurrent reader (the wasmtime-demo tests load these paths).
 [private]
 build-component:
     #!/usr/bin/env bash
     set -euo pipefail
     cd '{{root}}'
-    cargo build --release -p crypto-demo --target wasm32-unknown-unknown
     mkdir -p examples/crypto-demo/build
+    cargo build --release -p crypto-demo --target wasm32-unknown-unknown
     wasm-tools component new \
         target/wasm32-unknown-unknown/release/crypto_demo.wasm \
         -o examples/crypto-demo/build/crypto-demo.component.wasm.tmp
     mv -f examples/crypto-demo/build/crypto-demo.component.wasm.tmp \
         examples/crypto-demo/build/crypto-demo.component.wasm
+    cargo build --release -p crypto-demo --no-default-features --target wasm32-unknown-unknown
+    wasm-tools component new \
+        target/wasm32-unknown-unknown/release/crypto_demo.wasm \
+        -o examples/crypto-demo/build/crypto-demo-composable.component.wasm.tmp
+    mv -f examples/crypto-demo/build/crypto-demo-composable.component.wasm.tmp \
+        examples/crypto-demo/build/crypto-demo-composable.component.wasm
 
 # Build the in-guest provider component (RustCrypto entirely in-guest; it
 # exports the polymorph:webcrypto surface) into

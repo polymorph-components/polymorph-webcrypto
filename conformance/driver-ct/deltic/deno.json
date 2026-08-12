@@ -1,11 +1,11 @@
 {
   "//": "MODULE-IDENTITY CONSTRAINT: deltic's wasi-shims module imports @deltic/runtime/embedder by bare specifier internally. The @deltic/runtime/embedder entry here must map to the IDENTICAL exact-pinned JSR version as ../../../js/deltic/deno.json's entry, or the embedder module loads twice and `instanceof ComponentException` stops holding across the module boundary. The hash names one upstream commit; deno.lock carries integrity, --frozen enforced; the pin gate (just conformance-ct::deltic-pin-check) asserts one @deltic version repo-wide.",
   "imports": {
-    "@deltic/ct-runner": "jsr:@deltic/ct-runner@0.1.0-pre.g078aa15",
-    "@deltic/runtime/embedder": "jsr:@deltic/runtime@0.1.0-pre.g078aa15/embedder",
-    "@deltic/runtime/shim": "jsr:@deltic/runtime@0.1.0-pre.g078aa15/shim",
-    "@deltic/wasi-shims": "jsr:@deltic/wasi-shims@0.1.0-pre.g078aa15",
-    "@deltic/translator": "jsr:@deltic/translator@0.1.0-pre.g078aa15",
+    "@deltic/ct-runner": "jsr:@deltic/ct-runner@0.1.0-pre.ga2f84a5",
+    "@deltic/runtime/embedder": "jsr:@deltic/runtime@0.1.0-pre.ga2f84a5/embedder",
+    "@deltic/runtime/shim": "jsr:@deltic/runtime@0.1.0-pre.ga2f84a5/shim",
+    "@deltic/wasi-shims": "jsr:@deltic/wasi-shims@0.1.0-pre.ga2f84a5",
+    "@deltic/translator": "jsr:@deltic/translator@0.1.0-pre.ga2f84a5",
     "@polymorph/component-test-js/deltic-worker-main": "./node_modules/@polymorph/component-test-js/js/runner-deltic/worker-main.mjs"
   },
   "minimumDependencyAge": { "age": "P1D", "exclude": ["jsr:@deltic/*"] },

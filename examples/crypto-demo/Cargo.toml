@@ -7,6 +7,16 @@ publish = false
 [lib]
 crate-type = ["cdylib"]
 
+[features]
+# The RSA-OAEP key-transport check, forwarding to the SDK's
+# `rsa-oaep-decrypt`. Off by default, exactly like that feature and the
+# WIT gate behind it: enabling it adds the withheld-by-default RSA op
+# interfaces to the component's imports, which only hosts that
+# deliberately serve them can satisfy — the in-guest provider does not
+# (class D), so the default build is what stays composable. The wasmtime
+# and jco demo legs opt in.
+rsa-oaep = ["polymorph-webcrypto-guest/rsa-oaep-decrypt"]
+
 [dependencies]
 # Failure reporting inside the checks (`context`/`ensure!`); rendered with
 # `{:#}` at the WIT `result<string, string>` boundary.

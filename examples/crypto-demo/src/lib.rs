@@ -13,6 +13,14 @@
 //! conformance suites' job (`conformance/`), which gate the same targets.
 //! The `check(...)` names below are the inventory, and the integration
 //! tests assert the expected summary.
+//!
+//! The `rsa-oaep` cargo feature (off by default, like the SDK feature it
+//! forwards to) adds the key-transport check. A component's imports are
+//! derived from the calls it makes, and the in-guest provider withholds
+//! every RSA op interface (rust/guest-provider/README.md, class D), so
+//! the default build is what composes with it — the hosts that
+//! deliberately serve those interfaces (the Wasmtime test embedding, the
+//! jco host on Node) run the opt-in build.
 
 wit_bindgen::generate!({
     path: "wit",
@@ -134,6 +142,74 @@ const RSA_PSS_SIG: [u8; 256] = hexlower!(
      00bc0ec320711b211fde92e57feb9013c3609342495ec0d7cabdec21e54acc38"
 );
 
+// --- Wycheproof rsa_oaep_2048_sha256_mgf1sha256_test.json: group 1's key
+//     (the same 2048-bit modulus as RSA_SPKI above) as PKCS#8 and as the
+//     file's full-CRT private JWK, a public JWK built from its n/e, and
+//     tcId 2's known answer (twenty 0x00 bytes, empty label). Compiled
+//     only under the opt-in `rsa-oaep` feature: the default build stays
+//     composable with the in-guest provider, which withholds these
+//     interfaces. ------------------------------------------------------
+
+#[cfg(feature = "rsa-oaep")]
+const OAEP_PKCS8: [u8; 1217] = hexlower!(
+    "308204bd020100300d06092a864886f70d0101010500048204a7308204a30201\
+     000282010100a2b451a07d0aa5f96e455671513550514a8a5b462ebef717094f\
+     a1fee82224e637f9746d3f7cafd31878d80325b6ef5a1700f65903b469429e89\
+     d6eac8845097b5ab393189db92512ed8a7711a1253facd20f79c15e8247f3d3e\
+     42e46e48c98e254a2fe9765313a03eff8f17e1a029397a1fa26a8dce26f490ed\
+     81299615d9814c22da610428e09c7d9658594266f5c021d0fceca08d945a12be\
+     82de4d1ece6b4c03145b5d3495d4ed5411eb878daf05fd7afc3e09ada0f11264\
+     22f590975a1969816f48698bcbba1b4d9cae79d460d8f9f85e7975005d9bc22c\
+     4e5ac0f7c1a45d12569a62807d3b9a02e5a530e773066f453d1f5b4c2e9cf782\
+     0283f742b9d502030100010282010024cdc62317f5d72a6f6ba6cc9632899b01\
+     d1ff28867d72f61688995bc855a4e420a8405250089bdb13cf8e09543827b748\
+     b9d27fbb2b4d9e20af8c5a6a862796d1a4cc18ad16ea678bc1bd4a83bbbe9c5e\
+     57453b5ce7388e41a3ba4ce2b77b4438a229e954f720dae0353dc088ac8a76b2\
+     6dc276f8e1b7851ddd6398ad16ff2e78195123b9b036e945c38c9d12434f6df7\
+     6fe22359eb3e1ac9c011678fc926fad3ae475a4fffff55feb2d147e9c894f4c0\
+     e29a599e762462482d968bf42780945fc0d2c31c573c4431b8f4fe8b8c67bec8\
+     15abd44f7a86edca1c2308737358d2c2ae5e2e0e2dadf730980262377e58b13b\
+     7d9992060a0bc870ccfdb4a9319ee102818100dc431050f782e894fb5248247d\
+     98cb7d58b8d1e24f3b55d041c56e4de086b0d5bb028bda42eeb5d234d5681e58\
+     09d415e6a289ad4cfbf78f978f6c35814f50eebff1c5b80a69f788e81e6bab5d\
+     daa78369d659d143ec6f17e79813a575cfad9c569156b90113e2e9110ad9e7b4\
+     8a1c9348a6e653321191290ea36cfb3a5b18f102818100bd1a81e7977f989812\
+     2273ae3222b598ea5fb19eb4eabc38308a5e32196603b2e500ffb79f5b886816\
+     611debc472fac45544070beb057c941378a6868af3b7a03d3f9880ec47d5e089\
+     b94fbde542aba9ae8d72c57088d7abf5b131f39098f7bc160f90536abc9492fd\
+     4e06f3ed7299d4b97bb03677207d95669f140cfbc20f2502818100a94b528b28\
+     f291599121d91952ffd1c7f21d7c1479d99d478885fb161870ee1218bf084726\
+     12dbe5497e8d9c650688e09c786961ae3e2c354dc48ae34514759c4c23c45884\
+     88961dc06b414e61c0e1e7fbbd2923d31532fe289f96da220711e58c14019808\
+     e00414276933bb07e4efb9b4a9b37656917205209f33f09515d7c10281803af0\
+     e72a933aef09ff2503df78bafed531c02ff1a2bc437c540cdcbd4ad35435cf51\
+     1763596543480629b114ca7f780ff7efa32ea0cb6e000d6d9ea1f2ef71fd9cf9\
+     948422a165557e37e755edfe70d90b920502eb478bc98a63f788ce3a0f856d6e\
+     de7251a383bfa8fa480a81a925af7b3cc538c4bab8c9f7597ffb68011d8d0281\
+     802640fbfbcfefb163ee7a87b6483a66ee41f956d90fa8a7939bfc042ee0924b\
+     1b7993d0445f758d51933e85179c0320b0c968b48a91c38b5be923e1097c0c56\
+     2f88d42294b6a2759bafa5428a74f1270874e45f6fcc60f21602de5eccd143cf\
+     31241f5921b5ad3983fb54ef17be3b285367e50c999c67247b552fe4bfce945f\
+     7b"
+);
+#[cfg(feature = "rsa-oaep")]
+const OAEP_PRIVATE_JWK: &str = r#"{"kty":"RSA","alg":"RSA-OAEP-256","n":"orRRoH0KpfluRVZxUTVQUUqKW0YuvvcXCU-h_ugiJOY3-XRtP3yv0xh42AMltu9aFwD2WQO0aUKeidbqyIRQl7WrOTGJ25JRLtincRoSU_rNIPecFegkfz0-QuRuSMmOJUov6XZTE6A-_48X4aApOXofomqNzib0kO2BKZYV2YFMItphBCjgnH2WWFlCZvXAIdD87KCNlFoSvoLeTR7Oa0wDFFtdNJXU7VQR64eNrwX9evw-Ca2g8RJkIvWQl1oZaYFvSGmLy7obTZyuedRg2Pn4Xnl1AF2bwixOWsD3waRdElaaYoB9O5oC5aUw53MGb0U9H1tMLpz3ggKD90K51Q","e":"AQAB","kid":"none","d":"JM3GIxf11ypva6bMljKJmwHR_yiGfXL2FoiZW8hVpOQgqEBSUAib2xPPjglUOCe3SLnSf7srTZ4gr4xaaoYnltGkzBitFupni8G9SoO7vpxeV0U7XOc4jkGjukzit3tEOKIp6VT3INrgNT3AiKyKdrJtwnb44beFHd1jmK0W_y54GVEjubA26UXDjJ0SQ09t92_iI1nrPhrJwBFnj8km-tOuR1pP__9V_rLRR-nIlPTA4ppZnnYkYkgtlov0J4CUX8DSwxxXPEQxuPT-i4xnvsgVq9RPeobtyhwjCHNzWNLCrl4uDi2t9zCYAmI3flixO32ZkgYKC8hwzP20qTGe4Q","p":"3EMQUPeC6JT7UkgkfZjLfVi40eJPO1XQQcVuTeCGsNW7AovaQu610jTVaB5YCdQV5qKJrUz794-Xj2w1gU9Q7r_xxbgKafeI6B5rq13ap4Np1lnRQ-xvF-eYE6V1z62cVpFWuQET4ukRCtnntIock0im5lMyEZEpDqNs-zpbGPE","q":"vRqB55d_mJgSInOuMiK1mOpfsZ606rw4MIpeMhlmA7LlAP-3n1uIaBZhHevEcvrEVUQHC-sFfJQTeKaGivO3oD0_mIDsR9XgiblPveVCq6mujXLFcIjXq_WxMfOQmPe8Fg-QU2q8lJL9Tgbz7XKZ1Ll7sDZ3IH2VZp8UDPvCDyU","dp":"qUtSiyjykVmRIdkZUv_Rx_IdfBR52Z1HiIX7Fhhw7hIYvwhHJhLb5Ul-jZxlBojgnHhpYa4-LDVNxIrjRRR1nEwjxFiEiJYdwGtBTmHA4ef7vSkj0xUy_iifltoiBxHljBQBmAjgBBQnaTO7B-TvubSps3ZWkXIFIJ8z8JUV18E","dq":"OvDnKpM67wn_JQPfeLr-1THAL_GivEN8VAzcvUrTVDXPURdjWWVDSAYpsRTKf3gP9--jLqDLbgANbZ6h8u9x_Zz5lIQioWVVfjfnVe3-cNkLkgUC60eLyYpj94jOOg-FbW7eclGjg7-o-kgKgaklr3s8xTjEurjJ91l_-2gBHY0","qi":"JkD7-8_vsWPueoe2SDpm7kH5VtkPqKeTm_wELuCSSxt5k9BEX3WNUZM-hRecAyCwyWi0ipHDi1vpI-EJfAxWL4jUIpS2onWbr6VCinTxJwh05F9vzGDyFgLeXszRQ88xJB9ZIbWtOYP7VO8XvjsoU2flDJmcZyR7VS_kv86UX3s"}"#;
+#[cfg(feature = "rsa-oaep")]
+const OAEP_PUBLIC_JWK: &str = r#"{"kty":"RSA","alg":"RSA-OAEP-256","n":"orRRoH0KpfluRVZxUTVQUUqKW0YuvvcXCU-h_ugiJOY3-XRtP3yv0xh42AMltu9aFwD2WQO0aUKeidbqyIRQl7WrOTGJ25JRLtincRoSU_rNIPecFegkfz0-QuRuSMmOJUov6XZTE6A-_48X4aApOXofomqNzib0kO2BKZYV2YFMItphBCjgnH2WWFlCZvXAIdD87KCNlFoSvoLeTR7Oa0wDFFtdNJXU7VQR64eNrwX9evw-Ca2g8RJkIvWQl1oZaYFvSGmLy7obTZyuedRg2Pn4Xnl1AF2bwixOWsD3waRdElaaYoB9O5oC5aUw53MGb0U9H1tMLpz3ggKD90K51Q","e":"AQAB"}"#;
+#[cfg(feature = "rsa-oaep")]
+const OAEP_MESSAGE: [u8; 20] = hexlower!("0000000000000000000000000000000000000000");
+#[cfg(feature = "rsa-oaep")]
+const OAEP_CIPHERTEXT: [u8; 256] = hexlower!(
+    "207180c340658b5154ae45d2e4e7326a0997c683a26b595e536a29333c4b6614\
+     9af85e029d5419a39e3a147b221516ffd86b6b4b66c3e0c4c49fe8c57a2f5c37\
+     b8704b9b592b80db9cd788a4ed51ab4f0a1cbed63bd18d1f06a22f225866b0c2\
+     c417cb23473b7ba4250b1353bd2e5b4f0f937cd2efe5fa38db3c295f7748b970\
+     088657db4aa9a76e1ee6fbff166ec1861d00d085326c7384bdd1bc2f400d4f74\
+     dbdfadaf3fdc46073e668573e02030b9eb5af58eb540c66677a771194479ec00\
+     98d858a2ea45d0ba1e6b32440dfbac745000554d51a17684ca964b02a74d479f\
+     1d432ef763ef4059715a4348cfe36a215359712f25b6977903be4adb92febbf6"
+);
+
 struct Component;
 
 impl Guest for Component {
@@ -172,6 +248,8 @@ impl Guest for Component {
         )
         .await?;
         check("rsa-verify-known-answer", rsa_verify_known_answer().await).await?;
+        #[cfg(feature = "rsa-oaep")]
+        check("rsa-oaep-key-transport", rsa_oaep_key_transport().await).await?;
         check("hkdf-rfc5869-derive", hkdf_derive().await).await?;
         check("hkdf-sha1-derive", hkdf_sha1_derive().await).await?;
         check("pbkdf2-rfc7914-derive", pbkdf2_derive().await).await?;
@@ -692,6 +770,83 @@ async fn rsa_verify_known_answer() -> Result<()> {
         Error::AuthenticationFailed,
         "corrupted RSA-PSS signature verified",
     )
+}
+
+/// The RSA-OAEP key-transport tour, one call per `rsa_oaep` constructor:
+/// the Wycheproof known answer decrypts under both private-key imports
+/// (PKCS#8 and the file's full-CRT JWK), the public half imported as the
+/// SPKI the signature checks carry (same modulus) and as a public JWK
+/// encrypts back to the same private key, a ciphertext decrypts only
+/// under the label it was encrypted with, and a generated pair
+/// round-trips (RFC 8017's OAEP is randomized, so generation has no
+/// known-answer form — the round trip is the check).
+#[cfg(feature = "rsa-oaep")]
+async fn rsa_oaep_key_transport() -> Result<()> {
+    use polymorph_webcrypto_guest::rsa_oaep::{self, RsaModulus, RsaVariant};
+    use polymorph_webcrypto_guest::DecryptionKeyOptions;
+
+    let grants = DecryptionKeyOptions {
+        decrypt: true,
+        unwrap: false,
+        extractable: false,
+    };
+
+    // rsa_oaep_2048_sha256_mgf1sha256_test.json tcId 2, under both
+    // private-key encodings.
+    let dec = rsa_oaep::import_decryption_key_pkcs8(RsaVariant::Sha256, OAEP_PKCS8, grants)
+        .await
+        .context("rsa-oaep-decrypt import-decryption-key-pkcs8")?;
+    let plaintext = dec.decrypt(None, OAEP_CIPHERTEXT).await?;
+    ensure!(
+        plaintext == OAEP_MESSAGE,
+        "OAEP known answer (PKCS#8 import): got {}",
+        hex(&plaintext)
+    );
+    let dec_jwk = rsa_oaep::import_decryption_key_jwk(RsaVariant::Sha256, OAEP_PRIVATE_JWK, grants)
+        .await
+        .context("rsa-oaep-decrypt import-decryption-key-jwk")?;
+    let plaintext = dec_jwk.decrypt(None, OAEP_CIPHERTEXT).await?;
+    ensure!(
+        plaintext == OAEP_MESSAGE,
+        "OAEP known answer (JWK import): got {}",
+        hex(&plaintext)
+    );
+
+    // The public half arrives independently of the private key, in both
+    // import encodings; each encrypts to the vector's private key.
+    let enc = rsa_oaep::import_encryption_key_spki(RsaVariant::Sha256, RSA_SPKI)
+        .await
+        .context("rsa-oaep-encrypt import-encryption-key-spki")?;
+    let ct = enc.encrypt(None, *b"oaep spki transport").await?;
+    ensure!(
+        dec.decrypt(None, ct).await? == b"oaep spki transport",
+        "SPKI-imported public key's ciphertext did not round-trip"
+    );
+    let enc_jwk = rsa_oaep::import_encryption_key_jwk(RsaVariant::Sha256, OAEP_PUBLIC_JWK)
+        .await
+        .context("rsa-oaep-encrypt import-encryption-key-jwk")?;
+    let label = b"transport label";
+    let ct = enc_jwk.encrypt(Some(label), *b"oaep jwk transport").await?;
+    ensure!(
+        dec.decrypt(Some(label), ct.clone()).await? == b"oaep jwk transport",
+        "JWK-imported public key's ciphertext did not round-trip"
+    );
+    expect_error!(
+        dec.decrypt(Some(b"wrong label"), ct).await,
+        Error::AuthenticationFailed,
+        "a ciphertext decrypted under a label it was not encrypted with",
+    )?;
+
+    // A generated pair round-trips.
+    let (dec_gen, enc_gen) = rsa_oaep::generate_key(RsaVariant::Sha256, RsaModulus::M2048, grants)
+        .await
+        .context("rsa-oaep-decrypt generate-key")?;
+    let ct = enc_gen.encrypt(None, *b"generated pair").await?;
+    ensure!(
+        dec_gen.decrypt(None, ct).await? == b"generated pair",
+        "generated OAEP pair failed to round-trip"
+    );
+    Ok(())
 }
 
 // --- derivation --------------------------------------------------------------

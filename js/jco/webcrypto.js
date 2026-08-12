@@ -37,6 +37,13 @@
 //   chunks are copied (`toByteChunk`) rather than retained by reference.
 //   Host-returned `stream<u8>` values are web `ReadableStream`s of
 //   `Uint8Array`.
+// - **Stream drop** (`bytesToStream`): when the guest drops its end of a
+//   host-returned stream, the runtime cancels the underlying
+//   `ReadableStream` — `cancel()` is where an abandoned output's admission
+//   reservation is released, so this lowering is what keeps dropped
+//   outputs from leaking pool capacity. The admission suite pins the host
+//   half (a cancelled output releases its reservation); the drop→cancel
+//   lowering itself is this convention.
 // - **Async detection**: which imports and exports are async is read from
 //   the component itself (the WIT's `async func` markers and the async
 //   canonical options wit-bindgen lowers them with), so the transpile
@@ -46,6 +53,24 @@
 //   (`canon_opts.async_ || func.kind.is_async()`); the per-function flags
 //   feed only the legacy `manuallyAsync` path for sync-ABI functions
 //   forced async, which nothing here uses.
+//
+// ## Key-material persistence
+//
+// JWK is a string format, and JavaScript strings are immutable and live
+// until garbage collection: neither this host nor its embedder can zero
+// them. `export-key-jwk` therefore materializes secret material — the
+// `oct` `k` member, the private `d` and RSA CRT members — in strings, as
+// does `to-wrap-input-jwk` (the caller never sees that JWK, but the host
+// still builds it), and a JWK *import* handles material the caller already
+// chose to hold as a string. The platform's own `exportKey("jwk")` returns
+// the members as strings, so this is inherent to serving JWK on a JS
+// host, not a shortcut in this one. The byte-format paths never do this:
+// `raw` (symmetric keys) and `pkcs8` (private keys) exports and their
+// wrap-inputs stay in `ArrayBuffer`s end to end. A consumer whose threat
+// model includes secrets persisting in host memory should export private
+// keys as `pkcs8` and parse the DER itself where it needs the bare seed
+// or scalar (Ed25519's PKCS#8 layout is fixed; ECDSA and RSA need a short
+// walk).
 
 const subtle = globalThis.crypto.subtle;
 
@@ -83,8 +108,8 @@ const subtle = globalThis.crypto.subtle;
  */
 
 /**
- * An `ECDSA_VARIANTS` entry: a `SignatureAlgorithm` whose curve is fixed,
- * carrying the curve OID the PKCS#8 wrapping needs.
+ * An `ECDSA_VARIANTS` entry: a `SignatureAlgorithm` whose curve and
+ * mint-bound hash are fixed.
  * @typedef {SignatureAlgorithm & { namedCurve: string, hash: string }} EcdsaAlgorithm
  */
 
@@ -267,8 +292,8 @@ async function platformCall(what, run) {
  * (sha224, sha512-224, sha512-256) are absent: WebCrypto does not serve
  * them, so this implementation declines them (see the WIT `sha2-variant`
  * doc).
+ * @type {Readonly<Record<string, { hash: string, blockBytes: number } | undefined>>}
  */
-/** @type {Readonly<Record<string, { hash: string, blockBytes: number } | undefined>>} */
 const SHA2_VARIANTS = Object.assign(Object.create(null), {
   sha256: { hash: "SHA-256", blockBytes: 64 },
   sha384: { hash: "SHA-384", blockBytes: 128 },
@@ -327,8 +352,8 @@ function stateReader(store, what) {
  * base-class private field because a `#`-private field is invisible to
  * subclasses: the tail methods and the key classes' own operations read
  * the same key through `platformKeyOf`.
+ * @type {WeakMap<object, CryptoKey>}
  */
-/** @type {WeakMap<object, CryptoKey>} */
 const platformKeys = new WeakMap();
 
 const platformKeyOf = stateReader(platformKeys, "key");
@@ -417,8 +442,8 @@ function symmetricKeyTail(projections) {
  * private fields, so the class stays structurally compatible with the
  * generated interface types; its `stateReader` supplies the same-provider
  * check.
+ * @type {WeakMap<MacKeyOptions, { sign: boolean, verify: boolean, extractable: boolean }>}
  */
-/** @type {WeakMap<MacKeyOptions, { sign: boolean, verify: boolean, extractable: boolean }>} */
 const macPolicies = new WeakMap();
 
 const macPolicy = stateReader(macPolicies, "mac-key-options");
@@ -549,8 +574,8 @@ export class MacKey extends symmetricKeyTail({ canSign: "sign", canVerify: "veri
  * The `aead-key-options` resource. See `MacKeyOptions` for the state and
  * same-provider mechanics; the wrap/unwrap grants gate `aead-key.wrap` and
  * `unwrap` (see `aeadKeyGrants` for how the grants reach the platform key).
+ * @type {WeakMap<AeadKeyOptions, { seal: boolean, open: boolean, wrap: boolean, unwrap: boolean, extractable: boolean }>}
  */
-/** @type {WeakMap<AeadKeyOptions, { seal: boolean, open: boolean, wrap: boolean, unwrap: boolean, extractable: boolean }>} */
 const aeadPolicies = new WeakMap();
 
 const aeadPolicy = stateReader(aeadPolicies, "aead-key-options");
@@ -1838,7 +1863,8 @@ export class AgreementSecretKey {
 
   /**
    * The private JWK (OKP for X25519, EC for ECDH), material members only,
-   * behind the extractability gate.
+   * behind the extractability gate. The `d` member transits JS strings;
+   * see "Key-material persistence" (header).
    */
   async exportKeyJwk() {
     const state = agreementSecretOf(this);
@@ -2066,8 +2092,8 @@ export const x25519 = {
  * The per-curve ECDH parameters: WebCrypto's `namedCurve` (the platform
  * algorithm at every mint is `{ name: "ECDH", namedCurve }`) and the
  * uncompressed-SEC1 public key length the raw import enforces.
+ * @type {Readonly<Record<string, { namedCurve: string, publicLength: number } | undefined>>}
  */
-/** @type {Readonly<Record<string, { namedCurve: string, publicLength: number } | undefined>>} */
 const ECDH_CURVES = Object.assign(Object.create(null), {
   p256: { namedCurve: "P-256", publicLength: 65 },
   p384: { namedCurve: "P-384", publicLength: 97 },
@@ -2496,8 +2522,8 @@ export const sha1Checked = {
  * lowers WIT enums as their kebab-case names). AES-192 is absent: this
  * implementation declines it (browsers do not reliably serve it — Chromium
  * implements no AES-192; see the WIT `aes-variant` doc).
+ * @type {Readonly<Record<string, number | undefined>>}
  */
-/** @type {Readonly<Record<string, number | undefined>>} */
 const AES_VARIANT_BYTES = Object.assign(Object.create(null), { aes128: 16, aes256: 32 });
 
 /**
@@ -3551,8 +3577,7 @@ const bufferLimits = { perCall: undefined, total: undefined };
  * number, or the call throws `TypeError` with neither limit updated.
  *
  * Raising the pool admits whatever now fits: waiters are judged against the
- * ceiling in force, so without this the new capacity would go unused until
- * some unrelated operation happened to release.
+ * ceiling in force.
  * @param {{ perCallBufferLimit?: number, totalBufferLimit?: number }} options
  */
 export function configure(options = {}) {
@@ -3656,7 +3681,9 @@ async function admitInput() {
 
 /**
  * A single-chunk byte `ReadableStream` over `bytes`, releasing `reservation`
- * (when given) once the caller has taken the bytes or dropped the stream.
+ * (when given) once the caller has taken the bytes or dropped the stream
+ * (a guest-side drop reaches this as `cancel()` — see the header's
+ * stream-drop convention).
  *
  * The reservation is held until then rather than released when the operation
  * returns: an unconsumed output is still retained here, and releasing early
@@ -3755,7 +3782,8 @@ async function exportRawGated(key) {
 /**
  * The key as an `oct` JWK, per the WIT contract: exactly the
  * material-bearing members (`kty`, `k`, `alg`) — the platform's `key_ops`/
- * `ext` are the consumer's to stamp, so they are dropped here.
+ * `ext` are the consumer's to stamp, so they are dropped here. The `k`
+ * member transits JS strings; see "Key-material persistence" (header).
  * @param {CryptoKey} key
  */
 async function exportJwkGated(key) {
@@ -4056,15 +4084,14 @@ function concatChunks(chunks, total) {
 /**
  * The per-variant ECDSA parameters: WebCrypto's `namedCurve`, the
  * mint-bound hash, the uncompressed-SEC1 public key length, the raw scalar
- * length, the exact P1363 signature width the WIT fixes, and the curve OID
- * for the PKCS#8 wrapping.
+ * length, and the exact P1363 signature width the WIT fixes.
  *
  * Every per-curve quantity lives here rather than in a ternary at its use
  * site: a ternary keyed on one curve silently hands every *other* curve
  * that branch's value, so adding a curve would weaken the checks these
  * quantities drive.
+ * @type {Readonly<Record<string, EcdsaAlgorithm | undefined>>}
  */
-/** @type {Readonly<Record<string, EcdsaAlgorithm | undefined>>} */
 const ECDSA_VARIANTS = Object.assign(Object.create(null), {
   "p256-sha256": {
     name: "ECDSA",
@@ -4304,8 +4331,8 @@ export class VerifyingKey {
  * The `signing-key-options` resource. See `MacKeyOptions` for the state and
  * same-provider mechanics; the vocabulary is degenerate (`sign` is the sole
  * usage, and must be granted for a mint to succeed).
+ * @type {WeakMap<SigningKeyOptions, { sign: boolean, extractable: boolean }>}
  */
-/** @type {WeakMap<SigningKeyOptions, { sign: boolean, extractable: boolean }>} */
 const signingPolicies = new WeakMap();
 
 const signingPolicy = stateReader(signingPolicies, "signing-key-options");
@@ -4402,7 +4429,9 @@ export class SigningKey extends keyResourceTail({ canSign: "sign" }) {
   /**
    * The private JWK (OKP for Ed25519, EC for ECDSA, full-CRT RSA for the
    * RSA family), material members only, behind the extractability gate
-   * (checked on the `CryptoKey` itself, like `exportRawGated`).
+   * (checked on the `CryptoKey` itself, like `exportRawGated`). The
+   * private members transit JS strings; see "Key-material persistence"
+   * (header).
    */
   async exportKeyJwk() {
     const privateKey = platformKeyOf(this);
@@ -4549,7 +4578,10 @@ function ed25519PointStrict(encoded) {
 }
 
 /**
- * Rethrow a WebCrypto import failure as `{ tag: 'invalid-key', val }`.
+ * Rethrow a WebCrypto import failure. A `NotSupportedError` is the platform
+ * declining the algorithm or form rather than judging the material, so it
+ * maps to `{ tag: 'unsupported' }` — the same taxonomy `platformCall`
+ * applies; everything else is `{ tag: 'invalid-key', val }`.
  *
  * Annotated `never` deliberately: the `importPlatformKey*` helpers rely on
  * this throwing to make their catch arms non-completing, so a version that
@@ -4559,14 +4591,19 @@ function ed25519PointStrict(encoded) {
  * @returns {never}
  */
 function invalidKey(err, what) {
-  throw errInvalidKey(`invalid ${what}: ${asPlatformError(err).detail}`);
+  const failure = asPlatformError(err);
+  if (failure.name === "NotSupportedError") {
+    throw errUnsupported(`${what} is not served by this platform: ${failure.detail}`);
+  }
+  throw errInvalidKey(`invalid ${what}: ${failure.detail}`);
 }
 
 /**
  * Import binary key material via the platform. An import failure throws
- * `{ tag: 'invalid-key', val }` naming `what`; every other validation
- * (length checks, strict-point predicates, post-import shape checks)
- * stays at the call site.
+ * `{ tag: 'invalid-key', val }` naming `what` — except a platform
+ * `NotSupportedError`, which throws `unsupported` (see `invalidKey`);
+ * every other validation (length checks, strict-point predicates,
+ * post-import shape checks) stays at the call site.
  * @param {string} what
  * @param {Exclude<KeyFormat, "jwk">} format
  * @param {Uint8Array} bytes
@@ -4585,8 +4622,10 @@ async function importPlatformKey(what, format, bytes, algorithm, extractable, us
 
 /**
  * Import a parsed JWK (a `jwkMaterial` result) via the platform. An import
- * failure throws `{ tag: 'invalid-key', val }` naming `what`; member
- * strictness and post-import shape checks stay at the call site.
+ * failure throws `{ tag: 'invalid-key', val }` naming `what` — except a
+ * platform `NotSupportedError`, which throws `unsupported` (see
+ * `invalidKey`); member strictness and post-import shape checks stay at
+ * the call site.
  * @param {string} what
  * @param {Record<string, unknown>} jwk
  * @param {AlgorithmIdentifier | EcKeyImportParams | HmacImportParams | RsaHashedImportParams} algorithm
@@ -4974,8 +5013,8 @@ export const ecdsaSign = {
  * `rsa` interface's one variant set, shared by the four RSA signature
  * interfaces), with the digest output length the PSS signing mints fix
  * their salt length to (the JOSE `PS*` profile).
+ * @type {Readonly<Record<string, { hash: string, digestBytes: number } | undefined>>}
  */
-/** @type {Readonly<Record<string, { hash: string, digestBytes: number } | undefined>>} */
 const RSA_VARIANTS = Object.assign(Object.create(null), {
   sha256: { hash: "SHA-256", digestBytes: 32 },
   sha384: { hash: "SHA-384", digestBytes: 48 },
@@ -4992,8 +5031,8 @@ const RSA_SIGNING_MAX_BITS = 8192;
 
 /**
  * The generated modulus length for each `rsa-modulus` enum case.
+ * @type {Readonly<Record<string, number | undefined>>}
  */
-/** @type {Readonly<Record<string, number | undefined>>} */
 const RSA_MODULUS_BITS = Object.assign(Object.create(null), {
   m2048: 2048,
   m3072: 3072,
@@ -5448,8 +5487,8 @@ export const rsaPssSign = {
  * and same-provider mechanics; the decrypt/unwrap grants separate
  * disclosure (`decrypt` returns plaintext) from minting (`unwrap` mints
  * keys whose material the caller never sees) — see the WIT doc.
+ * @type {WeakMap<DecryptionKeyOptions, { decrypt: boolean, unwrap: boolean, extractable: boolean }>}
  */
-/** @type {WeakMap<DecryptionKeyOptions, { decrypt: boolean, unwrap: boolean, extractable: boolean }>} */
 const decryptionPolicies = new WeakMap();
 
 const decryptionPolicy = stateReader(decryptionPolicies, "decryption-key-options");
@@ -5804,7 +5843,8 @@ export class DecryptionKey extends keyResourceTail({}) {
   /**
    * The private key as a full-CRT RSA JWK, material members only, behind
    * the extractability gate (checked on the `CryptoKey` itself, like
-   * `exportRawGated`).
+   * `exportRawGated`). The private members transit JS strings; see
+   * "Key-material persistence" (header).
    */
   async exportKeyJwk() {
     const privateKey = platformKeyOf(this);

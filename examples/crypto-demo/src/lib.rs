@@ -14,13 +14,14 @@
 //! The `check(...)` names below are the inventory, and the integration
 //! tests assert the expected summary.
 //!
-//! The `rsa-oaep` cargo feature (off by default, like the SDK feature it
-//! forwards to) adds the key-transport check. A component's imports are
-//! derived from the calls it makes, and the in-guest provider withholds
-//! every RSA op interface (rust/guest-provider/README.md, class D), so
-//! the default build is what composes with it — the hosts that
-//! deliberately serve those interfaces (the Wasmtime test embedding, the
-//! jco host on Node) run the opt-in build.
+//! The `host-only` cargo feature (off by default) adds the checks whose
+//! imports the in-guest provider withholds — the RSA-OAEP key transport
+//! and the ECDSA signing-key mints (class D;
+//! rust/guest-provider/README.md). A component's imports are derived
+//! from the calls it makes, so the default build is what composes with
+//! the provider; the hosts that deliberately serve every interface (the
+//! Wasmtime test embedding, the jco host on Node) run the opt-in build,
+//! named after the conformance architecture's host-only suite.
 
 wit_bindgen::generate!({
     path: "wit",
@@ -90,6 +91,16 @@ const ED25519_SIG: [u8; 64] = hexlower!(
     "92a009a9f0d4cab8720e820b5f642540a2b27b5416503f8fb3762223ebdb69da\
      085ac1e43e15996e458f3613d0f11d8c387b2eaeb4302aeeb00d291612bb0c00"
 );
+/// The same test's secret key (the RFC 8032 seed) — the private half of
+/// `ED25519_PUBLIC`.
+const ED25519_SECRET: [u8; 32] =
+    hexlower!("4ccd089b28ff96da9db6c346ec114e0f5b8a319f35aba624da8cf6ed4fb8a6fb");
+/// RFC 8410 SubjectPublicKeyInfo prefix for an Ed25519 public key; the
+/// 32 raw key bytes follow.
+const ED25519_SPKI_PREFIX: [u8; 12] = hexlower!("302a300506032b6570032100");
+/// RFC 8410 PKCS#8 (v1) prefix for an Ed25519 seed; the 32 seed bytes
+/// follow.
+const ED25519_PKCS8_PREFIX: [u8; 16] = hexlower!("302e020100300506032b657004220420");
 
 // --- RFC 6979 A.2.5 (ECDSA P-256 + SHA-256, message "sample") ----------------
 
@@ -102,6 +113,24 @@ const ECDSA_SIG_R: [u8; 32] =
     hexlower!("efd48b2aacb6a8fd1140dd9cd45e81d69d2c877b56aaf991c34d0ea84eaf3716");
 const ECDSA_SIG_S: [u8; 32] =
     hexlower!("f7cb1c942d657c41d436c7a1b6e29f65f3e900dbb9aff4064dc4ab2f843acda8");
+/// The same appendix's private key `d` — the private half of
+/// `ECDSA_PUBLIC_X`/`_Y`. Only the host-only build imports it (the
+/// `ecdsa-sign` interface is withheld by the in-guest provider).
+#[cfg(feature = "host-only")]
+const ECDSA_PRIVATE: [u8; 32] =
+    hexlower!("c9afa9d845ba75166b5c215767b1d6934e50c3db36e89b127b8a622b120f6721");
+/// X.509 SubjectPublicKeyInfo prefix for a named-curve P-256 key; the
+/// uncompressed point (`04 || x || y`) follows.
+const P256_SPKI_PREFIX: [u8; 26] =
+    hexlower!("3059301306072a8648ce3d020106082a8648ce3d030107034200");
+/// PKCS#8 prefix for a P-256 private key carrying its public point: the
+/// scalar `d` follows, then `P256_PKCS8_MID`, then `04 || x || y`.
+#[cfg(feature = "host-only")]
+const P256_PKCS8_PREFIX: [u8; 36] =
+    hexlower!("308187020100301306072a8648ce3d020106082a8648ce3d030107046d306b0201010420");
+/// The bytes between `d` and the public point in the P-256 PKCS#8 form.
+#[cfg(feature = "host-only")]
+const P256_PKCS8_MID: [u8; 5] = hexlower!("a144034200");
 
 // --- Wycheproof RSA-2048 + SHA-256: rsa_signature_2048_sha256_test.json
 //     tcId 1 and rsa_pss_2048_sha256_mgf1_32_test.json tcId 1 (sLen 32).
@@ -150,7 +179,7 @@ const RSA_PSS_SIG: [u8; 256] = hexlower!(
 //     composable with the in-guest provider, which withholds these
 //     interfaces. ------------------------------------------------------
 
-#[cfg(feature = "rsa-oaep")]
+#[cfg(feature = "host-only")]
 const OAEP_PKCS8: [u8; 1217] = hexlower!(
     "308204bd020100300d06092a864886f70d0101010500048204a7308204a30201\
      000282010100a2b451a07d0aa5f96e455671513550514a8a5b462ebef717094f\
@@ -192,13 +221,13 @@ const OAEP_PKCS8: [u8; 1217] = hexlower!(
      31241f5921b5ad3983fb54ef17be3b285367e50c999c67247b552fe4bfce945f\
      7b"
 );
-#[cfg(feature = "rsa-oaep")]
+#[cfg(feature = "host-only")]
 const OAEP_PRIVATE_JWK: &str = r#"{"kty":"RSA","alg":"RSA-OAEP-256","n":"orRRoH0KpfluRVZxUTVQUUqKW0YuvvcXCU-h_ugiJOY3-XRtP3yv0xh42AMltu9aFwD2WQO0aUKeidbqyIRQl7WrOTGJ25JRLtincRoSU_rNIPecFegkfz0-QuRuSMmOJUov6XZTE6A-_48X4aApOXofomqNzib0kO2BKZYV2YFMItphBCjgnH2WWFlCZvXAIdD87KCNlFoSvoLeTR7Oa0wDFFtdNJXU7VQR64eNrwX9evw-Ca2g8RJkIvWQl1oZaYFvSGmLy7obTZyuedRg2Pn4Xnl1AF2bwixOWsD3waRdElaaYoB9O5oC5aUw53MGb0U9H1tMLpz3ggKD90K51Q","e":"AQAB","kid":"none","d":"JM3GIxf11ypva6bMljKJmwHR_yiGfXL2FoiZW8hVpOQgqEBSUAib2xPPjglUOCe3SLnSf7srTZ4gr4xaaoYnltGkzBitFupni8G9SoO7vpxeV0U7XOc4jkGjukzit3tEOKIp6VT3INrgNT3AiKyKdrJtwnb44beFHd1jmK0W_y54GVEjubA26UXDjJ0SQ09t92_iI1nrPhrJwBFnj8km-tOuR1pP__9V_rLRR-nIlPTA4ppZnnYkYkgtlov0J4CUX8DSwxxXPEQxuPT-i4xnvsgVq9RPeobtyhwjCHNzWNLCrl4uDi2t9zCYAmI3flixO32ZkgYKC8hwzP20qTGe4Q","p":"3EMQUPeC6JT7UkgkfZjLfVi40eJPO1XQQcVuTeCGsNW7AovaQu610jTVaB5YCdQV5qKJrUz794-Xj2w1gU9Q7r_xxbgKafeI6B5rq13ap4Np1lnRQ-xvF-eYE6V1z62cVpFWuQET4ukRCtnntIock0im5lMyEZEpDqNs-zpbGPE","q":"vRqB55d_mJgSInOuMiK1mOpfsZ606rw4MIpeMhlmA7LlAP-3n1uIaBZhHevEcvrEVUQHC-sFfJQTeKaGivO3oD0_mIDsR9XgiblPveVCq6mujXLFcIjXq_WxMfOQmPe8Fg-QU2q8lJL9Tgbz7XKZ1Ll7sDZ3IH2VZp8UDPvCDyU","dp":"qUtSiyjykVmRIdkZUv_Rx_IdfBR52Z1HiIX7Fhhw7hIYvwhHJhLb5Ul-jZxlBojgnHhpYa4-LDVNxIrjRRR1nEwjxFiEiJYdwGtBTmHA4ef7vSkj0xUy_iifltoiBxHljBQBmAjgBBQnaTO7B-TvubSps3ZWkXIFIJ8z8JUV18E","dq":"OvDnKpM67wn_JQPfeLr-1THAL_GivEN8VAzcvUrTVDXPURdjWWVDSAYpsRTKf3gP9--jLqDLbgANbZ6h8u9x_Zz5lIQioWVVfjfnVe3-cNkLkgUC60eLyYpj94jOOg-FbW7eclGjg7-o-kgKgaklr3s8xTjEurjJ91l_-2gBHY0","qi":"JkD7-8_vsWPueoe2SDpm7kH5VtkPqKeTm_wELuCSSxt5k9BEX3WNUZM-hRecAyCwyWi0ipHDi1vpI-EJfAxWL4jUIpS2onWbr6VCinTxJwh05F9vzGDyFgLeXszRQ88xJB9ZIbWtOYP7VO8XvjsoU2flDJmcZyR7VS_kv86UX3s"}"#;
-#[cfg(feature = "rsa-oaep")]
+#[cfg(feature = "host-only")]
 const OAEP_PUBLIC_JWK: &str = r#"{"kty":"RSA","alg":"RSA-OAEP-256","n":"orRRoH0KpfluRVZxUTVQUUqKW0YuvvcXCU-h_ugiJOY3-XRtP3yv0xh42AMltu9aFwD2WQO0aUKeidbqyIRQl7WrOTGJ25JRLtincRoSU_rNIPecFegkfz0-QuRuSMmOJUov6XZTE6A-_48X4aApOXofomqNzib0kO2BKZYV2YFMItphBCjgnH2WWFlCZvXAIdD87KCNlFoSvoLeTR7Oa0wDFFtdNJXU7VQR64eNrwX9evw-Ca2g8RJkIvWQl1oZaYFvSGmLy7obTZyuedRg2Pn4Xnl1AF2bwixOWsD3waRdElaaYoB9O5oC5aUw53MGb0U9H1tMLpz3ggKD90K51Q","e":"AQAB"}"#;
-#[cfg(feature = "rsa-oaep")]
+#[cfg(feature = "host-only")]
 const OAEP_MESSAGE: [u8; 20] = hexlower!("0000000000000000000000000000000000000000");
-#[cfg(feature = "rsa-oaep")]
+#[cfg(feature = "host-only")]
 const OAEP_CIPHERTEXT: [u8; 256] = hexlower!(
     "207180c340658b5154ae45d2e4e7326a0997c683a26b595e536a29333c4b6614\
      9af85e029d5419a39e3a147b221516ffd86b6b4b66c3e0c4c49fe8c57a2f5c37\
@@ -247,8 +276,10 @@ impl Guest for Component {
             ecdsa_verify_known_answer().await,
         )
         .await?;
+        #[cfg(feature = "host-only")]
+        check("ecdsa-sign-mints", ecdsa_sign_mints().await).await?;
         check("rsa-verify-known-answer", rsa_verify_known_answer().await).await?;
-        #[cfg(feature = "rsa-oaep")]
+        #[cfg(feature = "host-only")]
         check("rsa-oaep-key-transport", rsa_oaep_key_transport().await).await?;
         check("hkdf-rfc5869-derive", hkdf_derive().await).await?;
         check("hkdf-sha1-derive", hkdf_sha1_derive().await).await?;
@@ -626,14 +657,55 @@ async fn ed25519_verify_check() -> Result<()> {
         key.verify(ED25519_MESSAGE, sig).await,
         Error::AuthenticationFailed,
         "corrupted signature verified",
-    )
+    )?;
+
+    // The same key in its other public encodings — the RFC 8410 SPKI and
+    // the RFC 8037 OKP JWK — each verifying the known signature.
+    let spki: Vec<u8> = [&ED25519_SPKI_PREFIX[..], &ED25519_PUBLIC[..]].concat();
+    let from_spki = ed25519::import_verifying_key_spki(spki.clone())
+        .await
+        .context("import-verifying-key-spki")?;
+    from_spki
+        .verify(ED25519_MESSAGE, ED25519_SIG.to_vec())
+        .await
+        .context("SPKI-imported key rejected the known signature")?;
+    let jwk = format!(
+        r#"{{"kty":"OKP","crv":"Ed25519","x":"{}"}}"#,
+        b64url(&ED25519_PUBLIC)
+    );
+    let from_jwk = ed25519::import_verifying_key_jwk(jwk)
+        .await
+        .context("import-verifying-key-jwk")?;
+    from_jwk
+        .verify(ED25519_MESSAGE, ED25519_SIG.to_vec())
+        .await
+        .context("JWK-imported key rejected the known signature")?;
+
+    // Public exports have no extractability gate: raw and SPKI round-trip
+    // byte-for-byte (both encodings are canonical), and the exported JWK
+    // re-imports to a key that still verifies.
+    ensure!(
+        key.export_key_raw().await.context("export-key-raw")? == ED25519_PUBLIC,
+        "export-key-raw did not round-trip"
+    );
+    ensure!(
+        key.export_key_spki().await.context("export-key-spki")? == spki,
+        "export-key-spki did not round-trip"
+    );
+    let exported = key.export_key_jwk().await.context("export-key-jwk")?;
+    ed25519::import_verifying_key_jwk(exported)
+        .await
+        .context("re-importing the exported JWK")?
+        .verify(ED25519_MESSAGE, ED25519_SIG.to_vec())
+        .await
+        .context("the JWK-export round trip lost the key")
 }
 
 /// The signature wrappers end to end: generate through `ed25519`, sign
 /// through `SigningKey`, verify through `VerifyingKey`, and fail closed on
 /// a tampered signature.
 async fn ed25519_wrapper_roundtrip() -> Result<()> {
-    use polymorph_webcrypto_guest::{ed25519, SigningKeyOptions};
+    use polymorph_webcrypto_guest::{aes_gcm, ed25519, AeadKeyOptions, SigningKeyOptions};
     let (signing, verifying) = ed25519::generate_key(SigningKeyOptions {
         sign: true,
         extractable: false,
@@ -659,7 +731,138 @@ async fn ed25519_wrapper_roundtrip() -> Result<()> {
         verifying.verify(payload, sig).await,
         Error::AuthenticationFailed,
         "tampered signature verified",
+    )?;
+
+    // The private-key mints, from the RFC 8032 test-2 seed. Ed25519 is
+    // deterministic, so every correctly minted key signs the test message
+    // to the known signature byte-for-byte.
+    let exportable = SigningKeyOptions {
+        sign: true,
+        extractable: true,
+    };
+    let pkcs8: Vec<u8> = [&ED25519_PKCS8_PREFIX[..], &ED25519_SECRET[..]].concat();
+    let imported = ed25519::import_signing_key_pkcs8(pkcs8, exportable)
+        .await
+        .context("import-signing-key-pkcs8")?;
+    ensure!(
+        imported.sign(ED25519_MESSAGE).await? == ED25519_SIG,
+        "the PKCS#8-imported key's signature differs from RFC 8032 test 2"
+    );
+    let private_jwk = format!(
+        r#"{{"kty":"OKP","crv":"Ed25519","x":"{}","d":"{}"}}"#,
+        b64url(&ED25519_PUBLIC),
+        b64url(&ED25519_SECRET)
+    );
+    let from_jwk = ed25519::import_signing_key_jwk(private_jwk, exportable)
+        .await
+        .context("import-signing-key-jwk")?;
+    ensure!(
+        from_jwk.sign(ED25519_MESSAGE).await? == ED25519_SIG,
+        "the JWK-imported key's signature differs from RFC 8032 test 2"
+    );
+
+    // Private exports are extractability-gated: the generated key above
+    // was minted sealed and must stay so; the extractable import
+    // round-trips through both encodings (compared semantically — PKCS#8
+    // v1/v2 forms differ across providers — via the deterministic
+    // signature).
+    expect_error!(
+        signing.export_key_pkcs8().await,
+        Error::NotExtractable,
+        "a non-extractable signing key exported its PKCS#8",
+    )?;
+    let reimported = ed25519::import_signing_key_pkcs8(
+        imported
+            .export_key_pkcs8()
+            .await
+            .context("export-key-pkcs8")?,
+        exportable,
     )
+    .await
+    .context("re-importing the exported PKCS#8")?;
+    ensure!(
+        reimported.sign(ED25519_MESSAGE).await? == ED25519_SIG,
+        "the PKCS#8-export round trip lost the key"
+    );
+    let reimported = ed25519::import_signing_key_jwk(
+        imported.export_key_jwk().await.context("export-key-jwk")?,
+        exportable,
+    )
+    .await
+    .context("re-importing the exported JWK")?;
+    ensure!(
+        reimported.sign(ED25519_MESSAGE).await? == ED25519_SIG,
+        "the JWK-export round trip lost the key"
+    );
+
+    // The wrap tour: the signing key's material transits to a fresh key
+    // through wrap/unwrap without reaching this caller, in both
+    // serializations. The kek is an AEAD key: AES-KW takes only 8-byte
+    // multiples, which the variable-length private serializations do not
+    // promise. One fresh kek, one distinct nonce per wrap.
+    let kek = aes_gcm::generate_key(
+        AesVariant::Aes128,
+        AeadKeyOptions {
+            wrap: true,
+            unwrap: true,
+            ..Default::default()
+        },
+    )
+    .await
+    .context("aes-gcm generate-key")?;
+    let sealed = SigningKeyOptions {
+        sign: true,
+        extractable: false,
+    };
+    let wrapped = kek
+        .wrap(
+            *b"demo-nonce-1",
+            *b"",
+            None,
+            imported
+                .to_wrap_input_pkcs8()
+                .await
+                .context("to-wrap-input-pkcs8")?,
+        )
+        .await
+        .context("wrapping the PKCS#8 serialization")?;
+    let minted = ed25519::unwrap_signing_key_pkcs8(
+        kek.unwrap(*b"demo-nonce-1", *b"", None, wrapped)
+            .await
+            .context("aead-key.unwrap")?,
+        sealed,
+    )
+    .await
+    .context("unwrap-signing-key-pkcs8")?;
+    ensure!(
+        minted.sign(ED25519_MESSAGE).await? == ED25519_SIG,
+        "the PKCS#8 wrap tour lost the key"
+    );
+    let wrapped = kek
+        .wrap(
+            *b"demo-nonce-2",
+            *b"",
+            None,
+            imported
+                .to_wrap_input_jwk()
+                .await
+                .context("to-wrap-input-jwk")?,
+        )
+        .await
+        .context("wrapping the JWK serialization")?;
+    let minted = ed25519::unwrap_signing_key_jwk(
+        kek.unwrap(*b"demo-nonce-2", *b"", None, wrapped)
+            .await
+            .context("aead-key.unwrap")?,
+        sealed,
+    )
+    .await
+    .context("unwrap-signing-key-jwk")?;
+    ensure!(
+        minted.sign(ED25519_MESSAGE).await? == ED25519_SIG,
+        "the JWK wrap tour lost the key"
+    );
+    Ok(())
 }
 
 /// The RFC 6979 known answer: an imported P-256 public key reports its
@@ -700,7 +903,185 @@ async fn ecdsa_verify_known_answer() -> Result<()> {
         key.verify(ECDSA_MESSAGE, sig).await,
         Error::AuthenticationFailed,
         "corrupted signature verified",
+    )?;
+
+    // The same key in its other public encodings — the named-curve SPKI
+    // and the EC JWK — each verifying the known signature.
+    let known_sig = || {
+        let mut sig = ECDSA_SIG_R.to_vec();
+        sig.extend(ECDSA_SIG_S);
+        sig
+    };
+    let spki: Vec<u8> = [
+        &P256_SPKI_PREFIX[..],
+        &[0x04],
+        &ECDSA_PUBLIC_X[..],
+        &ECDSA_PUBLIC_Y[..],
+    ]
+    .concat();
+    let from_spki = ecdsa::import_verifying_key_spki(EcdsaVariant::P256Sha256, spki.clone())
+        .await
+        .context("import-verifying-key-spki")?;
+    from_spki
+        .verify(ECDSA_MESSAGE, known_sig())
+        .await
+        .context("SPKI-imported key rejected the known signature")?;
+    let jwk = format!(
+        r#"{{"kty":"EC","crv":"P-256","x":"{}","y":"{}"}}"#,
+        b64url(&ECDSA_PUBLIC_X),
+        b64url(&ECDSA_PUBLIC_Y)
+    );
+    let from_jwk = ecdsa::import_verifying_key_jwk(EcdsaVariant::P256Sha256, jwk)
+        .await
+        .context("import-verifying-key-jwk")?;
+    from_jwk
+        .verify(ECDSA_MESSAGE, known_sig())
+        .await
+        .context("JWK-imported key rejected the known signature")?;
+
+    // Public exports: raw and SPKI round-trip byte-for-byte (the
+    // uncompressed point and named-curve encodings are canonical), and
+    // the exported JWK re-imports to a key that still verifies.
+    let mut point = vec![0x04];
+    point.extend(ECDSA_PUBLIC_X);
+    point.extend(ECDSA_PUBLIC_Y);
+    ensure!(
+        key.export_key_raw().await.context("export-key-raw")? == point,
+        "export-key-raw did not round-trip"
+    );
+    ensure!(
+        key.export_key_spki().await.context("export-key-spki")? == spki,
+        "export-key-spki did not round-trip"
+    );
+    let exported = key.export_key_jwk().await.context("export-key-jwk")?;
+    ecdsa::import_verifying_key_jwk(EcdsaVariant::P256Sha256, exported)
+        .await
+        .context("re-importing the exported JWK")?
+        .verify(ECDSA_MESSAGE, known_sig())
+        .await
+        .context("the JWK-export round trip lost the key")
+}
+
+/// The ECDSA signing-key mints (host-only: the in-guest provider
+/// withholds `ecdsa-sign` — class D). Signatures are not deterministic
+/// across implementations (randomized-k and RFC 6979 both verify), so
+/// each minted key is checked by verifying what it signs against the
+/// RFC 6979 key's public half.
+#[cfg(feature = "host-only")]
+async fn ecdsa_sign_mints() -> Result<()> {
+    use polymorph_webcrypto_guest::ecdsa::{self, EcdsaVariant};
+    use polymorph_webcrypto_guest::{aes_gcm, AeadKeyOptions, SigningKeyOptions};
+
+    let mut point = vec![0x04];
+    point.extend(ECDSA_PUBLIC_X);
+    point.extend(ECDSA_PUBLIC_Y);
+    let verifying = ecdsa::import_verifying_key_raw(EcdsaVariant::P256Sha256, point)
+        .await
+        .context("import-verifying-key-raw")?;
+    let exportable = SigningKeyOptions {
+        sign: true,
+        extractable: true,
+    };
+
+    // RFC 6979 A.2.5's private key, in both import encodings.
+    let pkcs8: Vec<u8> = [
+        &P256_PKCS8_PREFIX[..],
+        &ECDSA_PRIVATE[..],
+        &P256_PKCS8_MID[..],
+        &[0x04],
+        &ECDSA_PUBLIC_X[..],
+        &ECDSA_PUBLIC_Y[..],
+    ]
+    .concat();
+    let signing = ecdsa::import_signing_key_pkcs8(EcdsaVariant::P256Sha256, pkcs8, exportable)
+        .await
+        .context("import-signing-key-pkcs8")?;
+    verifying
+        .verify(ECDSA_MESSAGE, signing.sign(ECDSA_MESSAGE).await?)
+        .await
+        .context("the PKCS#8-imported key's signature did not verify")?;
+    let private_jwk = format!(
+        r#"{{"kty":"EC","crv":"P-256","x":"{}","y":"{}","d":"{}"}}"#,
+        b64url(&ECDSA_PUBLIC_X),
+        b64url(&ECDSA_PUBLIC_Y),
+        b64url(&ECDSA_PRIVATE)
+    );
+    let from_jwk = ecdsa::import_signing_key_jwk(EcdsaVariant::P256Sha256, private_jwk, exportable)
+        .await
+        .context("import-signing-key-jwk")?;
+    verifying
+        .verify(ECDSA_MESSAGE, from_jwk.sign(ECDSA_MESSAGE).await?)
+        .await
+        .context("the JWK-imported key's signature did not verify")?;
+
+    // The wrap tour through both unwrap mints: the material transits
+    // wrap/unwrap without reaching this caller. The kek is an AEAD key
+    // (AES-KW takes only 8-byte multiples — the P-256 PKCS#8 form is
+    // not one); one fresh kek, one distinct nonce per wrap.
+    let kek = aes_gcm::generate_key(
+        polymorph_webcrypto_guest::aes_gcm::AesVariant::Aes128,
+        AeadKeyOptions {
+            wrap: true,
+            unwrap: true,
+            ..Default::default()
+        },
     )
+    .await
+    .context("aes-gcm generate-key")?;
+    let sealed = SigningKeyOptions {
+        sign: true,
+        extractable: false,
+    };
+    let wrapped = kek
+        .wrap(
+            *b"demo-nonce-1",
+            *b"",
+            None,
+            signing
+                .to_wrap_input_pkcs8()
+                .await
+                .context("to-wrap-input-pkcs8")?,
+        )
+        .await
+        .context("wrapping the PKCS#8 serialization")?;
+    let minted = ecdsa::unwrap_signing_key_pkcs8(
+        EcdsaVariant::P256Sha256,
+        kek.unwrap(*b"demo-nonce-1", *b"", None, wrapped)
+            .await
+            .context("aead-key.unwrap")?,
+        sealed,
+    )
+    .await
+    .context("unwrap-signing-key-pkcs8")?;
+    verifying
+        .verify(ECDSA_MESSAGE, minted.sign(ECDSA_MESSAGE).await?)
+        .await
+        .context("the PKCS#8 wrap tour lost the key")?;
+    let wrapped = kek
+        .wrap(
+            *b"demo-nonce-2",
+            *b"",
+            None,
+            signing
+                .to_wrap_input_jwk()
+                .await
+                .context("to-wrap-input-jwk")?,
+        )
+        .await
+        .context("wrapping the JWK serialization")?;
+    let minted = ecdsa::unwrap_signing_key_jwk(
+        EcdsaVariant::P256Sha256,
+        kek.unwrap(*b"demo-nonce-2", *b"", None, wrapped)
+            .await
+            .context("aead-key.unwrap")?,
+        sealed,
+    )
+    .await
+    .context("unwrap-signing-key-jwk")?;
+    verifying
+        .verify(ECDSA_MESSAGE, minted.sign(ECDSA_MESSAGE).await?)
+        .await
+        .context("the JWK wrap tour lost the key")
 }
 
 /// The Wycheproof known answers, one per RSA signature algorithm over the
@@ -780,7 +1161,7 @@ async fn rsa_verify_known_answer() -> Result<()> {
 /// under the label it was encrypted with, and a generated pair
 /// round-trips (RFC 8017's OAEP is randomized, so generation has no
 /// known-answer form — the round trip is the check).
-#[cfg(feature = "rsa-oaep")]
+#[cfg(feature = "host-only")]
 async fn rsa_oaep_key_transport() -> Result<()> {
     use polymorph_webcrypto_guest::rsa_oaep::{self, RsaModulus, RsaVariant};
     use polymorph_webcrypto_guest::DecryptionKeyOptions;
@@ -1281,6 +1662,10 @@ async fn key_wrap_tour() -> Result<()> {
 
 fn hex(bytes: &[u8]) -> String {
     data_encoding::HEXLOWER.encode(bytes)
+}
+
+fn b64url(bytes: &[u8]) -> String {
+    data_encoding::BASE64URL_NOPAD.encode(bytes)
 }
 
 export!(Component);

@@ -772,8 +772,9 @@ impl KwKeyOptions {
 pub struct SigningKeyOptions {
     /// Whether the minted key may `sign`.
     pub sign: bool,
-    /// Whether the minted key's material may be exported (by future
-    /// format-specific exports; there is no export operation today).
+    /// Whether the minted key's material may be exported
+    /// ([`SigningKey::export_key_jwk`], [`SigningKey::export_key_pkcs8`],
+    /// and the wrap inputs).
     pub extractable: bool,
 }
 
@@ -1321,6 +1322,19 @@ impl VerifyingKey {
     pub async fn export_key_raw(&self) -> Result<Vec<u8>, Error> {
         self.0.export_key_raw().await.map_err(Error::from)
     }
+
+    /// The public key as an X.509 SubjectPublicKeyInfo (DER), with the
+    /// same fallibility as [`export_key_raw`](Self::export_key_raw).
+    pub async fn export_key_spki(&self) -> Result<Vec<u8>, Error> {
+        self.0.export_key_spki().await.map_err(Error::from)
+    }
+
+    /// The public key as a JWK (JSON text — an RFC 8037 OKP public key
+    /// for Ed25519, an EC public key for ECDSA), with the same
+    /// fallibility as [`export_key_raw`](Self::export_key_raw).
+    pub async fn export_key_jwk(&self) -> Result<String, Error> {
+        self.0.export_key_jwk().await.map_err(Error::from)
+    }
 }
 
 /// A `signature.signing-key`: private-key signing.
@@ -1363,11 +1377,15 @@ impl SigningKey {
         self.0.algorithm_public_exponent()
     }
 
-    /// Whether the private key material may be exported. There is
-    /// currently no export operation — extractability is mint-time
-    /// recorded policy that future format-specific exports and
-    /// platform-backed key storage honor (see the WIT
-    /// `signing-key.extractable` doc).
+    /// Whether the private key material may be exported by
+    /// [`export_key_jwk`](Self::export_key_jwk) /
+    /// [`export_key_pkcs8`](Self::export_key_pkcs8) and the wrap inputs —
+    /// mint-time recorded policy, which platform-backed key storage also
+    /// honors.
+    ///
+    /// Asking is not the same as exporting: interrogating extractability
+    /// through an export alone would hand you the material whenever the
+    /// answer is yes.
     pub fn extractable(&self) -> bool {
         self.0.extractable()
     }
@@ -1377,6 +1395,43 @@ impl SigningKey {
     /// operation fails [`Error::NotPermitted`].
     pub fn can_sign(&self) -> bool {
         self.0.can_sign()
+    }
+
+    /// The private key as a JWK (JSON text — an RFC 8037 OKP private key
+    /// for Ed25519, an EC private key for ECDSA); fails with
+    /// [`Error::NotExtractable`] unless the key was minted extractable.
+    /// Extractability is an API property, not a physical one: the
+    /// guarantee is that components holding only the handle cannot obtain
+    /// the material through this API.
+    pub async fn export_key_jwk(&self) -> Result<String, Error> {
+        self.0.export_key_jwk().await.map_err(Error::from)
+    }
+
+    /// The private key as a PKCS#8 PrivateKeyInfo (DER), behind the same
+    /// extractability gate as [`export_key_jwk`](Self::export_key_jwk).
+    pub async fn export_key_pkcs8(&self) -> Result<Vec<u8>, Error> {
+        self.0.export_key_pkcs8().await.map_err(Error::from)
+    }
+
+    /// The private-key JWK serialization as a [`WrapInput`] for wrapping
+    /// under another key — the material transits neither caller. Behind
+    /// the same extractability gate as
+    /// [`export_key_jwk`](Self::export_key_jwk).
+    pub async fn to_wrap_input_jwk(&self) -> Result<WrapInput, Error> {
+        self.0
+            .to_wrap_input_jwk()
+            .await
+            .map(WrapInput::from_raw)
+            .map_err(Error::from)
+    }
+
+    /// The PKCS#8 serialization as a [`WrapInput`], behind the same gate.
+    pub async fn to_wrap_input_pkcs8(&self) -> Result<WrapInput, Error> {
+        self.0
+            .to_wrap_input_pkcs8()
+            .await
+            .map(WrapInput::from_raw)
+            .map_err(Error::from)
     }
 }
 

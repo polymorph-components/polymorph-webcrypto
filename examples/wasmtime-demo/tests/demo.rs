@@ -23,7 +23,7 @@ fn run(dir: &Path, program: &str, args: &[&str]) {
 }
 
 /// Build the guest component through `just demo::build-component` — the single
-/// definition of that build — and return the opt-in rsa-oaep artifact's
+/// definition of that build — and return the opt-in host-only artifact's
 /// path (this host serves the withheld-by-default interfaces). The build
 /// runs once per test binary: the tests run in parallel, and a concurrent
 /// rebuild's `wasm-tools component new -o` truncates the component file in
@@ -31,7 +31,7 @@ fn run(dir: &Path, program: &str, args: &[&str]) {
 fn build_component(workspace_root: &Path) -> PathBuf {
     static BUILD: Once = Once::new();
     BUILD.call_once(|| run(workspace_root, "just", &["build-component"]));
-    workspace_root.join("examples/crypto-demo/build/crypto-demo-rsa-oaep.component.wasm")
+    workspace_root.join("examples/crypto-demo/build/crypto-demo-host-only.component.wasm")
 }
 
 #[tokio::test(flavor = "multi_thread")]

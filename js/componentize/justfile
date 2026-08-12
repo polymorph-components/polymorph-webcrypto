@@ -13,10 +13,12 @@
 import '../../justfile.shared.just'
 
 # Type-check the library against the Web Cryptography API definitions
-# TypeScript ships. Nothing is generated, so nothing can go stale; no
-# component build.
+# TypeScript ships, and check the extension-condition table against the
+# package registry (wit/extension-conditions.json). Nothing is generated,
+# so nothing can go stale; no component build.
 typecheck:
     npm run typecheck
+    node check-extension-conditions.mjs
 
 # Componentize the JS WebCrypto-subset demo guest (this library +
 # examples/componentize-demo app) into examples/componentize-demo/build/.

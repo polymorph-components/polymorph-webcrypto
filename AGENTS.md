@@ -33,7 +33,10 @@ wit/                    # the polymorph:webcrypto package, one file per layer:
                         #   family files (aes.wit, rsa.wit, …) hold the
                         #   minting interfaces plus any family-shared
                         #   parameterization interface, and grow as
-                        #   algorithms are added
+                        #   algorithms are added;
+                        #   extension-conditions.json is the registry of
+                        #   the package's named extension conditions (see
+                        #   wit/README.md, "Error contract")
 rust/                   # the Rust library surface (directory = crate name
                         # minus the `polymorph-webcrypto-` family root)
   core/                 # polymorph-webcrypto-core: the shared RustCrypto core of
@@ -196,15 +199,17 @@ existing compositions, but providers must update to serve them. Adding a
 **`types.error` case** is always semver-major: the variant sits in return
 position, so a new case flows toward consumers whose bindings cannot
 represent it — there is no compatible path for variant growth. The variant
-is therefore designed never to need growth: the closed cases carry the
-generic kinds' universal conditions, `other(string)` carries operational
+is therefore designed never to need growth: the closed cases are frozen
+(the conditions the package's contracts named when the variant was
+designed), `other(string)` carries operational
 conditions (never semantic conditions callers must branch on), and
-`extension(extension-error)` carries named algorithm- and feature-specific
-conditions by (`origin`, `name`) pair — see `wit/README.md`, "Error
-contract". Before proposing a closed case, check whether the fail-closed
-design maps the condition onto an existing one (it usually does) and
-whether the condition is interface-specific (then it is an extension
-condition, not a case).
+`extension(extension-error)` carries every named condition outside the
+closed set — kind-level and algorithm-level alike — by (`origin`, `name`)
+pair, recorded in `wit/extension-conditions.json` and gated against the
+implementation spellings — see `wit/README.md`, "Error
+contract". A new named condition is never a closed case: check whether the
+fail-closed design maps it onto an existing case (it usually does);
+otherwise it is an extension pair.
 
 The evolution rules describe the cost of a change, not a prohibition — and
 they bind only once the package has external consumers, which it does not
@@ -417,7 +422,7 @@ Run the recipes that cover what you changed, and fix anything they report.
 | `just test` | any Rust host/guest code (includes the guest-under-Wasmtime integration test). |
 | `just demo::build-component` | the `crypto-demo` guest or its WIT. |
 | `just demo::test-composed` | the `polymorph-webcrypto-guest-provider` provider, the demo driver, or any WIT (composes guest + provider + driver with `wac plug` and runs under `wasmtime`). |
-| `just componentize::typecheck` | the `webcrypto-componentize` library. Asserts its exported surface against the Web Cryptography API definitions TypeScript ships; no component build, nothing generated. |
+| `just componentize::typecheck` | the `webcrypto-componentize` library, or `wit/extension-conditions.json`. Asserts its exported surface against the Web Cryptography API definitions TypeScript ships, and its extension-condition table against the wit/ registry; no component build, nothing generated. |
 | `just componentize::test` | the `webcrypto-componentize` library, the componentize-demo guest, the in-guest provider, or any WIT. Gates in CI. Componentizes the JS demo guest from your tree (with the downloaded, digest-verified componentize-js — see the WPT row for the pin mechanics), composes it with the in-guest provider and driver, and runs it under `wasmtime`. The behavioral gate on the shim's checks the WPT census cannot observe (the SHA-1 collision postures, the extension-error transport). |
 | `just wpt::test` | the `webcrypto-componentize` library, its `wpt/` harness or vendored files, the in-guest provider, or any WIT. Gates in CI. The runner is componentized from your tree in seconds; the componentize-js build it needs is downloaded and digest-verified (`js/componentize/wpt/component.sh`), never compiled here. Changing `js/componentize/componentize-js.rev` triggers the `componentize-js-toolchain` workflow; this check then fails until that publishes *and* `just componentize::update-toolchain-digest` records the new digests. Intentional changes to the test census also need `just wpt::update-expectations`. |
 | `just conformance-ct::all` | any host/guest behavior the tests assert — the WIT surface, an implementation, the conformance suites/vectors/translation policy, or driver-ct/targets.toml. Runs the wasmtime-rustcrypto, composed, jco-node, and deltic-deno targets always (Node 24+, Deno), the jco-browser and deltic-browser legs under CI or CONFORMANCE_BROWSER=1, and the jco-firefox leg under CONFORMANCE_FIREFOX=1 (in CI it is the dedicated conformance-firefox job — Firefox needs a runner to itself), aggregating against the committed lockfiles and target manifests and building the compat matrix (results/compat.json); the jco-webkit leg runs only as the macOS CI job, and CI's conformance-aggregate job re-aggregates all eight targets, diffs the committed matrices (`matrix-check`), and gates the compat registry (`compat-check --require-all`). Intentional case changes also need `just conformance-ct::lock-update` and `just conformance-ct::matrix-update` — the latter from a full run, which only CI can produce (the WebKit leg needs macOS), so in practice `just gha::update-matrices-from-ci` (copies the matrices from the branch's CI `conformance-results` artifact). |

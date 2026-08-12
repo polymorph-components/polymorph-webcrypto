@@ -249,18 +249,27 @@ function isWitError(e) {
 }
 
 /**
- * The `DOMException` names for the known extension conditions, by
- * (`origin`, `name`); a pair not listed here is handled as an operational
- * failure (the package's rule for unrecognized pairs). The full WIT
- * payload rides in the `DOMException`'s `cause`.
+ * The `DOMException` names for the package's named extension conditions,
+ * by (`origin`, `name`) pair: the WebCrypto-vocabulary mirror of the
+ * package registry, `wit/extension-conditions.json`.
+ * `check-extension-conditions.mjs` (run by `just componentize::typecheck`)
+ * extracts this table from the source — componentize-js resolves only the
+ * WIT specifiers, so this file stays a single module — and fails when the
+ * two drift. A pair not listed here is handled as an operational failure
+ * (the package's rule for unrecognized pairs).
  * @type {Readonly<Record<string, Readonly<Record<string, string>> | undefined>>}
  */
 const EXTENSION_ERRORS = {
-  "polymorph:webcrypto": { "collision-detected": "OperationError" },
+  "polymorph:webcrypto": {
+    "collision-detected": "OperationError",
+    "message-too-long": "OperationError",
+  },
 };
 
 /**
  * Map a WIT `types.error` variant onto the WebCrypto error vocabulary.
+ * Extension pairs map through `EXTENSION_ERRORS`; the full WIT payload
+ * rides in the `DOMException`'s `cause`.
  * @param {WitError} payload
  */
 function mapWitError(payload) {

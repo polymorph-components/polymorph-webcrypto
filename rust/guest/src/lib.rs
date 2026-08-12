@@ -263,10 +263,14 @@ pub enum Error {
 /// for matching against [`Error::Extension`].
 pub mod extension {
     /// The `origin` of conditions the `polymorph:webcrypto` package defines.
-    pub const LANN_WEBCRYPTO: &str = "polymorph:webcrypto";
+    pub const ORIGIN: &str = "polymorph:webcrypto";
     /// `sha1-checked`'s collision condition: a rejecting digest's input
     /// carried a SHA-1 collision attack pattern.
     pub const COLLISION_DETECTED: &str = "collision-detected";
+    /// `public-encryption`'s plaintext-bound condition: the plaintext (or
+    /// wrapped serialization) exceeds the key's bound — the signal to
+    /// switch to hybrid wrapping.
+    pub const MESSAGE_TOO_LONG: &str = "message-too-long";
 }
 
 impl From<bindings::types::Error> for Error {
@@ -1455,8 +1459,9 @@ impl EncryptionKey {
     /// bound into the padding: decryption succeeds only under the same
     /// label (WebCrypto's `RsaOaepParams.label`). A plaintext above the
     /// key's bound fails [`Error::Extension`] (origin `"polymorph:webcrypto"`,
-    /// name `"message-too-long"`) — the signal to switch to hybrid
-    /// wrapping: encrypt a symmetric key, wrap the payload under it.
+    /// name `"message-too-long"`; see [`crate::extension`]) — the signal to
+    /// switch to hybrid wrapping: encrypt a symmetric key, wrap the payload
+    /// under it.
     pub async fn encrypt(
         &self,
         label: Option<&[u8]>,
@@ -2193,5 +2198,37 @@ mod tests {
         }
         assert!(read_error().to_string().contains("reader failed"));
         assert!(Error::ShortWrite.to_string().starts_with("short write"));
+    }
+
+    /// The registry (`wit/extension-conditions.json`) is the authoritative
+    /// spelling of the package's extension-condition pairs: the
+    /// [`crate::extension`] constants consumers match against must cover it
+    /// exactly, in both directions.
+    #[test]
+    fn extension_constants_match_the_registry() {
+        let registry: serde_json::Value = serde_json::from_str(include_str!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../wit/extension-conditions.json"
+        )))
+        .expect("wit/extension-conditions.json parses");
+        let registered: std::collections::BTreeSet<(&str, &str)> = registry["conditions"]
+            .as_array()
+            .expect("registry has a conditions array")
+            .iter()
+            .map(|condition| {
+                (
+                    condition["origin"].as_str().expect("condition origin"),
+                    condition["name"].as_str().expect("condition name"),
+                )
+            })
+            .collect();
+        let constants = std::collections::BTreeSet::from([
+            (
+                crate::extension::ORIGIN,
+                crate::extension::COLLISION_DETECTED,
+            ),
+            (crate::extension::ORIGIN, crate::extension::MESSAGE_TOO_LONG),
+        ]);
+        assert_eq!(constants, registered);
     }
 }

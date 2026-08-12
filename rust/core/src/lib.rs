@@ -456,4 +456,40 @@ mod tests {
         assert_ne!(c, vec![0u8; 32]);
         assert_ne!(c, d);
     }
+
+    /// The registry (`wit/extension-conditions.json`) is the authoritative
+    /// spelling of the package's extension-condition pairs: the constants
+    /// here — and so the constructors built from them — must match it
+    /// exactly, in both directions.
+    #[test]
+    fn extension_conditions_match_the_registry() {
+        let registry: serde_json::Value = serde_json::from_str(include_str!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../wit/extension-conditions.json"
+        )))
+        .expect("wit/extension-conditions.json parses");
+        let registered: std::collections::BTreeSet<(&str, &str)> = registry["conditions"]
+            .as_array()
+            .expect("registry has a conditions array")
+            .iter()
+            .map(|condition| {
+                (
+                    condition["origin"].as_str().expect("condition origin"),
+                    condition["name"].as_str().expect("condition name"),
+                )
+            })
+            .collect();
+        let constants = std::collections::BTreeSet::from([
+            (EXTENSION_ORIGIN, COLLISION_DETECTED),
+            (EXTENSION_ORIGIN, MESSAGE_TOO_LONG),
+        ]);
+        assert_eq!(constants, registered);
+
+        for error in [Error::collision_detected(), Error::message_too_long(0, 1)] {
+            let Error::Extension(ext) = error else {
+                panic!("extension constructors build Error::Extension");
+            };
+            assert!(registered.contains(&(ext.origin.as_str(), ext.name.as_str())));
+        }
+    }
 }

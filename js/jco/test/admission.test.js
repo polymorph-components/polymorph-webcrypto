@@ -126,6 +126,26 @@ test("an output holds its capacity until it is read", async () => {
   await Promise.all([drain(second), third.then(drain)]);
 });
 
+test("a dropped output releases its capacity", async () => {
+  // The host half of the header's stream-drop convention: the jco runtime
+  // lowers a guest dropping its end of a returned stream onto `cancel()`,
+  // and cancel is where an undrained output's reservation comes back — a
+  // regression here means abandoned outputs leak pool capacity. Same shape
+  // as the drain test above, released by cancel instead of by reading.
+  configure({ perCallBufferLimit: 1024, totalBufferLimit: 2048 });
+  const aead = await key();
+  const first = await aead.seal(NONCE, NO_AAD, undefined, streamOf(new Uint8Array(64)));
+  const second = await aead.seal(NONCE, NO_AAD, undefined, streamOf(new Uint8Array(64)));
+
+  const third = aead.seal(NONCE, NO_AAD, undefined, streamOf(new Uint8Array(64)));
+  third.catch(() => {});
+  assert.equal(await settledWithin(third, 100), "pending", "the pool is full of outputs");
+
+  await first.cancel();
+  assert.equal(await settledWithin(third, 100), "resolved");
+  await Promise.all([drain(second), third.then(drain)]);
+});
+
 test("GUARD: deferring every read until the last call returns deadlocks", async () => {
   // The shape the making-progress note rules out: await every operation
   // before draining any. The four that fit hold their outputs, the fifth

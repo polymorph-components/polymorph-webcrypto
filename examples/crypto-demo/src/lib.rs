@@ -14,12 +14,13 @@
 //! The `check(...)` names below are the inventory, and the integration
 //! tests assert the expected summary.
 //!
-//! The `rsa-oaep` cargo feature (default on) adds the key-transport
-//! check. The fully in-guest composition runs the `--no-default-features`
-//! build instead: a component's imports are derived from the calls it
-//! makes, and the in-guest provider withholds every RSA op interface
-//! (rust/guest-provider/README.md, class D), so the composable artifact
-//! must never make those calls — with them, `wac plug` fails.
+//! The `rsa-oaep` cargo feature (off by default, like the SDK feature it
+//! forwards to) adds the key-transport check. A component's imports are
+//! derived from the calls it makes, and the in-guest provider withholds
+//! every RSA op interface (rust/guest-provider/README.md, class D), so
+//! the default build is what composes with it — the hosts that
+//! deliberately serve those interfaces (the Wasmtime test embedding, the
+//! jco host on Node) run the opt-in build.
 
 wit_bindgen::generate!({
     path: "wit",
@@ -144,9 +145,10 @@ const RSA_PSS_SIG: [u8; 256] = hexlower!(
 // --- Wycheproof rsa_oaep_2048_sha256_mgf1sha256_test.json: group 1's key
 //     (the same 2048-bit modulus as RSA_SPKI above) as PKCS#8 and as the
 //     file's full-CRT private JWK, a public JWK built from its n/e, and
-//     tcId 2's known answer (twenty 0x00 bytes, empty label). Compiled only
-//     with the `rsa-oaep` feature: the composable build must not touch
-//     the interfaces the in-guest provider withholds. -------------------
+//     tcId 2's known answer (twenty 0x00 bytes, empty label). Compiled
+//     only under the opt-in `rsa-oaep` feature: the default build stays
+//     composable with the in-guest provider, which withholds these
+//     interfaces. ------------------------------------------------------
 
 #[cfg(feature = "rsa-oaep")]
 const OAEP_PKCS8: [u8; 1217] = hexlower!(

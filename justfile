@@ -50,7 +50,7 @@ fmt-check:
 # Run clippy across all crates (the wasm crates on their wasm targets).
 clippy:
     cargo clippy --workspace --exclude crypto-demo --exclude polymorph-webcrypto-guest-provider --exclude crypto-demo-driver --exclude timing-lab -- -D warnings
-    cargo clippy -p crypto-demo --target wasm32-unknown-unknown -- -D warnings
+    cargo clippy -p crypto-demo --all-features --target wasm32-unknown-unknown -- -D warnings
     cargo clippy -p polymorph-webcrypto-guest-provider --target wasm32-wasip2 -- -D warnings
     cargo clippy -p crypto-demo-driver --target wasm32-wasip2 -- -D warnings
     cargo clippy -p timing-lab --target wasm32-wasip2 -- -D warnings

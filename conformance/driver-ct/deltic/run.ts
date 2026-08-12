@@ -75,7 +75,7 @@
 // `@deltic/runtime/embedder` by bare specifier internally; this leg's
 // `deno.json` AND `js/deltic/deno.json` must map that specifier to the
 // IDENTICAL exact-pinned JSR version, or the embedder module loads twice
-// and `instanceof WitError` stops holding across the module boundary.
+// and `instanceof ComponentException` stops holding across the module boundary.
 // `just conformance-ct::deltic-pin-check` gates that.
 
 import { Translator } from "@deltic/runtime/shim";

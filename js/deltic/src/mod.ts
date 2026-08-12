@@ -10,7 +10,7 @@
 // (`../../../runtime/src/embedder/…`) to the pinned `@deltic/runtime/embedder`
 // specifier this repo's import maps resolve (see ../README.md). It is the
 // deltic-conventions sibling of [`js/jco/webcrypto.js`](../jco/webcrypto.js)
-// — same behavioral reference host, `WitError` throws and typed `Stream<T>`
+// — same behavioral reference host, `ComponentException` throws and typed `Stream<T>`
 // instead of jco's bare-payload conventions. The WIT contract is
 // [`wit/`](../../wit); every doc comment quoting a contract quotes it.
 //

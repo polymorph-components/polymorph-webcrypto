@@ -195,6 +195,8 @@ import { DeriveOptions } from "polymorph:webcrypto/derivation@0.1.0";
 import { AgreementKeyOptions } from "polymorph:webcrypto/key-agreement@0.1.0";
 import { SigningKeyOptions } from "polymorph:webcrypto/signature@0.1.0";
 
+import { EXTENSION_ERRORS } from "./extension-errors.js";
+
 // --- errors -------------------------------------------------------------------
 
 /**
@@ -249,18 +251,9 @@ function isWitError(e) {
 }
 
 /**
- * The `DOMException` names for the known extension conditions, by
- * (`origin`, `name`); a pair not listed here is handled as an operational
- * failure (the package's rule for unrecognized pairs). The full WIT
- * payload rides in the `DOMException`'s `cause`.
- * @type {Readonly<Record<string, Readonly<Record<string, string>> | undefined>>}
- */
-const EXTENSION_ERRORS = {
-  "polymorph:webcrypto": { "collision-detected": "OperationError" },
-};
-
-/**
  * Map a WIT `types.error` variant onto the WebCrypto error vocabulary.
+ * Extension pairs map through `EXTENSION_ERRORS` (extension-errors.js);
+ * the full WIT payload rides in the `DOMException`'s `cause`.
  * @param {WitError} payload
  */
 function mapWitError(payload) {

@@ -1846,6 +1846,7 @@ dependencies = [
  "bytes",
  "futures",
  "futures-io",
+ "serde_json",
  "wit-bindgen 0.59.0",
 ]
 

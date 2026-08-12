@@ -1,0 +1,30 @@
+{
+  "doc": [
+    "The named extension conditions the polymorph:webcrypto package defines:",
+    "one entry per (origin, name) pair. This file is the authoritative",
+    "spelling — implementation constants and mapping tables are gated",
+    "against it (see README.md, 'Error contract').",
+    "",
+    "`interface` names the defining WIT interface, whose contract says when",
+    "the condition occurs. `dom-exception` is the DOMException name the",
+    "pair maps onto in WebCrypto-vocabulary consumers. `summary` describes",
+    "the condition; producers' `message` strings remain diagnostics, never",
+    "contract."
+  ],
+  "conditions": [
+    {
+      "origin": "polymorph:webcrypto",
+      "name": "collision-detected",
+      "interface": "sha1-checked",
+      "dom-exception": "OperationError",
+      "summary": "A rejecting SHA-1 digest's input carried a collision attack pattern."
+    },
+    {
+      "origin": "polymorph:webcrypto",
+      "name": "message-too-long",
+      "interface": "public-encryption",
+      "dom-exception": "OperationError",
+      "summary": "The plaintext (or wrapped serialization) exceeds the key's bound: the signal to switch to hybrid wrapping."
+    }
+  ]
+}

@@ -95,3 +95,5 @@ aws-lc-rs = "1"
 # vectors whose hex arrives as a `&str` go through `data-encoding`.
 data-encoding = "2"
 data-encoding-macro = "0.1"
+# The extension-condition registry gate parses wit/extension-conditions.json.
+serde_json = "1"

@@ -9,6 +9,14 @@ jco (transpile-based) — and an in-guest wasm component
 [`polymorph:webrtc-datachannels`](https://github.com/polymorph-components/polymorph-webrtc-datachannels),
 following the same architecture.
 
+## Releases
+
+Everything here is **unstable** (0.x), but [releases](../../releases) are
+**caret-honest**: within a minor line they stay backward-compatible, and
+anything breaking bumps the minor. Consumption is pinned at a release's
+commit — cargo git dependencies, vendored WIT, the release-pinned
+deltic/JSR graph — and bumped deliberately.
+
 ## Design
 
 The package ([`wit/`](wit/), documented in

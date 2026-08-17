@@ -8,7 +8,7 @@
 //   runner.mjs (jco-node)                      | this runner
 //   -------------------------------------------+--------------------------------
 //   transpiled `generated/` tree               | translate at run time (Translator)
-//   `bindImports({ wasi, env: [], sut })`      | `wasiShims(...)` + `webcryptoImports()`
+//   `bindImports({ wasi, env: [], sut })`      | `wasi(...)` + `webcryptoImports()`
 //   `sut["polymorph:test/test-context"]`       | supplied by ct-runner itself
 //   `--missing sha1-checked` (shared suite)    | SUITES.shared.missing
 //   `--suite conformance-signing-guest-ct`     | `--suite signing`
@@ -71,7 +71,7 @@
 // green — per the KAT asymmetry above. When debugging any such run,
 // `--fresh-cases` restores per-case containment.
 //
-// MODULE-IDENTITY CONSTRAINT: deltic's wasi-shims module imports
+// MODULE-IDENTITY CONSTRAINT: deltic's wasi module imports
 // `@deltic/runtime/embedder` by bare specifier internally; this leg's
 // `deno.json` AND `js/deltic/deno.json` must map that specifier to the
 // IDENTICAL exact-pinned JSR version, or the embedder module loads twice
@@ -81,7 +81,7 @@
 import { Translator } from "@deltic/runtime/shim";
 import type { ComponentArtifacts } from "@deltic/runtime/embedder";
 import { runSuite } from "@deltic/ct-runner";
-import { wasiShims } from "@deltic/wasi-shims";
+import { wasi } from "@deltic/wasi";
 import { defaultTranslator } from "@deltic/translator";
 import { webcryptoImports } from "../../../js/deltic/src/mod.ts";
 
@@ -223,7 +223,7 @@ async function runOne(spec: SuiteSpec, cli: Cli): Promise<void> {
   // `polymorph:webcrypto/*` interface from the host module under test.
   // ct-runner adds `polymorph:test/test-context` itself.
   const imports = {
-    ...wasiShims({ cli: { env: {}, passthrough: false } }),
+    ...wasi({ cli: { env: {}, passthrough: false } }),
     ...webcryptoImports(),
   };
   const out = cli.out ?? spec.out.pathname;

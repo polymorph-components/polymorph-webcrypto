@@ -96,7 +96,7 @@ export type { WcErrorPayload } from "./errors.ts";
 /**
  * Build the `polymorph:webcrypto@0.1.0` imports fragment for `instantiate`.
  *
- * Usage: `instantiate(artifacts, { ...wasiShims(), ...webcryptoImports() })`
+ * Usage: `instantiate(artifacts, { ...wasi(), ...webcryptoImports() })`
  * — the shape both conformance suites are driven with (see
  * `conformance/driver-ct/deltic/run.ts`, whose two legs instantiate the
  * shared and signing suites against exactly this record).

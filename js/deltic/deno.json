@@ -1,5 +1,5 @@
 {
-  "name": "@polymorph/webcrypto-deltic",
+  "name": "@polymorph/webcrypto",
   "version": "0.1.0",
   "license": "Apache-2.0",
   "exports": "./src/mod.ts",

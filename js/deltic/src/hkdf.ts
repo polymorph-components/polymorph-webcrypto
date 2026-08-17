@@ -52,8 +52,8 @@ function readPolicy(options: DeriveOptions): DerivePolicy {
 /** The `polymorph:webcrypto/hkdf@0.1.0` interface. */
 export const hkdf = {
   Ikm,
-  importIkm: (raw: Uint8Array, options: DeriveOptions) => importIkmKey(raw, options),
-  unwrapIkm: (input: UnwrapInput, options: DeriveOptions) => {
+  importIkm: (raw: Uint8Array, options: DeriveOptions): Promise<Ikm> => importIkmKey(raw, options),
+  unwrapIkm: (input: UnwrapInput, options: DeriveOptions): Promise<Ikm> => {
     const { bytes } = consumeUnwrapInput(input);
     return importIkmKey(bytes, options);
   },
@@ -111,14 +111,16 @@ async function prepareFrom(
 
 /** The `polymorph:webcrypto/hkdf-sha2@0.1.0` interface. */
 export const hkdfSha2 = {
-  prepare: (variant: string, input: Ikm, salt: Uint8Array, info: Uint8Array) =>
+  prepare: (variant: string, input: Ikm, salt: Uint8Array, info: Uint8Array): Promise<DeriveInput> =>
     prepare(sha2Hash(variant), input, salt, info),
-  prepareFrom: (variant: string, input: DeriveInput, salt: Uint8Array, info: Uint8Array) =>
+  prepareFrom: (variant: string, input: DeriveInput, salt: Uint8Array, info: Uint8Array): Promise<DeriveInput> =>
     prepareFrom(sha2Hash(variant), input, salt, info),
 };
 
 /** The `polymorph:webcrypto/hkdf-sha1@0.1.0` interface. */
 export const hkdfSha1 = {
-  prepare: (input: Ikm, salt: Uint8Array, info: Uint8Array) => prepare("SHA-1", input, salt, info),
-  prepareFrom: (input: DeriveInput, salt: Uint8Array, info: Uint8Array) => prepareFrom("SHA-1", input, salt, info),
+  prepare: (input: Ikm, salt: Uint8Array, info: Uint8Array): Promise<DeriveInput> =>
+    prepare("SHA-1", input, salt, info),
+  prepareFrom: (input: DeriveInput, salt: Uint8Array, info: Uint8Array): Promise<DeriveInput> =>
+    prepareFrom("SHA-1", input, salt, info),
 };

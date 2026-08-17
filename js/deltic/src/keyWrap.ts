@@ -175,8 +175,18 @@ export class KwKey {
 /** The `polymorph:webcrypto/key-wrap@0.1.0` interface: its resource classes. */
 export const keyWrap = { KwKey, KwKeyOptions };
 
+/** The `aes-kw` minting interface's shape. */
+interface AesKw {
+  importKeyRaw(variant: string, raw: Uint8Array, options: KwKeyOptions): Promise<KwKey>;
+  importKeyJwk(variant: string, jwk: string, options: KwKeyOptions): Promise<KwKey>;
+  generateKey(variant: string, options: KwKeyOptions): Promise<KwKey>;
+  deriveKey(variant: string, input: DeriveInput, options: KwKeyOptions): Promise<KwKey>;
+  unwrapKeyRaw(variant: string, input: UnwrapInput, options: KwKeyOptions): Promise<KwKey>;
+  unwrapKeyJwk(variant: string, input: UnwrapInput, options: KwKeyOptions): Promise<KwKey>;
+}
+
 /** The `polymorph:webcrypto/aes-kw@0.1.0` interface (reference: webcrypto.js:3317). */
-export const aesKw = {
+export const aesKw: AesKw = {
   async importKeyRaw(variant: string, raw: Uint8Array, options: KwKeyOptions): Promise<KwKey> {
     const policy = kwPolicyOf(options);
     const usages = kwUsages(policy);

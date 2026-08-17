@@ -246,27 +246,34 @@ function sha2Hmac(variant: string): HashSpec {
 
 /** The `polymorph:webcrypto/hmac-sha1@0.1.0` interface. */
 export const hmacSha1 = {
-  importKeyRaw: (raw: Uint8Array, options: MacKeyOptions) => importHmacKey(SHA1_HMAC, raw, options),
-  importKeyJwk: (jwk: string, options: MacKeyOptions) => importHmacKeyJwk(SHA1_HMAC, jwk, options),
-  generateKey: (length: number | undefined, options: MacKeyOptions) => generateHmacKey(SHA1_HMAC, length, options),
-  deriveKey: (input: DeriveInput, length: number | undefined, options: MacKeyOptions) =>
+  importKeyRaw: (raw: Uint8Array, options: MacKeyOptions): Promise<MacKey> => importHmacKey(SHA1_HMAC, raw, options),
+  importKeyJwk: (jwk: string, options: MacKeyOptions): Promise<MacKey> => importHmacKeyJwk(SHA1_HMAC, jwk, options),
+  generateKey: (length: number | undefined, options: MacKeyOptions): Promise<MacKey> =>
+    generateHmacKey(SHA1_HMAC, length, options),
+  deriveKey: (input: DeriveInput, length: number | undefined, options: MacKeyOptions): Promise<MacKey> =>
     deriveHmacKey(SHA1_HMAC, input, length, options),
-  unwrapKeyRaw: (input: UnwrapInput, options: MacKeyOptions) => unwrapHmacKeyRaw(SHA1_HMAC, input, options),
-  unwrapKeyJwk: (input: UnwrapInput, options: MacKeyOptions) => unwrapHmacKeyJwk(SHA1_HMAC, input, options),
+  unwrapKeyRaw: (input: UnwrapInput, options: MacKeyOptions): Promise<MacKey> =>
+    unwrapHmacKeyRaw(SHA1_HMAC, input, options),
+  unwrapKeyJwk: (input: UnwrapInput, options: MacKeyOptions): Promise<MacKey> =>
+    unwrapHmacKeyJwk(SHA1_HMAC, input, options),
 };
 
 /** The `polymorph:webcrypto/hmac-sha2@0.1.0` interface. */
 export const hmacSha2 = {
-  importKeyRaw: (variant: string, raw: Uint8Array, options: MacKeyOptions) =>
+  importKeyRaw: (variant: string, raw: Uint8Array, options: MacKeyOptions): Promise<MacKey> =>
     importHmacKey(sha2Hmac(variant), raw, options),
-  importKeyJwk: (variant: string, jwk: string, options: MacKeyOptions) =>
+  importKeyJwk: (variant: string, jwk: string, options: MacKeyOptions): Promise<MacKey> =>
     importHmacKeyJwk(sha2Hmac(variant), jwk, options),
-  generateKey: (variant: string, length: number | undefined, options: MacKeyOptions) =>
+  generateKey: (variant: string, length: number | undefined, options: MacKeyOptions): Promise<MacKey> =>
     generateHmacKey(sha2Hmac(variant), length, options),
-  deriveKey: (variant: string, input: DeriveInput, length: number | undefined, options: MacKeyOptions) =>
-    deriveHmacKey(sha2Hmac(variant), input, length, options),
-  unwrapKeyRaw: (variant: string, input: UnwrapInput, options: MacKeyOptions) =>
+  deriveKey: (
+    variant: string,
+    input: DeriveInput,
+    length: number | undefined,
+    options: MacKeyOptions,
+  ): Promise<MacKey> => deriveHmacKey(sha2Hmac(variant), input, length, options),
+  unwrapKeyRaw: (variant: string, input: UnwrapInput, options: MacKeyOptions): Promise<MacKey> =>
     unwrapHmacKeyRaw(sha2Hmac(variant), input, options),
-  unwrapKeyJwk: (variant: string, input: UnwrapInput, options: MacKeyOptions) =>
+  unwrapKeyJwk: (variant: string, input: UnwrapInput, options: MacKeyOptions): Promise<MacKey> =>
     unwrapHmacKeyJwk(sha2Hmac(variant), input, options),
 };

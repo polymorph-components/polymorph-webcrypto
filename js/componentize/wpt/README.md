@@ -23,7 +23,7 @@ artifacts involved have very different costs, and are handled accordingly:
   exercised.
 - The **toolchain** takes about twenty minutes, and depends on nothing but
   the revision in [`../componentize-js.rev`](../componentize-js.rev). The
-  [`componentize-js-toolchain`](../../.github/workflows/componentize-js-toolchain.yml)
+  [`componentize-js-toolchain`](../../../.github/workflows/componentize-js-toolchain.yml)
   workflow builds one per (revision, platform), publishes it on the rolling
   [`toolchains` release] with a build-provenance attestation, and
   `component.sh` downloads it into `target/toolchains/` on first use.
@@ -213,6 +213,7 @@ relative path.
 | `encrypt_decrypt/aes_gcm` (256-bit iv) | `aes_gcm_256_iv.https.any.js` (reference), `aes_gcm_256_iv_fixtures.js` (the shared `aes.js` runner and `aes_gcm_vectors.js`) |
 | `encrypt_decrypt/aes_cbc` | `aes_cbc.https.any.js` (reference), `aes_cbc_vectors.js` (the shared `aes.js` runner) |
 | `encrypt_decrypt/aes_ctr` | `aes_ctr.https.any.js` (reference), `aes_ctr_vectors.js` |
+| `wrapKey_unwrapKey` | `wrapKey_unwrapKey.https.any.js` (wrapped callable — see `component.sh`), `wrapKey_unwrapKey_vectors.js` |
 | `import_export/symmetric_importKey` | `symmetric_importKey.https.any.js` (reference), `symmetric_importKey.js` |
 | `generateKey` successes | `successes_HMAC.https.any.js`, `successes_X25519.https.any.js`, `successes_Ed25519.https.any.js` (references), `successes.js` |
 | `generateKey` failures | `failures_HMAC.https.any.js`, `failures_AES-GCM.https.any.js`, `failures_AES-CBC.https.any.js`, `failures_AES-CTR.https.any.js`, `failures_Ed25519.https.any.js`, `failures_X25519.https.any.js` (references), `failures.js` |

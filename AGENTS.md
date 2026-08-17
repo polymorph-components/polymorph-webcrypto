@@ -415,7 +415,10 @@ experiment cannot gate pull requests (see timing-lab/README.md,
 ### Checks to run before committing
 
 Run the recipes that cover what you changed, and fix anything they report.
-`just check` is the fast gate; `just ci` mirrors CI exactly.
+`just check` is the fast gate; `just ci` runs the core CI jobs' checks.
+(CI runs more than `just ci` can: the dedicated engine-leg jobs — the
+Firefox conformance leg, the macOS WebKit conformance and parity legs —
+and the cross-target conformance-aggregate job.)
 
 | Recipe | Run it when you change… |
 | --- | --- |

@@ -177,12 +177,12 @@ just demo::test-node         # transpile and run the same guest under the jco ho
 just demo::test-composed     # compose guest + in-guest provider + driver (wac plug)
                              #   and run the whole thing under `wasmtime run`
 just wpt::test               # the WPT WebCryptoAPI suites against the
-                             #   webcrypto-componentize JS guest library, via its
-                             #   published runner component (no componentize-js
-                             #   toolchain needed — see js/componentize/wpt/)
+                             #   webcrypto-componentize JS guest library — the
+                             #   runner componentized from the tree, the toolchain
+                             #   downloaded and digest-verified (js/componentize/wpt/)
 just componentize::test      # the composed pipeline with the JS demo guest
-                             #   (needs the componentize-js CLI — see
-                             #   js/componentize/README.md)
+                             #   (the same downloaded toolchain — see
+                             #   js/componentize/README.md, "Toolchain")
 just wpt::parity             # the WPT suites against the platform's own
                              #   crypto.subtle and through the jco round trip;
                              #   holds the round trip to the platform's pass set
@@ -205,7 +205,9 @@ just conformance-ct::web     # serve the conformance results viewer + a live
                              #   matrix page is at conformance/driver-ct/compat/
 just timing-lab::run         # dudect-style timing tests of the composed in-guest
                              #   provider (statistical; not part of `just ci`)
-just ci                      # everything CI runs
+just ci                      # the core CI jobs' checks (CI additionally runs
+                             #   dedicated engine-leg jobs — Firefox, macOS
+                             #   WebKit — and a cross-target aggregation job)
 ```
 
 All implementations run identical suite components. The conformance

@@ -41,13 +41,35 @@ deltic-pin-check:
     set -euo pipefail
     v=$(jq -r '.jsr | keys[]' \
         {{root}}/js/deltic/deno.lock deltic/deno.lock \
-        | grep -v '^@deltic/protocol@' \
+        | grep '^@deltic/' | grep -v '^@deltic/protocol@' \
         | sed 's/.*@//' | sort -u)
     if [ "$(printf '%s\n' "$v" | wc -l)" != 1 ]; then
         echo "deltic pin drift: $v" >&2
         exit 1
     fi
     echo "deltic pin OK: $v"
+
+# The JS runner core's one-version gate: every npm tree consuming
+# @jsr/polymorph__test (jsr:@polymorph/test through JSR's npm-compat
+# registry, per each tree's .npmrc) must resolve the same
+# version — a skewed bump runs the JS harness against a Rust runner
+# from a different polymorph-test release, a subtle contract-mismatch
+# generator. Wired next to deltic-pin-check in the conformance CI job.
+runner-js-pin-check:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    v=$({ jq -r '.packages["node_modules/@jsr/polymorph__test"].version' \
+        jco/package-lock.json \
+        ../../examples/jco-demo/package-lock.json \
+        ../../js/jco/package-lock.json \
+        ../../js/componentize/wpt/parity/package-lock.json; \
+        jq -r '.jsr | keys[]' deltic/deno.lock \
+        | grep '^@polymorph/test@' | sed 's/.*@//'; } | sort -u)
+    if [ "$v" = "null" ] || [ "$(printf '%s\n' "$v" | wc -l)" != 1 ]; then
+        echo "runner-js pin drift: $v" >&2
+        exit 1
+    fi
+    echo "runner-js pin OK: @jsr/polymorph__test $v"
 
 # Build both suite components (rkyv corpus). CONFORMANCE_PREBUILT=1
 # skips cargo when the artifacts are already present — set by CI on an
@@ -115,18 +137,13 @@ _ct-tools:
         cargo install -q --locked --root "{{ct-tools}}" --git "$url" --rev "$rev" component-test-runner
         printf '%s' "$rev" > "{{ct-tools}}/.rev"
     fi
-    # One-rev-everywhere gate: the JS runner core (@polymorph/component-test-js,
-    # a git-sourced npm dependency) must pin the SAME component-test rev
-    # as the cargo side — a skewed bump runs the JS harness against a
-    # Rust runner from a different rev, a subtle contract-mismatch
-    # generator. Bump both together: the rev in Cargo.toml + `npm
-    # install --save-exact github:polymorph-components/polymorph-test#<rev>` in jco/.
+    # Cargo-side pin gate: every component-test-* git dependency in
+    # Cargo.lock names the expected rev. The JS runner core arrives from
+    # JSR (@jsr/polymorph__test npm aliases); its one-version gate is
+    # runner-js-pin-check below, and the rev<->version pairing is the
+    # bump procedure's job (both sides name one polymorph-test release —
+    # see the root Cargo.toml's bump comment).
     "{{ct-tools}}/bin/component-test" pins --cargo-lock "{{root}}/Cargo.lock" \
-        --js-lock jco/package-lock.json \
-        --js-lock deltic/package-lock.json \
-        --js-lock ../../examples/jco-demo/package-lock.json \
-        --js-lock ../../js/jco/package-lock.json \
-        --js-lock ../../js/componentize/wpt/parity/package-lock.json \
         --expect "$rev" > /dev/null
 
 # Enumerate each suite's full case census (ct-driver instantiates the
@@ -338,7 +355,7 @@ run-composed: build build-provider _ct-tools
 
 # The jco-browser target: the same transpiles and the same host module,
 # with the case loop running inside headless Chromium (browser WebCrypto)
-# via the upstream page driver (@polymorph/component-test-js). The
+# via the upstream page driver (@jsr/polymorph__test). The
 # --missing declarations mirror targets.toml / targets-signing.toml's
 # jco-browser entries, which the aggregate cross-checks: the browser
 # cannot serve sha1-checked, and the host fails the gated RSA

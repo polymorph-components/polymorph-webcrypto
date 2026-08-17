@@ -6,7 +6,7 @@
 // embedder module instance — which is what keeps `instanceof ComponentException`
 // true when the host module throws across the component boundary
 // (workers resolve no import maps, so bundling is the only sound shape;
-// see @polymorph/component-test-js's runner-deltic README).
+// see @jsr/polymorph__test's runner-deltic README).
 //
 // Built by `just conformance-ct::_deltic-browser-bundle` with
 // `deno bundle --platform browser` into target/deltic-browser/, and
@@ -17,7 +17,7 @@
 // configuration, so `suiteImports` is the plain record.
 
 import * as deltic from "../browser-bundle-entry.ts";
-import { workerMain } from "@polymorph/component-test-js/deltic-worker-main";
+import { workerMain } from "@polymorph/test/deltic-worker-main";
 import { setRsaPrivateKeyPolicy, webcryptoImports } from "../../../../js/deltic/src/mod.ts";
 
 // The browser posture, matching the jco-browser rows: a browser is an

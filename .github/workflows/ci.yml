@@ -111,12 +111,6 @@ jobs:
         # install, and the pins gate; conformance-ct::_ct-tools
         # recognizes the stamped install and does not repeat it.
         uses: polymorph-components/polymorph-test/actions/setup@b4444a25a22106ad4128549bdc9e579552e62210
-        with:
-          js-locks: |
-            conformance/driver-ct/jco/package-lock.json
-            examples/jco-demo/package-lock.json
-            js/jco/package-lock.json
-            js/componentize/wpt/parity/package-lock.json
 
       - name: Install Node 24
         # Exact-pinned, like every engine here (Deno, the Playwright
@@ -494,12 +488,6 @@ jobs:
 
       - name: Install the component-test tools at the pinned revision
         uses: polymorph-components/polymorph-test/actions/setup@b4444a25a22106ad4128549bdc9e579552e62210
-        with:
-          js-locks: |
-            conformance/driver-ct/jco/package-lock.json
-            examples/jco-demo/package-lock.json
-            js/jco/package-lock.json
-            js/componentize/wpt/parity/package-lock.json
 
       - name: Download the ubuntu conformance results
         uses: actions/download-artifact@v4

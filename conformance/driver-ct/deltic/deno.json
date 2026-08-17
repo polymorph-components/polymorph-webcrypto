@@ -6,9 +6,9 @@
     "@deltic/runtime/shim": "jsr:@deltic/runtime@0.1.0/shim",
     "@deltic/wasi": "jsr:@deltic/wasi@0.1.0",
     "@deltic/translator": "jsr:@deltic/translator@0.1.0",
-    "@polymorph/component-test-js/deltic-worker-main": "./node_modules/@polymorph/component-test-js/js/runner-deltic/worker-main.mjs"
+    "@polymorph/test/deltic-worker-main": "jsr:@polymorph/test@0.1.1/deltic-worker-main"
   },
-  "minimumDependencyAge": { "age": "P1D", "exclude": ["jsr:@deltic/*"] },
+  "minimumDependencyAge": { "age": "P1D", "exclude": ["jsr:@deltic/*", "jsr:@polymorph/*"] },
   "tasks": {
     "check": "deno check run.ts browser/worker-entry.ts browser-bundle-entry.ts"
   }

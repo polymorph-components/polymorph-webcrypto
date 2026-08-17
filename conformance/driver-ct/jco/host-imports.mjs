@@ -7,7 +7,7 @@
 // namespaces (Node or browser build). Relative specifiers only: module
 // Web Workers cannot see a page's import map.
 
-import { bindImports } from "./node_modules/@polymorph/component-test-js/js/viewer/imports.mjs";
+import { bindImports } from "./node_modules/@jsr/polymorph__test/viewer/imports.mjs";
 import * as webcrypto from "../../../js/jco/webcrypto.js";
 import { Context } from "../context.js";
 

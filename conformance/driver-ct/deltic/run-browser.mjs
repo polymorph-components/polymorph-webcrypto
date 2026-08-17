@@ -19,8 +19,8 @@ import {
   buildHarnessPage,
   findChrome,
   runPageHarness,
-} from "@polymorph/component-test-js/browser-driver";
-import { writeResultsFile } from "@polymorph/component-test-js/node-runner";
+} from "@jsr/polymorph__test/browser-driver";
+import { writeResultsFile } from "@jsr/polymorph__test/node-runner";
 
 const REPO_ROOT = fileURLToPath(new URL("../../../", import.meta.url));
 const RESULTS_DIR = fileURLToPath(new URL("../results/", import.meta.url));

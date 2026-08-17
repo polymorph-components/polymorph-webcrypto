@@ -239,8 +239,18 @@ export class CipherKey {
   }
 }
 
+/** The minting-object shape returned by `cipherMinting` for one AES mode. */
+interface CipherMinting {
+  importKeyRaw(variant: string, raw: Uint8Array, options: CipherKeyOptions): Promise<CipherKey>;
+  importKeyJwk(variant: string, jwk: string, options: CipherKeyOptions): Promise<CipherKey>;
+  generateKey(variant: string, options: CipherKeyOptions): Promise<CipherKey>;
+  deriveKey(variant: string, input: DeriveInput, options: CipherKeyOptions): Promise<CipherKey>;
+  unwrapKeyRaw(variant: string, input: UnwrapInput, options: CipherKeyOptions): Promise<CipherKey>;
+  unwrapKeyJwk(variant: string, input: UnwrapInput, options: CipherKeyOptions): Promise<CipherKey>;
+}
+
 /** The `aes-cbc` / `aes-ctr` minting pair over one mode name (reference: webcrypto.js:2963). */
-function cipherMinting(name: CipherName) {
+function cipherMinting(name: CipherName): CipherMinting {
   const minting = {
     async importKeyRaw(variant: string, raw: Uint8Array, options: CipherKeyOptions): Promise<CipherKey> {
       const policy = cipherPolicyOf(options);
@@ -310,7 +320,7 @@ function cipherMinting(name: CipherName) {
 export const cipher = { CipherKey, CipherKeyOptions };
 
 /** The `polymorph:webcrypto/aes-cbc@0.1.0` interface. */
-export const aesCbc = cipherMinting("AES-CBC");
+export const aesCbc: CipherMinting = cipherMinting("AES-CBC");
 
 /** The `polymorph:webcrypto/aes-ctr@0.1.0` interface. */
-export const aesCtr = cipherMinting("AES-CTR");
+export const aesCtr: CipherMinting = cipherMinting("AES-CTR");

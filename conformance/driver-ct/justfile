@@ -28,15 +28,20 @@ conformance-browser-enabled := if env('GITHUB_ACTIONS', '') == 'true' { '1' } el
 conformance-firefox-enabled := if env('CONFORMANCE_FIREFOX', '') == '1' { '1' } else { '' }
 
 # The one-VERSION-everywhere pin gate, replacing the old
-# assertPinConsistency script: every `jsr:@deltic/*` import across BOTH
-# deno.json files (this directory's and js/deltic's) must resolve to the
-# exact same version. Wired into the conformance CI job
-# (.github/justfile's conformance-checks) as the fail-loud point.
+# assertPinConsistency script: every resolved `@deltic/*` package (except
+# @deltic/protocol, which is versioned independently) across BOTH
+# deno.lock files (this directory's and js/deltic's) must resolve to the
+# exact same version — js/deltic's published manifest carries a caret
+# range, so the specifier string no longer pins identity; the resolved
+# lockfile version is what module identity actually needs. Wired into the
+# conformance CI job (.github/justfile's conformance-checks) as the
+# fail-loud point.
 deltic-pin-check:
     #!/usr/bin/env bash
     set -euo pipefail
-    v=$(grep -ho 'jsr:@deltic/[a-z-]*@[^/"]*' \
-        {{root}}/js/deltic/deno.json deltic/deno.json \
+    v=$(jq -r '.jsr | keys[]' \
+        {{root}}/js/deltic/deno.lock deltic/deno.lock \
+        | grep -v '^@deltic/protocol@' \
         | sed 's/.*@//' | sort -u)
     if [ "$(printf '%s\n' "$v" | wc -l)" != 1 ]; then
         echo "deltic pin drift: $v" >&2

@@ -237,7 +237,7 @@ async function importAesGcmKey(bits: number, raw: Uint8Array, options: AeadKeyOp
 
 /** The `polymorph:webcrypto/aes-gcm@0.1.0` interface. */
 export const aesGcm = {
-  importKeyRaw: (variant: string, raw: Uint8Array, options: AeadKeyOptions) =>
+  importKeyRaw: (variant: string, raw: Uint8Array, options: AeadKeyOptions): Promise<AeadKey> =>
     importAesGcmKey(aesBits(variant), raw, options),
   importKeyJwk: async (variant: string, jwk: string, options: AeadKeyOptions): Promise<AeadKey> => {
     const bits = aesBits(variant);
@@ -275,11 +275,11 @@ export const aesGcm = {
     const key = await deriveKeyFrom(input, { name: "AES-GCM", length: bits }, policy.extractable, usages);
     return new AeadKey(key, bits, policy);
   },
-  unwrapKeyRaw: (variant: string, input: UnwrapInput, options: AeadKeyOptions) => {
+  unwrapKeyRaw: (variant: string, input: UnwrapInput, options: AeadKeyOptions): Promise<AeadKey> => {
     const { bytes } = consumeUnwrapInput(input);
     return importAesGcmKey(aesBits(variant), bytes, options);
   },
-  unwrapKeyJwk: (variant: string, input: UnwrapInput, options: AeadKeyOptions) => {
+  unwrapKeyJwk: (variant: string, input: UnwrapInput, options: AeadKeyOptions): Promise<AeadKey> => {
     const { bytes } = consumeUnwrapInput(input);
     const policy = optionsOf(options);
     const jwk = unwrappedJwk(bytes, "enc", platformUsages(policy));

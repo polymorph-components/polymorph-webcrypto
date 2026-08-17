@@ -270,22 +270,31 @@ async function importRsaSigningKeyJwk(
   return new SigningKey(key, rsaSigningAlgorithm(name, entry, modulusLength));
 }
 
-function rsaSigningInterface(name: "RSASSA-PKCS1-v1_5" | "RSA-PSS") {
+/** The minting-object shape returned by `rsaSigningInterface` for one RSA signing scheme. */
+interface RsaSigningInterface {
+  generateKey(variant: string, modulus: string, options: SigningKeyOptions): Promise<[SigningKey, VerifyingKey]>;
+  importSigningKeyPkcs8(variant: string, pkcs8: Uint8Array, options: SigningKeyOptions): Promise<SigningKey>;
+  importSigningKeyJwk(variant: string, jwk: string, options: SigningKeyOptions): Promise<SigningKey>;
+  unwrapSigningKeyPkcs8(variant: string, input: UnwrapInput, options: SigningKeyOptions): Promise<SigningKey>;
+  unwrapSigningKeyJwk(variant: string, input: UnwrapInput, options: SigningKeyOptions): Promise<SigningKey>;
+}
+
+function rsaSigningInterface(name: "RSASSA-PKCS1-v1_5" | "RSA-PSS"): RsaSigningInterface {
   return {
-    generateKey: (variant: string, modulus: string, options: SigningKeyOptions) =>
+    generateKey: (variant: string, modulus: string, options: SigningKeyOptions): Promise<[SigningKey, VerifyingKey]> =>
       generateRsaSigningKey(name, variant, modulus, options),
-    importSigningKeyPkcs8: (variant: string, pkcs8: Uint8Array, options: SigningKeyOptions) =>
+    importSigningKeyPkcs8: (variant: string, pkcs8: Uint8Array, options: SigningKeyOptions): Promise<SigningKey> =>
       importRsaSigningKeyPkcs8(name, variant, pkcs8, options),
-    importSigningKeyJwk: (variant: string, jwk: string, options: SigningKeyOptions) =>
+    importSigningKeyJwk: (variant: string, jwk: string, options: SigningKeyOptions): Promise<SigningKey> =>
       importRsaSigningKeyJwk(name, variant, jwk, options),
-    unwrapSigningKeyPkcs8: (variant: string, input: UnwrapInput, options: SigningKeyOptions) => {
+    unwrapSigningKeyPkcs8: (variant: string, input: UnwrapInput, options: SigningKeyOptions): Promise<SigningKey> => {
       const { bytes } = consumeUnwrapInput(input);
       return redactingInvalidKey(
         `unwrapped ${name} pkcs8`,
         () => importRsaSigningKeyPkcs8(name, variant, bytes, options),
       );
     },
-    unwrapSigningKeyJwk: (variant: string, input: UnwrapInput, options: SigningKeyOptions) => {
+    unwrapSigningKeyJwk: (variant: string, input: UnwrapInput, options: SigningKeyOptions): Promise<SigningKey> => {
       const { bytes } = consumeUnwrapInput(input);
       requireSigningGrant(signingPolicyOf(options));
       const jwk = unwrappedJwk(bytes, "sig", ["sign"]);
@@ -298,7 +307,7 @@ function rsaSigningInterface(name: "RSASSA-PKCS1-v1_5" | "RSA-PSS") {
 }
 
 /** The `polymorph:webcrypto/rsassa-pkcs1-v15-sign@0.1.0` interface. */
-export const rsassaPkcs1V15Sign = rsaSigningInterface("RSASSA-PKCS1-v1_5");
+export const rsassaPkcs1V15Sign: RsaSigningInterface = rsaSigningInterface("RSASSA-PKCS1-v1_5");
 
 /** The `polymorph:webcrypto/rsa-pss-sign@0.1.0` interface. */
-export const rsaPssSign = rsaSigningInterface("RSA-PSS");
+export const rsaPssSign: RsaSigningInterface = rsaSigningInterface("RSA-PSS");

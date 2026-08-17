@@ -2,7 +2,7 @@
   "version": "5",
   "specifiers": {
     "jsr:@deltic/protocol@0.2": "0.2.0",
-    "jsr:@deltic/runtime@0.1.0": "0.1.0"
+    "jsr:@deltic/runtime@0.1": "0.1.0"
   },
   "jsr": {
     "@deltic/protocol@0.2.0": {
@@ -17,7 +17,7 @@
   },
   "workspace": {
     "dependencies": [
-      "jsr:@deltic/runtime@0.1.0"
+      "jsr:@deltic/runtime@0.1"
     ]
   }
 }

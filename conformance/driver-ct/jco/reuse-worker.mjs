@@ -28,8 +28,8 @@ import {
   inventoryLookup,
   resolveTestsExport,
   runCases,
-} from "/__component-test/js/viewer/harness.mjs";
-import { Context as DefaultContext } from "/__component-test/js/viewer/context.js";
+} from "/__component-test/viewer/harness.mjs";
+import { Context as DefaultContext } from "/__component-test/viewer/context.js";
 
 // A rejection escaping the awaited chain (e.g. a platform quirk
 // surfacing through the transpiled guest's async plumbing) would

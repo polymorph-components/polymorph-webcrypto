@@ -4,7 +4,7 @@
 // writes the two record files the comparator consumes to ../build/
 // (parity-baseline-<engine>.json, parity-roundtrip-<engine>.json).
 // The serve/launch/watchdog machinery is the shared page driver
-// (@polymorph/component-test-js/browser-driver).
+// (@jsr/polymorph__test/browser-driver).
 //
 // `--engine firefox` (default) or `--engine chromium` selects the browser:
 // always Playwright's own build (pinned by playwright-core's version, so
@@ -17,7 +17,7 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { runPageHarness } from "@polymorph/component-test-js/browser-driver";
+import { runPageHarness } from "@jsr/polymorph__test/browser-driver";
 
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..", "..", "..");
 const OUT_DIR = join(REPO_ROOT, "js", "componentize", "wpt", "build");

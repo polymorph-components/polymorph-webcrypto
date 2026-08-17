@@ -370,15 +370,18 @@ absent an exceptional recorded ruling.
 Prerequisites: Rust via rustup (toolchain + wasm target pinned in
 `rust-toolchain.toml`), `wasm-tools`, `just`, Node 24+ with npm for the
 jco path. Run `./scripts/setup.sh` once (idempotent; `SKIP_NODE=1` to
-skip the npm install). The polymorph:test stack is a git dependency
-pinned by rev in the root `Cargo.toml` and enforced by `Cargo.lock`;
-cargo fetches it, and `conformance-ct::_ct-tools` cargo-installs the
-`component-test`/`ct-runner` binaries at the same locked rev. To bump
-the pin: `component-test pins bump <rev> --cargo-toml Cargo.toml
---package-json conformance/driver-ct/jco/package.json --workflow
-.github/workflows/ci.yml`, then the follow-ups it prints (`cargo
-update`, `npm install`); the `_ct-tools` pins gate and the actions'
-own ref checks fail on skew.
+skip the npm install). The polymorph:test stack arrives two ways, both
+naming one release: the crates are a git dependency pinned by rev in
+the root `Cargo.toml` (enforced by `Cargo.lock`; `conformance-ct::_ct-tools`
+cargo-installs the `component-test`/`ct-runner` binaries at the same
+locked rev), and the JS runner core is `jsr:@polymorph/test`'s
+npm-compat package as `@jsr/polymorph__test` dependencies (scoped to
+npm.jsr.io by each tree's .npmrc) in the five npm trees. To bump: `component-test pins bump <rev>
+--cargo-toml Cargo.toml --workflow .github/workflows/ci.yml` with the
+release-tag commit, then the follow-ups it prints (`cargo update`), and
+set the matching release version on each `@jsr/polymorph__test` dependency + `npm install`; the
+`_ct-tools` pins gate, `conformance-ct::runner-js-pin-check`, and the
+actions' own ref checks fail on skew.
 To develop against a local component-test checkout, add a temporary
 override to the root `Cargo.toml` (do not commit it):
 

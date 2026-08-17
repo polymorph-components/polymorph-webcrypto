@@ -7,8 +7,8 @@
 import { fileURLToPath } from "node:url";
 import { parentPort, workerData } from "node:worker_threads";
 import { cli, clocks, io, random, filesystem } from "@bytecodealliance/preview2-shim";
-import { inventoryLookup, runCases } from "@polymorph/component-test-js/harness";
-import { loadCoreModules } from "@polymorph/component-test-js/node-runner";
+import { inventoryLookup, runCases } from "@jsr/polymorph__test/harness";
+import { loadCoreModules } from "@jsr/polymorph__test/node-runner";
 import { Context } from "../context.js";
 import { instantiateSuite } from "./host-imports.mjs";
 

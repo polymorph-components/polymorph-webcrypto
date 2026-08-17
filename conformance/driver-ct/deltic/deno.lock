@@ -6,7 +6,8 @@
     "jsr:@deltic/runtime@0.1": "0.1.0",
     "jsr:@deltic/runtime@0.1.0": "0.1.0",
     "jsr:@deltic/translator@0.1.0": "0.1.0",
-    "jsr:@deltic/wasi@0.1.0": "0.1.0"
+    "jsr:@deltic/wasi@0.1.0": "0.1.0",
+    "jsr:@polymorph/test@0.1.1": "0.1.1"
   },
   "jsr": {
     "@deltic/ct-runner@0.1.0": {
@@ -36,6 +37,9 @@
         "jsr:@deltic/protocol",
         "jsr:@deltic/runtime@0.1"
       ]
+    },
+    "@polymorph/test@0.1.1": {
+      "integrity": "50ce81310c97591c523bbfdbe74e18a806e709ae1c09f47297da98267b5be8b3"
     }
   },
   "workspace": {
@@ -43,10 +47,12 @@
       "jsr:@deltic/ct-runner@0.1.0",
       "jsr:@deltic/runtime@0.1.0",
       "jsr:@deltic/translator@0.1.0",
-      "jsr:@deltic/wasi@0.1.0"
+      "jsr:@deltic/wasi@0.1.0",
+      "jsr:@polymorph/test@0.1.1"
     ],
     "packageJson": {
       "dependencies": [
+        "npm:@jsr/polymorph__test@0.1.1",
         "npm:playwright-core@1.62.1"
       ]
     }

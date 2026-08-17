@@ -2,7 +2,7 @@
 // invocation (`--engine chromium|firefox|webkit`), both suites' case
 // loops running inside the headless engine via the upstream page driver
 // — page, worker pool, stall watchdog, and Chrome ladder all live in
-// @polymorph/component-test-js — and writing results/<target>.jsonl +
+// @jsr/polymorph__test — and writing results/<target>.jsonl +
 // results/<target>-signing.jsonl plus a results/<target>.meta.json
 // provenance sidecar (engine + version, consumed by the compat page).
 // This file is the frame: engine selection, core-URL enumeration,
@@ -49,8 +49,8 @@ import {
   buildHarnessPage,
   findChrome,
   runPageHarness,
-} from "@polymorph/component-test-js/browser-driver";
-import { writeResultsFile } from "@polymorph/component-test-js/node-runner";
+} from "@jsr/polymorph__test/browser-driver";
+import { writeResultsFile } from "@jsr/polymorph__test/node-runner";
 
 const REPO_ROOT = fileURLToPath(new URL("../../../", import.meta.url));
 const RESULTS_DIR = fileURLToPath(new URL("../results/", import.meta.url));

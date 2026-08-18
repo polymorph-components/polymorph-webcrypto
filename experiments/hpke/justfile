@@ -18,7 +18,7 @@ test:
 # Compose the fully in-guest smoke run: the HPKE guest's polymorph:webcrypto
 # imports are satisfied by the repository's in-guest provider (RustCrypto in
 # wasm), then a CLI driver (async wasi:cli/run) is plugged on top. Mirrors
-# the root justfile's `_compose`.
+# the root justfile.shared.just's `_compose`.
 compose: build-component
     cargo build --release -p hpke-driver --target wasm32-wasip2
     cargo build --release -p polymorph-webcrypto-guest-provider --target wasm32-wasip2 \

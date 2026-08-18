@@ -3,7 +3,7 @@
 A WebCrypto-subset library for JavaScript guests componentized with
 [componentize-js] (the wit-dylib–based reboot of ComponentizeJS), backed by
 the `polymorph:webcrypto` interfaces. This is the JS-guest counterpart of the Rust
-[`polymorph-webcrypto-guest`](../polymorph-webcrypto-guest): where `polymorph-webcrypto-guest` wraps the raw bindings in
+[`polymorph-webcrypto-guest`](../../rust/guest): where `polymorph-webcrypto-guest` wraps the raw bindings in
 ergonomic Rust newtypes, `webcrypto.js` wraps them in the API JS code already
 knows — `crypto.subtle`.
 
@@ -46,11 +46,14 @@ toolchain, so neither CI nor contributors compile SpiderMonkey.
 
 ## Using it in a component
 
-The component's world must import `polymorph:webcrypto/hmac-sha2@0.1.0` and
-`polymorph:webcrypto/aes-gcm@0.1.0` (WIT elaboration pulls in their
-`mac`/`aead`/`types` dependencies) — see
-[`examples/componentize-demo`](../examples/componentize-demo) for a complete
-world, guest, and composition. The `sha1-checked`
+The component's world must import every `polymorph:webcrypto` interface the
+library statically imports, plus `wasi:random/random@0.2.0` — the list at
+the top of `webcrypto.js` is the authoritative registry (the generic
+`mac`/`aead`/`types`-style dependencies arrive by WIT elaboration), and
+[`examples/componentize-demo`](../../examples/componentize-demo) keeps a
+complete, compiling world
+([`wit/world.wit`](../../examples/componentize-demo/wit/world.wit)) with
+guest and composition. The `sha1-checked`
 import is gated
 `@unstable` in the package (see `wit/README.md`, "Stability gates"), so
 that world line carries an `@unstable(feature = ...)` gate and the
@@ -75,7 +78,7 @@ The componentize-js CLI turns a JS guest into a component
 (`just componentize::build-demo`, and the WPT check's runner); it is not
 needed to *run* one. Nobody here builds it: building compiles SpiderMonkey
 to wasm and needs WASI-SDK 30 and Clang 19+, so the
-[`componentize-js-toolchain`](../.github/workflows/componentize-js-toolchain.yml)
+[`componentize-js-toolchain`](../../.github/workflows/componentize-js-toolchain.yml)
 workflow builds one per (revision, platform) and publishes it on the rolling
 `toolchains` release, and `js/componentize/wpt/component.sh toolchain`
 downloads it into `target/toolchains/` on first use — verified against the

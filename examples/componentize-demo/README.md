@@ -2,7 +2,7 @@
 
 A JavaScript guest component, built with [componentize-js] (the
 wit-dylib–based reboot of ComponentizeJS), that exercises the
-WebCrypto-subset library in [`js/componentize/`](../../webcrypto-componentize)
+WebCrypto-subset library in [`js/componentize/`](../../js/componentize)
 end to end: HMAC-SHA-256 known answers (RFC 4231), AES-256-GCM known answers
 (NIST GCM test case 16), round trips including the empty plaintext, and the
 key-capability surface (usages, extractability, malformed-input rejection).

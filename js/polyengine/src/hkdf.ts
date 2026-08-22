@@ -1,6 +1,6 @@
 // `polymorph:webcrypto/hkdf` + `hkdf-sha2` + `hkdf-sha1` — wit/hkdf.wit.
 
-import { errOther, errUnsupported, notPermitted, platformCall } from "./errors.ts";
+import { errInvalidKey, errNotPermitted, errOther, errUnsupported, notPermitted, platformCall } from "./errors.ts";
 import {
   DeriveInput,
   type DerivePolicy,
@@ -17,13 +17,96 @@ const subtle = globalThis.crypto.subtle;
 
 const ikmState = new WeakMap<Ikm, { key: CryptoKey; policy: DerivePolicy }>();
 
-/** `hkdf.ikm`: input keying material, consumable only by `prepare`. */
+/**
+ * `hkdf.ikm`: input keying material, consumable only by `prepare`.
+ *
+ * The constructor is effectively internal already — all state lives in the
+ * module-private `ikmState` WeakMap, so a bare `new Ikm()` yields an object
+ * every method refuses. The supported external construction path is
+ * {@link Ikm.fromCryptoKey} (polymorph-webcrypto#391).
+ */
 export class Ikm {
   canDeriveBits(): boolean {
     return ikmState.get(this)!.policy.deriveBits;
   }
   canDeriveKey(): boolean {
     return ikmState.get(this)!.policy.deriveKey;
+  }
+
+  /**
+   * Adopt an embedder-held HKDF `CryptoKey` — the injection half of the
+   * persistence seam (polymorph-webcrypto#391): an embedder that keeps its
+   * input keying material as a NON-EXTRACTABLE `CryptoKey` in IndexedDB gets
+   * it back as an `ikm` here, instead of having to hold the raw bytes.
+   *
+   * Synchronous, and validating: a platform `CryptoKey`, of type `secret`,
+   * with `algorithm.name === "HKDF"`.
+   *
+   * The derive policy is READ OFF THE PLATFORM USAGES rather than taken from a
+   * `derive-options` — for an injected key the platform's `deriveBits` /
+   * `deriveKey` slots ARE the policy, since loading is itself a minting path
+   * and the platform will refuse anything the slots do not cover regardless of
+   * what this wrapper claimed. A key with neither derive usage is a degenerate
+   * injection and is refused (`not-permitted`), the same rule as an options
+   * resource granting nothing (derivation.ts:50-52).
+   *
+   * Validation and storage both use a LAUNDERED clone (see
+   * signature.ts's `launderCryptoKey` for the reasoning): `usages` and
+   * `algorithm` are shadowable own-property accessors on the caller's object,
+   * and structured clone carries only the internal slots, so `canDeriveBits()`
+   * answers platform truth and no caller retains a handle to the key this
+   * `ikm` derives with.
+   */
+  static fromCryptoKey(key: CryptoKey): Ikm {
+    const what = "ikm injection";
+    if (!(key instanceof CryptoKey)) errInvalidKey(`${what} takes a platform CryptoKey`);
+    let clone: CryptoKey;
+    try {
+      clone = structuredClone(key);
+    } catch {
+      errUnsupported(
+        `${what}: this host does not serialize CryptoKey (structured clone), which key injection requires`,
+      );
+    }
+    if (clone.type !== "secret") {
+      errInvalidKey(`${what} takes a secret key, got a ${clone.type} key`);
+    }
+    if (clone.algorithm.name !== "HKDF") {
+      errInvalidKey(`${what} takes an HKDF key, got ${clone.algorithm.name}`);
+    }
+    const policy: DerivePolicy = {
+      deriveBits: clone.usages.includes("deriveBits"),
+      deriveKey: clone.usages.includes("deriveKey"),
+    };
+    if (!policy.deriveBits && !policy.deriveKey) {
+      errNotPermitted("an ikm permitting neither derive-bits nor derive-key cannot be injected");
+    }
+    return mintIkm(clone, policy);
+  }
+
+  /**
+   * Hand back the platform key — the extraction half of the persistence seam
+   * (polymorph-webcrypto#391). The returned `CryptoKey` is structured-clonable
+   * into IndexedDB with its non-extractability preserved, which is how keying
+   * material is meant to outlive a session.
+   *
+   * Security framing, as on `signing-key`: material confidentiality belongs to
+   * the `extractable` bit and stays platform-enforced in both directions —
+   * `hkdf.import-ikm` mints non-extractable and this hands back a key, not
+   * bytes. What the wrapper scopes is the USE capability in durable,
+   * parameter-free form: a raw HKDF `CryptoKey` derives under any salt/info/
+   * hash its holder picks, whereas an `ikm` is consumable only through
+   * `prepare` under the policy above. Returning a FRESH CLONE per call keeps
+   * the wrapper's own key unreachable, so that scoping is total.
+   *
+   * Inverse of {@link Ikm.fromCryptoKey}: the returned key satisfies that
+   * validation by construction (the derive policy round-trips through the
+   * platform usages).
+   */
+  toCryptoKey(): CryptoKey {
+    const state = ikmState.get(this);
+    if (state === undefined) errOther("ikm minted by another provider");
+    return structuredClone(state.key);
   }
 }
 

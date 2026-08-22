@@ -26,6 +26,7 @@ import {
 } from "./signature.ts";
 import { requireEcdsaJwkAlg, requireEcJwkCurve, requireOnCurveSec1, requireOnCurveSpki } from "./ec.ts";
 import { consumeUnwrapInput, type UnwrapInput } from "./wrapping.ts";
+import { MINT } from "./internal.ts";
 import { unwrappedJwk } from "./util.ts";
 
 const subtle = globalThis.crypto.subtle;
@@ -73,7 +74,7 @@ export const ecdsaVerify = {
       true,
       ["verify"],
     );
-    return new VerifyingKey(key, entry);
+    return new VerifyingKey(MINT, key, entry);
   },
 
   importVerifyingKeySpki: async (variant: string, spki: Uint8Array): Promise<VerifyingKey> => {
@@ -88,7 +89,7 @@ export const ecdsaVerify = {
       true,
       ["verify"],
     );
-    return new VerifyingKey(key, entry);
+    return new VerifyingKey(MINT, key, entry);
   },
 
   importVerifyingKeyJwk: async (variant: string, jwkText: string): Promise<VerifyingKey> => {
@@ -103,7 +104,7 @@ export const ecdsaVerify = {
       true,
       ["verify"],
     );
-    return new VerifyingKey(key, entry);
+    return new VerifyingKey(MINT, key, entry);
   },
 };
 
@@ -119,7 +120,7 @@ export const ecdsaSign = {
         policy.extractable,
         ["sign", "verify"],
       )) as CryptoKeyPair;
-    return [new SigningKey(pair.privateKey, entry), new VerifyingKey(pair.publicKey, entry)];
+    return [new SigningKey(MINT, pair.privateKey, entry), new VerifyingKey(MINT, pair.publicKey, entry)];
   },
 
   importSigningKeyPkcs8: async (
@@ -138,7 +139,7 @@ export const ecdsaSign = {
       policy.extractable,
       ["sign"],
     );
-    return new SigningKey(key, entry);
+    return new SigningKey(MINT, key, entry);
   },
 
   importSigningKeyJwk: async (variant: string, jwkText: string, options: SigningKeyOptions): Promise<SigningKey> => {
@@ -157,7 +158,7 @@ export const ecdsaSign = {
       ["sign"],
     );
     if (key.type !== "private") errInvalidKey("EC private JWK must carry `d` (base64url private scalar)");
-    return new SigningKey(key, entry);
+    return new SigningKey(MINT, key, entry);
   },
 
   unwrapSigningKeyPkcs8: (variant: string, input: UnwrapInput, options: SigningKeyOptions): Promise<SigningKey> => {

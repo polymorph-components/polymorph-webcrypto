@@ -30,6 +30,7 @@ import {
   VerifyingKey,
 } from "./signature.ts";
 import { consumeUnwrapInput, type UnwrapInput } from "./wrapping.ts";
+import { MINT } from "./internal.ts";
 import { unwrappedJwk } from "./util.ts";
 
 const subtle = globalThis.crypto.subtle;
@@ -137,7 +138,7 @@ async function importRsaVerifyingKeySpki(
   requireRsaEncryptionSpki(spki);
   const key = await importPlatformKey(`${name} spki`, "spki", spki, { name, hash }, true, ["verify"]);
   const modulusLength = rsaAdmittedModulusLength(key, `${name} spki`);
-  return new VerifyingKey(key, rsaAlgorithm(name, hash, modulusLength, saltLength));
+  return new VerifyingKey(MINT, key, rsaAlgorithm(name, hash, modulusLength, saltLength));
 }
 
 /**
@@ -176,7 +177,7 @@ async function importRsaVerifyingKeyJwk(
   requireStrictBase64url(jwk.e);
   const key = await importPlatformKeyJwk(`${name} public JWK`, jwk, { name, hash }, true, ["verify"]);
   const modulusLength = rsaAdmittedModulusLength(key, `${name} public JWK`);
-  return new VerifyingKey(key, rsaAlgorithm(name, hash, modulusLength, saltLength));
+  return new VerifyingKey(MINT, key, rsaAlgorithm(name, hash, modulusLength, saltLength));
 }
 
 /** The `polymorph:webcrypto/rsassa-pkcs1-v15-verify@0.1.0` interface. */
@@ -213,7 +214,7 @@ async function generateRsaSigningKey(
       ["sign", "verify"],
     )) as CryptoKeyPair;
   const algorithm = rsaSigningAlgorithm(name, entry, modulusLength);
-  return [new SigningKey(pair.privateKey, algorithm), new VerifyingKey(pair.publicKey, algorithm)];
+  return [new SigningKey(MINT, pair.privateKey, algorithm), new VerifyingKey(MINT, pair.publicKey, algorithm)];
 }
 
 async function importRsaSigningKeyPkcs8(
@@ -235,7 +236,7 @@ async function importRsaSigningKeyPkcs8(
     ["sign"],
   );
   const modulusLength = rsaAdmittedModulusLength(key, `${name} pkcs8`, RSA_SIGNING_MIN_BITS, RSA_SIGNING_MAX_BITS);
-  return new SigningKey(key, rsaSigningAlgorithm(name, entry, modulusLength));
+  return new SigningKey(MINT, key, rsaSigningAlgorithm(name, entry, modulusLength));
 }
 
 async function importRsaSigningKeyJwk(
@@ -267,7 +268,7 @@ async function importRsaSigningKeyJwk(
     RSA_SIGNING_MIN_BITS,
     RSA_SIGNING_MAX_BITS,
   );
-  return new SigningKey(key, rsaSigningAlgorithm(name, entry, modulusLength));
+  return new SigningKey(MINT, key, rsaSigningAlgorithm(name, entry, modulusLength));
 }
 
 /** The minting-object shape returned by `rsaSigningInterface` for one RSA signing scheme. */

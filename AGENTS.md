@@ -37,6 +37,13 @@ wit/                    # the polymorph:webcrypto package, one file per layer:
                         #   extension-conditions.json is the registry of
                         #   the package's named extension conditions (see
                         #   wit/README.md, "Error contract")
+wit-keystore/           # the polymorph:webcrypto-keystore package: the
+                        #   SIBLING package for keeping a signing key
+                        #   across instantiations by name (issue #389's
+                        #   ruling — the store/load surface is not
+                        #   SubtleCrypto, so it does not enter the
+                        #   package above); pulls that package in through
+                        #   the same deps/ symlink components use
 rust/                   # the Rust library surface (directory = crate name
                         # minus the `polymorph-webcrypto-` family root)
   core/                 # polymorph-webcrypto-core: the shared RustCrypto core of

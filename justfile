@@ -43,6 +43,22 @@ check: fmt-check clippy validate-wit test
 polyengine-module-check:
     cd js/polyengine && deno task check && deno task test
 
+# The keystore host module's browser lane: js/polyengine's
+# `polymorph:webcrypto-keystore` port against a real Chromium's IndexedDB,
+# `CryptoKey` structured clone, and a page reload — none of which exist
+# under Deno, so the unit suite cannot observe the module's promise at
+# all. Needs a Chromium (Playwright's pinned build or a system Chrome) and
+# one npm install in the probe's tree.
+polyengine-keystore-probe:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    mkdir -p target/polyengine-keystore-probe
+    (cd js/polyengine && deno bundle --config deno.json --frozen --platform browser \
+        -o ../../target/polyengine-keystore-probe/probe.js tests/browser/probe-entry.ts)
+    cd js/polyengine/tests/browser
+    if [ ! -d node_modules ]; then npm install --no-audit --no-fund; fi
+    node run.mjs
+
 # Check formatting across all crates.
 fmt-check:
     cargo fmt --all -- --check
@@ -72,6 +88,10 @@ validate-wit:
     # with every feature enabled.
     wasm-tools component wit wit
     wasm-tools component wit wit --all-features
+    # The keystore sibling package, which imports the signing-key
+    # resource from the package above.
+    wasm-tools component wit wit-keystore
+    wasm-tools component wit wit-keystore --all-features
     wasm-tools component wit rust/wasmtime/wit
     wasm-tools component wit rust/wasmtime/wit --all-features
     wasm-tools component wit js/jco/wit

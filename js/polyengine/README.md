@@ -36,6 +36,38 @@ host's Node posture — Deno's `crypto.subtle` mints those keys. A
 browser-hosted embedding should call `setRsaPrivateKeyPolicy("decline")`
 (`src/rsaSignature.ts`), the posture `jco-browser` runs under.
 
+## The keystore module
+
+`src/keystore.ts` (`@polymorph/webcrypto/keystore`) serves a *different*
+WIT package: [`polymorph:webcrypto-keystore`](../../wit-keystore), which
+keeps a signing key across instantiations by a name the guest chooses.
+`keystoreImports({ namespace })` is its entry point, and `namespace` is
+the IndexedDB database the embedder assigns — persistence is a capability
+the embedder grants, so `keystoreImports()` with no argument returns
+functions that refuse.
+
+```ts
+instantiate(artifacts, {
+  ...wasi(),
+  ...webcryptoImports(),
+  ...keystoreImports({ namespace: "pm-device-7" }),
+});
+```
+
+No key material crosses the interface in either direction: what IndexedDB
+holds is the `CryptoKey` handle, structured-cloned, so a non-extractable
+key survives a reload with its material still unreadable. The module
+refuses to store an extractable key, and re-validates every entry on the
+way back out (algorithm, key type, usages, `extractable`), because
+IndexedDB is writable by anything else in the origin.
+
+Its gate is `just polyengine-keystore-probe` — a Playwright-driven
+Chromium page (`tests/browser/`) covering the store/reload/load/sign round
+trip, the extractability refusals on both edges, the missing-name and
+no-keystore answers, and namespace isolation. It is a separate lane
+because Deno has no IndexedDB, so `deno task test` cannot observe any of
+it.
+
 ## Module identity
 
 `deno.json`'s `@polyengine/runtime/embedder` import maps to the exact same

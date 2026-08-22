@@ -15,16 +15,16 @@ rust-checks:
 
 # Everything the conformance CI job runs: the cross-implementation
 # conformance targets that share its runner (wasmtime-rustcrypto,
-# composed, jco-node, jco-browser, deltic-deno), their aggregates, and
-# the deltic host module's own unit gate (same module, fast local
+# composed, jco-node, jco-browser, polyengine-deno), their aggregates, and
+# the polyengine host module's own unit gate (same module, fast local
 # check). The jco-firefox and jco-webkit legs run as their own CI jobs,
 # and the committed-matrix and compat gates run in the
 # conformance-aggregate job, where every target's results have joined.
 conformance-checks:
-    @just gha::_step conformance-ct::deltic-pin-check
+    @just gha::_step conformance-ct::polyengine-pin-check
     @just gha::_step conformance-ct::runner-js-pin-check
     @just gha::_step conformance-ct::all
-    @just gha::_step deltic-module-check
+    @just gha::_step polyengine-module-check
 
 # Everything the conformance-suites CI job runs: transpile the suite
 # components into conformance/driver-ct/jco/generated for the engine-leg
@@ -126,11 +126,11 @@ timing-lab-scheduled:
 # the suite component wasms (prebuilt when the pages workflow restores
 # the CI run's conformance-artifacts cache — CONFORMANCE_PREBUILT — and
 # rebuilt by the recipe's cargo fallback otherwise) and the
-# deltic-browser worker bundle + repo-pinned translator shim the staged
+# polyengine-browser worker bundle + repo-pinned translator shim the staged
 # viewer's live pane loads.
 pages-live-assets:
     just conformance-ct::build
-    just conformance-ct::_deltic-browser-bundle
+    just conformance-ct::_polyengine-browser-bundle
 
 # Assemble the Pages site in target/conformance-site: the browser WPT
 # parity page, the conformance results viewer + live run, the public
@@ -157,7 +157,7 @@ pages-site:
     cp -r js/componentize/wpt/parity/generated-web \
         target/conformance-site/js/componentize/wpt/parity/
     # The conformance results viewer: the staged component-test page
-    # (self-contained: the deltic release assets and the raw
+    # (self-contained: the polyengine release assets and the raw
     # viewer-aggregate component ride inside viewer/), the committed
     # lockfiles/manifests, and — when the pages workflow could fetch the
     # latest main CI run's conformance-results artifact — the
@@ -181,11 +181,11 @@ pages-site:
     # resolve to locally: the worker bundle + its pin-matched translator
     # shim, and both suite component wasms. Weight: the suites are
     # multi-MB but fetched only when a visitor starts a run.
-    mkdir -p target/conformance-site/target/deltic-browser \
+    mkdir -p target/conformance-site/target/polyengine-browser \
         target/conformance-site/target/wasm32-wasip2/release
-    cp target/deltic-browser/webcrypto-worker.mjs \
-        target/deltic-browser/deltic-translator-shim.wasm \
-        target/conformance-site/target/deltic-browser/
+    cp target/polyengine-browser/webcrypto-worker.mjs \
+        target/polyengine-browser/polyengine-translator-shim.wasm \
+        target/conformance-site/target/polyengine-browser/
     cp target/wasm32-wasip2/release/conformance_guest_ct.wasm \
         target/wasm32-wasip2/release/conformance_signing_guest_ct.wasm \
         target/conformance-site/target/wasm32-wasip2/release/

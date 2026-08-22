@@ -32,7 +32,7 @@ import {
 import { b64urlDecode } from "./platform.ts";
 import { consumeUnwrapInput, type UnwrapInput, WrapInput } from "./wrapping.ts";
 import { errOther } from "./errors.ts";
-import type { Stream } from "@deltic/runtime/embedder";
+import type { Stream } from "@polyengine/runtime/embedder";
 
 const subtle = globalThis.crypto.subtle;
 

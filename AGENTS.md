@@ -6,7 +6,7 @@ Guidance for automated agents (and humans) working in this repository.
 
 `polymorph:webcrypto`: a WIT interface plus multiple implementations that run the
 *same* guest component against real cryptography: a Wasmtime host (RustCrypto)
-and two JS hosts over the platform Web Crypto API — deltic (runtime-linked;
+and two JS hosts over the platform Web Crypto API — polyengine (runtime-linked;
 the primary JS path) and jco (transpile-based). It is a sibling of
 `polymorph:webrtc-datachannels` and deliberately mirrors its architecture — prefer
 clarity and correctness over features, and keep the implementations
@@ -66,12 +66,12 @@ rust/                   # the Rust library surface (directory = crate name
                         #   export policy
 js/                     # the JS library surface (directory = npm name minus
                         # the `@polymorph/webcrypto-` family root)
-  deltic/               # deltic host MODULE (src/mod.ts): the same
-                        #   reference host over deltic's embedder API,
+  polyengine/               # polyengine host MODULE (src/mod.ts): the same
+                        #   reference host over polyengine's embedder API,
                         #   runtime-linked — no transpile step; the
-                        #   canonical module deltic-family consumers pin
+                        #   canonical module polyengine-family consumers pin
                         #   by URL (deno.lock frozen, release-pinned
-                        #   import maps). Gate: `just deltic-module-check`
+                        #   import maps). Gate: `just polyengine-module-check`
   jco/                  # @polymorph/webcrypto-jco: jco host LIBRARY.
                         #   webcrypto.js implements the imports over the
                         #   browser-compatible Web Crypto API ONLY; no
@@ -133,12 +133,12 @@ conformance/            # cross-implementation conformance tests, on the
   signing-guest-ct/     #   the host-only suite for surfaces the in-guest
                         #     provider does not export (ecdsa-sign)
   driver-ct/            #   the wasmtime host driver (ct-driver), the
-                        #     deltic children (deltic/) serving the
-                        #     deltic-deno and deltic-browser targets, the
+                        #     polyengine children (polyengine/) serving the
+                        #     polyengine-deno and polyengine-browser targets, the
                         #     jco runner (jco/) serving jco-node plus the
                         #     browser-engine targets jco-browser
                         #     (Chromium), jco-firefox, and jco-webkit
-                        #     (macOS CI only; jco-browser/deltic-browser
+                        #     (macOS CI only; jco-browser/polyengine-browser
                         #     gate in CI and are locally opt-in via
                         #     CONFORMANCE_BROWSER=1, jco-firefox via
                         #     CONFORMANCE_FIREFOX=1), targets.toml +
@@ -431,7 +431,7 @@ and the cross-target conformance-aggregate job.)
 | `just componentize::typecheck` | the `webcrypto-componentize` library, or `wit/extension-conditions.json`. Asserts its exported surface against the Web Cryptography API definitions TypeScript ships, and its extension-condition table against the wit/ registry; no component build, nothing generated. |
 | `just componentize::test` | the `webcrypto-componentize` library, the componentize-demo guest, the in-guest provider, or any WIT. Gates in CI. Componentizes the JS demo guest from your tree (with the downloaded, digest-verified componentize-js — see the WPT row for the pin mechanics), composes it with the in-guest provider and driver, and runs it under `wasmtime`. The behavioral gate on the shim's checks the WPT census cannot observe (the SHA-1 collision postures, the extension-error transport). |
 | `just wpt::test` | the `webcrypto-componentize` library, its `wpt/` harness or vendored files, the in-guest provider, or any WIT. Gates in CI. The runner is componentized from your tree in seconds; the componentize-js build it needs is downloaded and digest-verified (`js/componentize/wpt/component.sh`), never compiled here. Changing `js/componentize/componentize-js.rev` triggers the `componentize-js-toolchain` workflow; this check then fails until that publishes *and* `just componentize::update-toolchain-digest` records the new digests. Intentional changes to the test census also need `just wpt::update-expectations`. |
-| `just conformance-ct::all` | any host/guest behavior the tests assert — the WIT surface, an implementation, the conformance suites/vectors/translation policy, or driver-ct/targets.toml. Runs the wasmtime-rustcrypto, composed, jco-node, and deltic-deno targets always (Node 24+, Deno), the jco-browser and deltic-browser legs under CI or CONFORMANCE_BROWSER=1, and the jco-firefox leg under CONFORMANCE_FIREFOX=1 (in CI it is the dedicated conformance-firefox job — Firefox needs a runner to itself), aggregating against the committed lockfiles and target manifests and building the compat matrix (results/compat.json); the jco-webkit leg runs only as the macOS CI job, and CI's conformance-aggregate job re-aggregates all eight targets, diffs the committed matrices (`matrix-check`), and gates the compat registry (`compat-check --require-all`). Intentional case changes also need `just conformance-ct::lock-update` and `just conformance-ct::matrix-update` — the latter from a full run, which only CI can produce (the WebKit leg needs macOS), so in practice `just gha::update-matrices-from-ci` (copies the matrices from the branch's CI `conformance-results` artifact). |
+| `just conformance-ct::all` | any host/guest behavior the tests assert — the WIT surface, an implementation, the conformance suites/vectors/translation policy, or driver-ct/targets.toml. Runs the wasmtime-rustcrypto, composed, jco-node, and polyengine-deno targets always (Node 24+, Deno), the jco-browser and polyengine-browser legs under CI or CONFORMANCE_BROWSER=1, and the jco-firefox leg under CONFORMANCE_FIREFOX=1 (in CI it is the dedicated conformance-firefox job — Firefox needs a runner to itself), aggregating against the committed lockfiles and target manifests and building the compat matrix (results/compat.json); the jco-webkit leg runs only as the macOS CI job, and CI's conformance-aggregate job re-aggregates all eight targets, diffs the committed matrices (`matrix-check`), and gates the compat registry (`compat-check --require-all`). Intentional case changes also need `just conformance-ct::lock-update` and `just conformance-ct::matrix-update` — the latter from a full run, which only CI can produce (the WebKit leg needs macOS), so in practice `just gha::update-matrices-from-ci` (copies the matrices from the branch's CI `conformance-results` artifact). |
 | `just demo::transpile` | anything affecting the component's interfaces, or the transpile flags in `examples/jco-demo/package.json`. |
 | `just jco::test-host` | the jco host's input-buffering admission subsystem (`configure`, the admission queue). Runs `webcrypto.js` directly under `node --test`; the conformance suite cannot reach this code, since its workers each run their cases sequentially against their own host instance. |
 | `just jco::typecheck` | the jco host (`webcrypto.js`), its world, or any WIT. Regenerates the interface definitions and type-checks the host against them; no component build. |

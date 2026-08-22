@@ -8,7 +8,7 @@
 // This file is the frame: engine selection, core-URL enumeration,
 // per-suite configuration, results writing. The shard worker is the
 // local reuse-worker.mjs — one component instance per shard, the
-// deltic legs' measured-and-argued containment trade (its header) —
+// polyengine legs' measured-and-argued containment trade (its header) —
 // unless --fresh-cases restores the upstream per-case worker.
 //
 // Engine → target key: chromium → jco-browser, firefox → jco-firefox,
@@ -27,8 +27,8 @@
 // than record facts for the wrong platform. The leg runs as the
 // dedicated macOS CI job (`just conformance-ct::run-webkit`).
 //
-// EXIT STATUS. Case failures do NOT fail this driver (the deltic
-// pattern — see ../deltic/run.ts): engine targets carry declared
+// EXIT STATUS. Case failures do NOT fail this driver (the polyengine
+// pattern — see ../polyengine/run.ts): engine targets carry declared
 // expected-fail debt (targets.toml / targets-signing.toml), and the
 // aggregate is what assesses each failure as declared-or-not, failing
 // the gate on any undeclared failure or stale declaration. Runner-level

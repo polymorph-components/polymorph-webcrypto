@@ -1,6 +1,6 @@
-// deltic-browser driver for the ported conformance suites: both suites'
+// polyengine-browser driver for the ported conformance suites: both suites'
 // case loops run inside headless Chromium via the upstream page driver
-// against this repo's deltic host module (js/deltic over the browser's
+// against this repo's polyengine host module (js/polyengine over the browser's
 // Web Crypto) — the worker is one deno-bundled module (see
 // browser/worker-entry.ts) linking the suite COMPONENT at run time: no
 // transpile step, no generated tree, no core files. This file is the
@@ -10,7 +10,7 @@
 // Gates in CI (the Actions runner image ships Chrome); locally it needs
 // a Chrome/Chromium install and runs only when opted in with
 // CONFORMANCE_BROWSER=1 (`just conformance-ct::all`), or directly with
-// `just conformance-ct::run-deltic-browser`.
+// `just conformance-ct::run-polyengine-browser`.
 import { access } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
@@ -24,10 +24,10 @@ import { writeResultsFile } from "@jsr/polymorph__test/node-runner";
 
 const REPO_ROOT = fileURLToPath(new URL("../../../", import.meta.url));
 const RESULTS_DIR = fileURLToPath(new URL("../results/", import.meta.url));
-const WORKER_URL = "/target/deltic-browser/webcrypto-worker.mjs";
-// Version-free: the lock owns @deltic versioning now (see the migration
+const WORKER_URL = "/target/polyengine-browser/webcrypto-worker.mjs";
+// Version-free: the lock owns @polyengine versioning now (see the migration
 // contract), so this output path carries no tag.
-const TRANSLATOR_URL = "/target/deltic-browser/deltic-translator-shim.wasm";
+const TRANSLATOR_URL = "/target/polyengine-browser/polyengine-translator-shim.wasm";
 // CI hardware headroom, not a platform gap (the deno leg's 300 s case
 // timeout precedent): the 19k-case census and the slowest vector
 // batches can hold the heartbeat quiet for minutes on a 2-core runner.
@@ -41,7 +41,7 @@ const { values } = parseArgs({
   options: {
     missing: { type: "string", default: "" },
     "missing-signing": { type: "string", default: "" },
-    target: { type: "string", default: "deltic-browser" },
+    target: { type: "string", default: "polyengine-browser" },
   },
 });
 
@@ -57,22 +57,22 @@ const common = {
 const SUITES = [
   {
     ...common,
-    key: "deltic-browser",
+    key: "polyengine-browser",
     suite: "conformance-guest-ct",
     suiteUrl: "/target/wasm32-wasip2/release/conformance_guest_ct.wasm",
     missing: values.missing.split(",").filter(Boolean),
   },
   {
     ...common,
-    key: "deltic-browser-signing",
+    key: "polyengine-browser-signing",
     suite: "conformance-signing-guest-ct",
     suiteUrl: "/target/wasm32-wasip2/release/conformance_signing_guest_ct.wasm",
     missing: values["missing-signing"].split(",").filter(Boolean),
   },
 ];
 for (const [what, rel] of [
-  ["bundled worker (run `just conformance-ct::run-deltic-browser`)", WORKER_URL],
-  ["translator asset (run `just conformance-ct::run-deltic-browser`)", common.translatorUrl],
+  ["bundled worker (run `just conformance-ct::run-polyengine-browser`)", WORKER_URL],
+  ["translator asset (run `just conformance-ct::run-polyengine-browser`)", common.translatorUrl],
   ...SUITES.map((s) => [`suite component (run \`just conformance-ct::build\`)`, s.suiteUrl]),
 ]) {
   try {
@@ -89,7 +89,7 @@ const outcome = await runPageHarness({
   executablePath: await findChrome(),
   repoRoot: REPO_ROOT,
   html: buildHarnessPage({
-    title: "polymorph:webcrypto conformance (deltic-browser)",
+    title: "polymorph:webcrypto conformance (polyengine-browser)",
     // Sequential: a worker pool holds one live suite instance per shard,
     // and this corpus's instances are large enough that a full pool trips
     // Chromium's wasm-memory allocation ceiling.

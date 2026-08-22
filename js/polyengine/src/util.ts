@@ -8,7 +8,7 @@
 // not jco's async-iterable convention, so this collector is written
 // directly against `Stream<number>.read`, no jco-shape tolerance needed.
 
-import type { Stream } from "@deltic/runtime/embedder";
+import type { Stream } from "@polyengine/runtime/embedder";
 import { errInvalidKey } from "./errors.ts";
 
 /** Read a guest `stream<u8>` to completion, copying chunks into one buffer. */

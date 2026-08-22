@@ -70,7 +70,7 @@ missing-features = ["sha1-checked"]
 # results files are warnings.
 optional = true
 # The two Gecko/NSS strictness windows below are declared expected
-# failures (tracked debt, #356), mirroring the deltic-deno ledger: the
+# failures (tracked debt, #356), mirroring the polyengine-deno ledger: the
 # X25519 low-order/non-canonical public-key admissions and the AES-CTR
 # narrow-counter probe. Gecko's admission LAXNESS findings (#357) are
 # not ledgered: the host guards them uniformly.
@@ -412,7 +412,7 @@ missing-features = ["sha1-checked", "rsa-verify-8192"]
 # warnings, not errors.
 optional = true
 # The Apple-platform strictness and laxness windows below are declared
-# expected failures (tracked debt, #360), mirroring the deltic-deno and
+# expected failures (tracked debt, #360), mirroring the polyengine-deno and
 # jco-firefox ledgers: unreduced RSASSA signatures accepted, the Ed25519
 # empty message rejected, non-deterministic Ed25519 signing, and
 # malformed AES-CBC ciphertexts accepted.
@@ -482,9 +482,9 @@ case = "probe/cipher-wrap-uniform-failure"
 reason = "WebKit WebCrypto: a malformed AES-CBC wrap unwraps (CBC decrypt accepts malformed input)"
 tracking = "https://github.com/polymorph-components/polymorph-webcrypto/issues/360"
 
-[targets.deltic-deno]
+[targets.polyengine-deno]
 # The same reference host as jco-node/jco-browser in behavior, rewritten
-# over deltic's embedder API (js/deltic/src/mod.ts), run RUNTIME-LINKED
+# over polyengine's embedder API (js/polyengine/src/mod.ts), run RUNTIME-LINKED
 # under stock Deno — no transpile step, no generated tree. Like every
 # platform-WebCrypto-backed target it cannot serve `sha1-checked` (no
 # platform carries sha1dc), and the suite's `!sha1-checked` decline case
@@ -504,172 +504,172 @@ missing-features = ["sha1-checked", "rsa-verify-8192"]
 # below as expected failures — tracked debt, not silent tolerance, and
 # the aggregate fails on any UNdeclared failure or any declaration that
 # has gone stale.
-[[targets.deltic-deno.expected-fail]]
+[[targets.polyengine-deno.expected-fail]]
 case = "probe/gcm-full-parameters"
 reason = "Deno WebCrypto: AES-GCM decrypt refuses tags shorter than 128 bits"
 tracking = "https://github.com/polymorph-components/polymorph-webcrypto/issues/351"
 
-[[targets.deltic-deno.expected-fail]]
+[[targets.polyengine-deno.expected-fail]]
 case = "probe/gcm-nonce-window"
 reason = "Deno WebCrypto: AES-GCM IV window is 96/128 bits (WIT window 12-128 bytes)"
 tracking = "https://github.com/polymorph-components/polymorph-webcrypto/issues/351"
 
-[[targets.deltic-deno.expected-fail]]
+[[targets.polyengine-deno.expected-fail]]
 case = "probe/ctr-known-answers"
 reason = "Deno WebCrypto: AES-CTR counter width limited to 32/64/128 bits (WIT window 1-128)"
 tracking = "https://github.com/polymorph-components/polymorph-webcrypto/issues/351"
 
-[[targets.deltic-deno.expected-fail]]
+[[targets.polyengine-deno.expected-fail]]
 case = "aes-gcm/wycheproof/tc259/whole"
 reason = "Deno WebCrypto: AES-GCM IV window is 96/128 bits; this case uses 120"
 tracking = "https://github.com/polymorph-components/polymorph-webcrypto/issues/351"
 
-[[targets.deltic-deno.expected-fail]]
+[[targets.polyengine-deno.expected-fail]]
 case = "aes-gcm/wycheproof/tc259/bytes"
 reason = "Deno WebCrypto: AES-GCM IV window is 96/128 bits; this case uses 120"
 tracking = "https://github.com/polymorph-components/polymorph-webcrypto/issues/351"
 
-[[targets.deltic-deno.expected-fail]]
+[[targets.polyengine-deno.expected-fail]]
 case = "aes-gcm/wycheproof/tc259/straddle"
 reason = "Deno WebCrypto: AES-GCM IV window is 96/128 bits; this case uses 120"
 tracking = "https://github.com/polymorph-components/polymorph-webcrypto/issues/351"
 
-[[targets.deltic-deno.expected-fail]]
+[[targets.polyengine-deno.expected-fail]]
 case = "aes-gcm/wycheproof/tc260/whole"
 reason = "Deno WebCrypto: AES-GCM IV window is 96/128 bits; this case uses 160"
 tracking = "https://github.com/polymorph-components/polymorph-webcrypto/issues/351"
 
-[[targets.deltic-deno.expected-fail]]
+[[targets.polyengine-deno.expected-fail]]
 case = "aes-gcm/wycheproof/tc260/bytes"
 reason = "Deno WebCrypto: AES-GCM IV window is 96/128 bits; this case uses 160"
 tracking = "https://github.com/polymorph-components/polymorph-webcrypto/issues/351"
 
-[[targets.deltic-deno.expected-fail]]
+[[targets.polyengine-deno.expected-fail]]
 case = "aes-gcm/wycheproof/tc260/straddle"
 reason = "Deno WebCrypto: AES-GCM IV window is 96/128 bits; this case uses 160"
 tracking = "https://github.com/polymorph-components/polymorph-webcrypto/issues/351"
 
-[[targets.deltic-deno.expected-fail]]
+[[targets.polyengine-deno.expected-fail]]
 case = "aes-gcm/wycheproof/tc263/whole"
 reason = "Deno WebCrypto: AES-GCM IV window is 96/128 bits; this case uses 120"
 tracking = "https://github.com/polymorph-components/polymorph-webcrypto/issues/351"
 
-[[targets.deltic-deno.expected-fail]]
+[[targets.polyengine-deno.expected-fail]]
 case = "aes-gcm/wycheproof/tc263/bytes"
 reason = "Deno WebCrypto: AES-GCM IV window is 96/128 bits; this case uses 120"
 tracking = "https://github.com/polymorph-components/polymorph-webcrypto/issues/351"
 
-[[targets.deltic-deno.expected-fail]]
+[[targets.polyengine-deno.expected-fail]]
 case = "aes-gcm/wycheproof/tc263/straddle"
 reason = "Deno WebCrypto: AES-GCM IV window is 96/128 bits; this case uses 120"
 tracking = "https://github.com/polymorph-components/polymorph-webcrypto/issues/351"
 
-[[targets.deltic-deno.expected-fail]]
+[[targets.polyengine-deno.expected-fail]]
 case = "aes-gcm/wycheproof/tc264/whole"
 reason = "Deno WebCrypto: AES-GCM IV window is 96/128 bits; this case uses 160"
 tracking = "https://github.com/polymorph-components/polymorph-webcrypto/issues/351"
 
-[[targets.deltic-deno.expected-fail]]
+[[targets.polyengine-deno.expected-fail]]
 case = "aes-gcm/wycheproof/tc264/bytes"
 reason = "Deno WebCrypto: AES-GCM IV window is 96/128 bits; this case uses 160"
 tracking = "https://github.com/polymorph-components/polymorph-webcrypto/issues/351"
 
-[[targets.deltic-deno.expected-fail]]
+[[targets.polyengine-deno.expected-fail]]
 case = "aes-gcm/wycheproof/tc264/straddle"
 reason = "Deno WebCrypto: AES-GCM IV window is 96/128 bits; this case uses 160"
 tracking = "https://github.com/polymorph-components/polymorph-webcrypto/issues/351"
 
-[[targets.deltic-deno.expected-fail]]
+[[targets.polyengine-deno.expected-fail]]
 case = "aes-gcm/wycheproof/tc265/whole"
 reason = "Deno WebCrypto: AES-GCM IV window is 96/128 bits; this case uses 256"
 tracking = "https://github.com/polymorph-components/polymorph-webcrypto/issues/351"
 
-[[targets.deltic-deno.expected-fail]]
+[[targets.polyengine-deno.expected-fail]]
 case = "aes-gcm/wycheproof/tc265/bytes"
 reason = "Deno WebCrypto: AES-GCM IV window is 96/128 bits; this case uses 256"
 tracking = "https://github.com/polymorph-components/polymorph-webcrypto/issues/351"
 
-[[targets.deltic-deno.expected-fail]]
+[[targets.polyengine-deno.expected-fail]]
 case = "aes-gcm/wycheproof/tc265/straddle"
 reason = "Deno WebCrypto: AES-GCM IV window is 96/128 bits; this case uses 256"
 tracking = "https://github.com/polymorph-components/polymorph-webcrypto/issues/351"
 
-[[targets.deltic-deno.expected-fail]]
+[[targets.polyengine-deno.expected-fail]]
 case = "aes-gcm/wycheproof/tc266/whole"
 reason = "Deno WebCrypto: AES-GCM IV window is 96/128 bits; this case uses 512"
 tracking = "https://github.com/polymorph-components/polymorph-webcrypto/issues/351"
 
-[[targets.deltic-deno.expected-fail]]
+[[targets.polyengine-deno.expected-fail]]
 case = "aes-gcm/wycheproof/tc266/bytes"
 reason = "Deno WebCrypto: AES-GCM IV window is 96/128 bits; this case uses 512"
 tracking = "https://github.com/polymorph-components/polymorph-webcrypto/issues/351"
 
-[[targets.deltic-deno.expected-fail]]
+[[targets.polyengine-deno.expected-fail]]
 case = "aes-gcm/wycheproof/tc266/straddle"
 reason = "Deno WebCrypto: AES-GCM IV window is 96/128 bits; this case uses 512"
 tracking = "https://github.com/polymorph-components/polymorph-webcrypto/issues/351"
 
-[[targets.deltic-deno.expected-fail]]
+[[targets.polyengine-deno.expected-fail]]
 case = "aes-gcm/wycheproof/tc267/whole"
 reason = "Deno WebCrypto: AES-GCM IV window is 96/128 bits; this case uses 1024"
 tracking = "https://github.com/polymorph-components/polymorph-webcrypto/issues/351"
 
-[[targets.deltic-deno.expected-fail]]
+[[targets.polyengine-deno.expected-fail]]
 case = "aes-gcm/wycheproof/tc267/bytes"
 reason = "Deno WebCrypto: AES-GCM IV window is 96/128 bits; this case uses 1024"
 tracking = "https://github.com/polymorph-components/polymorph-webcrypto/issues/351"
 
-[[targets.deltic-deno.expected-fail]]
+[[targets.polyengine-deno.expected-fail]]
 case = "aes-gcm/wycheproof/tc267/straddle"
 reason = "Deno WebCrypto: AES-GCM IV window is 96/128 bits; this case uses 1024"
 tracking = "https://github.com/polymorph-components/polymorph-webcrypto/issues/351"
 
-[[targets.deltic-deno.expected-fail]]
+[[targets.polyengine-deno.expected-fail]]
 case = "aes-gcm/wycheproof/tc273/whole"
 reason = "Deno WebCrypto: AES-GCM IV window is 96/128 bits; this case uses 256"
 tracking = "https://github.com/polymorph-components/polymorph-webcrypto/issues/351"
 
-[[targets.deltic-deno.expected-fail]]
+[[targets.polyengine-deno.expected-fail]]
 case = "aes-gcm/wycheproof/tc273/bytes"
 reason = "Deno WebCrypto: AES-GCM IV window is 96/128 bits; this case uses 256"
 tracking = "https://github.com/polymorph-components/polymorph-webcrypto/issues/351"
 
-[[targets.deltic-deno.expected-fail]]
+[[targets.polyengine-deno.expected-fail]]
 case = "aes-gcm/wycheproof/tc273/straddle"
 reason = "Deno WebCrypto: AES-GCM IV window is 96/128 bits; this case uses 256"
 tracking = "https://github.com/polymorph-components/polymorph-webcrypto/issues/351"
 
-[[targets.deltic-deno.expected-fail]]
+[[targets.polyengine-deno.expected-fail]]
 case = "aes-gcm/wycheproof/tc274/whole"
 reason = "Deno WebCrypto: AES-GCM IV window is 96/128 bits; this case uses 512"
 tracking = "https://github.com/polymorph-components/polymorph-webcrypto/issues/351"
 
-[[targets.deltic-deno.expected-fail]]
+[[targets.polyengine-deno.expected-fail]]
 case = "aes-gcm/wycheproof/tc274/bytes"
 reason = "Deno WebCrypto: AES-GCM IV window is 96/128 bits; this case uses 512"
 tracking = "https://github.com/polymorph-components/polymorph-webcrypto/issues/351"
 
-[[targets.deltic-deno.expected-fail]]
+[[targets.polyengine-deno.expected-fail]]
 case = "aes-gcm/wycheproof/tc274/straddle"
 reason = "Deno WebCrypto: AES-GCM IV window is 96/128 bits; this case uses 512"
 tracking = "https://github.com/polymorph-components/polymorph-webcrypto/issues/351"
 
-[[targets.deltic-deno.expected-fail]]
+[[targets.polyengine-deno.expected-fail]]
 case = "aes-gcm/wycheproof/tc275/whole"
 reason = "Deno WebCrypto: AES-GCM IV window is 96/128 bits; this case uses 1024"
 tracking = "https://github.com/polymorph-components/polymorph-webcrypto/issues/351"
 
-[[targets.deltic-deno.expected-fail]]
+[[targets.polyengine-deno.expected-fail]]
 case = "aes-gcm/wycheproof/tc275/bytes"
 reason = "Deno WebCrypto: AES-GCM IV window is 96/128 bits; this case uses 1024"
 tracking = "https://github.com/polymorph-components/polymorph-webcrypto/issues/351"
 
-[[targets.deltic-deno.expected-fail]]
+[[targets.polyengine-deno.expected-fail]]
 case = "aes-gcm/wycheproof/tc275/straddle"
 reason = "Deno WebCrypto: AES-GCM IV window is 96/128 bits; this case uses 1024"
 tracking = "https://github.com/polymorph-components/polymorph-webcrypto/issues/351"
-[targets.deltic-browser]
-# The deltic host module (js/deltic) runtime-linked in headless Chromium
+[targets.polyengine-browser]
+# The polyengine host module (js/polyengine) runtime-linked in headless Chromium
 # — the same platform WebCrypto as jco-browser, so the same posture:
 # `sha1-checked` cannot be served (no platform carries sha1dc), and
 # neither the Deno parameter-window expected-fails nor the

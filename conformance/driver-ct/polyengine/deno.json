@@ -1,0 +1,15 @@
+{
+  "//": "MODULE-IDENTITY CONSTRAINT: polyengine's wasi module imports @polyengine/runtime/embedder by bare specifier internally. The @polyengine/runtime/embedder entry here must map to the IDENTICAL exact-pinned JSR version as ../../../js/polyengine/deno.json's entry, or the embedder module loads twice and `instanceof ComponentException` stops holding across the module boundary. polyengine ships as exact-pinned JSR releases (caret-honest upstream: within a minor line releases stay compatible, breaking bumps the minor; between releases, per-commit `<next>-pre.g<hash>` prereleases exist — pin exactly); deno.lock carries integrity, --frozen enforced; the pin gate (just conformance-ct::polyengine-pin-check) asserts one @polyengine version repo-wide.",
+  "imports": {
+    "@polyengine/ct-runner": "jsr:@polyengine/ct-runner@0.3.0",
+    "@polyengine/runtime/embedder": "jsr:@polyengine/runtime@0.3.0/embedder",
+    "@polyengine/runtime/shim": "jsr:@polyengine/runtime@0.3.0/shim",
+    "@polyengine/wasi": "jsr:@polyengine/wasi@0.3.0",
+    "@polyengine/translator": "jsr:@polyengine/translator@0.3.0",
+    "@polymorph/test/polyengine-worker-main": "jsr:@polymorph/test@0.2.0/polyengine-worker-main"
+  },
+  "minimumDependencyAge": { "age": "P1D", "exclude": ["jsr:@polyengine/*", "jsr:@polymorph/*"] },
+  "tasks": {
+    "check": "deno check run.ts browser/worker-entry.ts browser-bundle-entry.ts"
+  }
+}

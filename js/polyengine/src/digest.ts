@@ -12,7 +12,7 @@
 
 import { errUnsupported, platformCall } from "./errors.ts";
 import { asBufferSource, collectByteStream } from "./util.ts";
-import type { Stream } from "@deltic/runtime/embedder";
+import type { Stream } from "@polyengine/runtime/embedder";
 
 const subtle = globalThis.crypto.subtle;
 

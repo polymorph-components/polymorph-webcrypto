@@ -1,4 +1,4 @@
-// Minimal, dependency-free assertion helpers for the deltic-module tests.
+// Minimal, dependency-free assertion helpers for the polyengine-module tests.
 
 export function assertEq<T>(actual: T, expected: T, msg?: string): void {
   const ok = Object.is(actual, expected) ||

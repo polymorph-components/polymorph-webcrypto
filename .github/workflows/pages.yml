@@ -64,9 +64,9 @@ jobs:
           node-version: "24.19.0"
 
       - name: Install Deno
-        # For the viewer staging's deltic release assets
-        # (conformance-ct::_viewer-prepared runs the checkout's
-        # fetch-deltic.ts). Version-pinned as in ci.yml.
+        # For the viewer staging's polyengine release assets
+        # (conformance-ct::_viewer-prepared runs `just polyengine-assets`
+        # inside the polymorph-test checkout). Version-pinned as in ci.yml.
         uses: denoland/setup-deno@v2
         with:
           deno-version: "2.9.5"
@@ -95,7 +95,7 @@ jobs:
 
       - name: Build the live pane's assets
         # The suite wasms (prebuilt on a cache hit) and the
-        # deltic-browser worker bundle + translator shim the staged
+        # polyengine-browser worker bundle + translator shim the staged
         # viewer's live pane loads.
         run: just gha::pages-live-assets
         env:
@@ -106,8 +106,8 @@ jobs:
 
       - name: Build the conformance viewer artifacts
         # component-test's results viewer staged at the pin: the page
-        # files, the raw viewer-aggregate component (deltic translates
-        # it in-page — no transpile), and the pinned deltic release
+        # files, the raw viewer-aggregate component (polyengine translates
+        # it in-page — no transpile), and the pinned polyengine release
         # assets.
         run: just conformance-ct::_viewer-prepared
 

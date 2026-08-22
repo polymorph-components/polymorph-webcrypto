@@ -17,7 +17,7 @@
 // payload shape is `{ kind, value? }` with `value` absent for payloadless
 // cases.
 
-import { ComponentException } from "@deltic/runtime/embedder";
+import { ComponentException } from "@polyengine/runtime/embedder";
 
 /** The `types.error` payload shape (the value-mapping table's variant row). */
 export type WcErrorPayload =

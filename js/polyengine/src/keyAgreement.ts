@@ -13,6 +13,7 @@ import { importPlatformKey, importPlatformKeyJwk, jwkMaterial, redactingInvalidK
 import { type DeriveInput, mintDeriveInput } from "./derivation.ts";
 import { consumeUnwrapInput, type UnwrapInput, WrapInput } from "./wrapping.ts";
 import { unwrappedJwk } from "./util.ts";
+import { MINT, requireMint } from "./internal.ts";
 
 const subtle = globalThis.crypto.subtle;
 
@@ -49,7 +50,16 @@ export class AgreementKeyOptions {
 /** `key-agreement.public-key`: exchangeable, secret-free. */
 export class PublicKey {
   #key: CryptoKey;
-  constructor(key: CryptoKey) {
+  /**
+   * Runtime-internal (polymorph-webcrypto#391): a `public-key` exists only as
+   * minted by `x25519`/`ecdh`. No `fromCryptoKey` here — see the tier
+   * statement in signature.ts: agreement keys are minted with CONSTANT
+   * platform usages regardless of the policy granted (keyAgreement.ts:240), so
+   * the policy lives entirely in the resource and an injected key would arrive
+   * carrying none of it.
+   */
+  constructor(token: typeof MINT, key: CryptoKey) {
+    requireMint(token, "public-key");
     this.#key = key;
   }
   get cryptoKey(): CryptoKey {
@@ -82,7 +92,13 @@ export class PublicKey {
 export class SecretKey {
   #key: CryptoKey;
   #policy: AgreementPolicy;
-  constructor(key: CryptoKey, policy: AgreementPolicy) {
+  /**
+   * Runtime-internal (polymorph-webcrypto#391): a `secret-key` exists only as
+   * minted by `x25519`/`ecdh`. No `fromCryptoKey` — the agreement policy is
+   * not carried by the platform key at all (see `PublicKey`'s constructor).
+   */
+  constructor(token: typeof MINT, key: CryptoKey, policy: AgreementPolicy) {
+    requireMint(token, "secret-key");
     this.#key = key;
     this.#policy = { ...policy };
   }
@@ -190,17 +206,17 @@ export const x25519 = {
   importPublicKeyRaw: async (raw: Uint8Array): Promise<PublicKey> => {
     if (raw.length !== 32) errInvalidKey("X25519 public key must be 32 bytes (RFC 7748 u-coordinate)");
     const key = await importPlatformKey("X25519 public key", "raw", raw, "X25519", true, []);
-    return new PublicKey(key);
+    return new PublicKey(MINT, key);
   },
   importPublicKeySpki: async (spki: Uint8Array): Promise<PublicKey> => {
     const key = await importPlatformKey("X25519 spki", "spki", spki, "X25519", true, []);
-    return new PublicKey(key);
+    return new PublicKey(MINT, key);
   },
   importPublicKeyJwk: async (jwkText: string): Promise<PublicKey> => {
     const jwk = jwkMaterial(jwkText);
     requireStrictBase64url(jwk.x);
     const key = await importPlatformKeyJwk("X25519 public JWK", jwk, "X25519", true, []);
-    return new PublicKey(key);
+    return new PublicKey(MINT, key);
   },
   importSecretKeyJwk: async (jwkText: string, options: AgreementKeyOptions): Promise<SecretKey> => {
     const policy = agreementPolicyOf(options);
@@ -218,7 +234,7 @@ export const x25519 = {
     if (key.type !== "private") {
       errInvalidKey("OKP private JWK must carry `d` (base64url private key)");
     }
-    return new SecretKey(key, policy);
+    return new SecretKey(MINT, key, policy);
   },
   importSecretKeyPkcs8: async (pkcs8: Uint8Array, options: AgreementKeyOptions): Promise<SecretKey> => {
     const policy = agreementPolicyOf(options);
@@ -231,14 +247,14 @@ export const x25519 = {
       policy.extractable,
       AGREEMENT_PLATFORM_USAGES,
     );
-    return new SecretKey(key, policy);
+    return new SecretKey(MINT, key, policy);
   },
   generateKey: async (options: AgreementKeyOptions): Promise<[SecretKey, PublicKey]> => {
     const policy = agreementPolicyOf(options);
     requireAgreementGrant(policy);
     const pair = await platformCall("X25519 key generation", () =>
       subtle.generateKey("X25519", policy.extractable, AGREEMENT_PLATFORM_USAGES)) as CryptoKeyPair;
-    return [new SecretKey(pair.privateKey, policy), new PublicKey(pair.publicKey)];
+    return [new SecretKey(MINT, pair.privateKey, policy), new PublicKey(MINT, pair.publicKey)];
   },
   unwrapSecretKeyJwk: (input: UnwrapInput, options: AgreementKeyOptions): Promise<SecretKey> => {
     const { bytes } = consumeUnwrapInput(input);

@@ -27,6 +27,7 @@ import {
 import { requireEcJwkCurve, requireOnCurveSec1, requireOnCurveSpki } from "./ec.ts";
 import { consumeUnwrapInput, type UnwrapInput } from "./wrapping.ts";
 import { unwrappedJwk } from "./util.ts";
+import { MINT } from "./internal.ts";
 
 const subtle = globalThis.crypto.subtle;
 
@@ -67,7 +68,7 @@ export const ecdh = {
       true,
       [],
     );
-    return new PublicKey(key);
+    return new PublicKey(MINT, key);
   },
 
   importPublicKeySpki: async (variant: string, spki: Uint8Array): Promise<PublicKey> => {
@@ -82,7 +83,7 @@ export const ecdh = {
       true,
       [],
     );
-    return new PublicKey(key);
+    return new PublicKey(MINT, key);
   },
 
   importPublicKeyJwk: async (variant: string, jwkText: string): Promise<PublicKey> => {
@@ -96,7 +97,7 @@ export const ecdh = {
       true,
       [],
     );
-    return new PublicKey(key);
+    return new PublicKey(MINT, key);
   },
 
   importSecretKeyJwk: async (variant: string, jwkText: string, options: AgreementKeyOptions): Promise<SecretKey> => {
@@ -116,7 +117,7 @@ export const ecdh = {
     if (key.type !== "private") {
       errInvalidKey("EC private JWK must carry `d` (base64url private scalar)");
     }
-    return new SecretKey(key, policy);
+    return new SecretKey(MINT, key, policy);
   },
 
   importSecretKeyPkcs8: async (
@@ -135,7 +136,7 @@ export const ecdh = {
       policy.extractable,
       AGREEMENT_PLATFORM_USAGES,
     );
-    return new SecretKey(key, policy);
+    return new SecretKey(MINT, key, policy);
   },
 
   generateKey: async (variant: string, options: AgreementKeyOptions): Promise<[SecretKey, PublicKey]> => {
@@ -148,7 +149,7 @@ export const ecdh = {
         policy.extractable,
         AGREEMENT_PLATFORM_USAGES,
       )) as CryptoKeyPair;
-    return [new SecretKey(pair.privateKey, policy), new PublicKey(pair.publicKey)];
+    return [new SecretKey(MINT, pair.privateKey, policy), new PublicKey(MINT, pair.publicKey)];
   },
 
   unwrapSecretKeyJwk: (variant: string, input: UnwrapInput, options: AgreementKeyOptions): Promise<SecretKey> => {

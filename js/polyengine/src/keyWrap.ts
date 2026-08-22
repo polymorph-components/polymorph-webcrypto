@@ -10,6 +10,7 @@
 import { errAuthenticationFailed, errInvalidKey, errOther, decryptFailure, notPermitted, platformCall } from "./errors.ts";
 import { asBufferSource, unwrappedJwk } from "./util.ts";
 import {
+  AES_VARIANT_BYTES,
   aesVariantByteLength,
   exportJwkGated,
   exportRawGated,
@@ -22,7 +23,16 @@ import {
 } from "./platform.ts";
 import { type DeriveInput, deriveKeyFrom } from "./derivation.ts";
 import { consumeUnwrapInput, consumeWrapInput, UnwrapInput, WrapInput } from "./wrapping.ts";
-import { grantedUsages } from "./errors.ts";
+import { grantedUsages, errUnsupported } from "./errors.ts";
+import {
+  injectedKey,
+  launderCryptoKey,
+  MINT,
+  requireAlgorithmName,
+  requireKeyType,
+  requireMint,
+  requireSomeUsage,
+} from "./internal.ts";
 
 const subtle = globalThis.crypto.subtle;
 
@@ -77,10 +87,85 @@ export class KwKey {
   #lengthBits: number;
   #grants: KwPolicy;
 
-  constructor(key: CryptoKey, lengthBits: number, grants: KwPolicy) {
+  /**
+   * Runtime-internal (polymorph-webcrypto#391): a `kw-key` exists only as
+   * minted by the `aes-kw` interface below or by {@link KwKey.fromCryptoKey}.
+   */
+  constructor(token: typeof MINT, key: CryptoKey, lengthBits: number, grants: KwPolicy) {
+    requireMint(token, "kw-key");
     this.#key = key;
     this.#lengthBits = lengthBits;
     this.#grants = { ...grants };
+  }
+
+  /**
+   * Adopt an embedder-held AES-KW `CryptoKey` — the injection half of the
+   * persistence seam (polymorph-webcrypto#391), so a key-wrapping key can be
+   * kept across sessions as a NON-EXTRACTABLE `CryptoKey` in IndexedDB rather
+   * than as material.
+   *
+   * `kw-key` is a served ("tier A") kind: AES-KW's only parameter is the key
+   * length, which rides `AesKeyAlgorithm`, and the WIT's `can-wrap`/
+   * `can-unwrap` grants are 1:1 with the platform's `wrapKey`/`unwrapKey`
+   * usages (keyWrap.ts:59-65). So the slots determine both the record and the
+   * policy, and no options parameter is needed — for an injected key the
+   * platform slots ARE the policy.
+   *
+   * Synchronous, and validating: a platform `CryptoKey`, of type `secret`,
+   * with `algorithm.name === "AES-KW"`, of a length the `aes-kw` mint serves
+   * — 128 or 256 bits, the `aes-variant` table at platform.ts:28-31 (aes192 is
+   * declined package-wide by the WIT's portability ruling, so an injected
+   * 192-bit key is refused exactly as an imported one would be). At least one
+   * of wrap/unwrap is required: a wrapping key that can do neither is a
+   * degenerate injection.
+   *
+   * NOTE on `extractable()`: this class mirrors extractability from its GRANTS
+   * record, not from the key (keyWrap.ts:151-153). For an injected key the
+   * grant is taken from the platform's own `extractable` slot, which is the
+   * truth the export paths are gated on anyway.
+   */
+  static fromCryptoKey(key: CryptoKey): KwKey {
+    const what = "kw-key injection";
+    const clone = injectedKey(what, key);
+    requireKeyType(what, clone, "secret");
+    requireAlgorithmName(what, clone, "AES-KW");
+    const { length } = clone.algorithm as AesKeyAlgorithm;
+    // The served `aes-variant` lengths, read off the mint's own table rather
+    // than restated (platform.ts:28-31, via `aesVariantByteLength`).
+    const served = Object.values(AES_VARIANT_BYTES).some((bytes) => bytes !== undefined && bytes * 8 === length);
+    if (!served) {
+      errUnsupported(
+        `${what}: aes-kw serves 128- and 256-bit keys; this key is ${length} bits`,
+      );
+    }
+    requireSomeUsage(
+      clone.usages.includes("wrapKey") || clone.usages.includes("unwrapKey"),
+      "kw-key",
+      "wrap nor unwrap",
+    );
+    return new KwKey(MINT, clone, length, {
+      wrap: clone.usages.includes("wrapKey"),
+      unwrap: clone.usages.includes("unwrapKey"),
+      extractable: clone.extractable,
+    });
+  }
+
+  /**
+   * Hand back the platform key — the extraction half of the persistence seam
+   * (polymorph-webcrypto#391). The returned `CryptoKey` structured-clones into
+   * IndexedDB with its non-extractability intact.
+   *
+   * Security framing, as on `signing-key`: confidentiality of the material is
+   * the `extractable` bit's job and stays platform-enforced both ways — this
+   * hands back a key, not bytes. What the wrapper scopes is the USE capability
+   * in durable, parameter-free form: a raw AES-KW `CryptoKey` wraps and
+   * unwraps at its holder's discretion, whereas a `kw-key` carries the grants
+   * it was minted with. A fresh clone per call keeps `#key` unreachable.
+   *
+   * Inverse of {@link KwKey.fromCryptoKey}.
+   */
+  toCryptoKey(): CryptoKey {
+    return launderCryptoKey("kw-key extraction", this.#key);
   }
 
   /**
@@ -202,7 +287,7 @@ export const aesKw: AesKw = {
       policy.extractable,
       usages,
     );
-    return new KwKey(key, expected * 8, policy);
+    return new KwKey(MINT, key, expected * 8, policy);
   },
 
   async importKeyJwk(variant: string, jwk: string, options: KwKeyOptions): Promise<KwKey> {
@@ -222,7 +307,7 @@ export const aesKw: AesKw = {
     if (gotBits !== lengthBits) {
       errInvalidKey(`JWK carries a ${gotBits}-bit key; ${variant} requires ${lengthBits}`);
     }
-    return new KwKey(key, lengthBits, policy);
+    return new KwKey(MINT, key, lengthBits, policy);
   },
 
   async generateKey(variant: string, options: KwKeyOptions): Promise<KwKey> {
@@ -231,7 +316,7 @@ export const aesKw: AesKw = {
     const bits = aesVariantByteLength(variant) * 8;
     const key = await platformCall(`${variant} key generation`, () =>
       subtle.generateKey({ name: "AES-KW", length: bits }, policy.extractable, usages)) as CryptoKey;
-    return new KwKey(key, bits, policy);
+    return new KwKey(MINT, key, bits, policy);
   },
 
   async deriveKey(variant: string, input: DeriveInput, options: KwKeyOptions): Promise<KwKey> {
@@ -239,7 +324,7 @@ export const aesKw: AesKw = {
     const usages = kwUsages(policy);
     const bits = aesVariantByteLength(variant) * 8;
     const key = await deriveKeyFrom(input, { name: "AES-KW", length: bits }, policy.extractable, usages);
-    return new KwKey(key, bits, policy);
+    return new KwKey(MINT, key, bits, policy);
   },
 
   unwrapKeyRaw(variant: string, input: UnwrapInput, options: KwKeyOptions): Promise<KwKey> {

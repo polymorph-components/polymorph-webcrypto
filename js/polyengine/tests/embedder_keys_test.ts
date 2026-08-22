@@ -17,7 +17,24 @@
 // published vectors.
 
 import { assertEq, assertRejects, assertThrows, assertTrue } from "./asserts.ts";
-import { hkdfSha2, Ikm, SigningKey, VerifyingKey } from "../src/mod.ts";
+import {
+  AeadKey,
+  CipherKey,
+  DecryptionKey,
+  EncryptionKey,
+  hkdfSha2,
+  hmacSha2,
+  Ikm,
+  KwKey,
+  MacKey,
+  MacKeyOptions,
+  Password,
+  pbkdf2Sha2,
+  PublicKey,
+  SecretKey,
+  SigningKey,
+  VerifyingKey,
+} from "../src/mod.ts";
 import { arrayStream } from "./testStream.ts";
 import { ComponentException } from "@polyengine/runtime/embedder";
 
@@ -29,6 +46,61 @@ function kindOf(err: unknown): string {
 function assertRefuses(kind: string, f: () => unknown, msg: string): void {
   const err = assertThrows(f, `${msg}: expected a refusal`);
   assertEq(kindOf(err), kind, msg);
+}
+
+/** A mint options resource granting both MAC directions. */
+function macOptions(): MacKeyOptions {
+  const o = new MacKeyOptions();
+  o.canSign(true);
+  o.canVerify(true);
+  return o;
+}
+
+/** An RSASSA-PKCS1-v1_5 pair at a given modulus and digest, generated in-test. */
+async function rsassaPair(modulusLength: number, hash: string): Promise<CryptoKeyPair> {
+  return await crypto.subtle.generateKey(
+    {
+      name: "RSASSA-PKCS1-v1_5",
+      modulusLength,
+      // F4 (65537), the platform's own default exponent — public parameter,
+      // not key material.
+      publicExponent: new Uint8Array([1, 0, 1]),
+      hash,
+    },
+    false,
+    ["sign", "verify"],
+  ) as CryptoKeyPair;
+}
+
+/**
+ * The kinds excluded from the seams because their WIT grants collapse onto
+ * fewer platform usages than the policy has bits (see the tier statement in
+ * signature.ts).
+ */
+// deno-lint-ignore no-explicit-any
+function collapsedPolicyClasses(): Array<[string, any]> {
+  return [
+    ["aead-key", AeadKey],
+    ["cipher-key", CipherKey],
+    ["decryption-key", DecryptionKey],
+    ["encryption-key", EncryptionKey],
+    // Agreement keys are excluded for the other documented reason: their
+    // platform usages are constant, so the policy is not on the key at all.
+    ["secret-key", SecretKey],
+    ["public-key", PublicKey],
+  ];
+}
+
+/** Every class whose constructor is gated on the package-private mint token. */
+// deno-lint-ignore no-explicit-any
+function tokenGatedClasses(): Array<[string, any]> {
+  return [
+    ["signing-key", SigningKey],
+    ["verifying-key", VerifyingKey],
+    ["mac-key", MacKey],
+    ["kw-key", KwKey],
+    ...collapsedPolicyClasses(),
+  ];
 }
 
 const MESSAGE = new TextEncoder().encode("polymorph-webcrypto#391 embedder key seams");
@@ -339,4 +411,317 @@ Deno.test("391: an injected ikm derives exactly what the platform derives", asyn
     true,
     "a persisted-and-reloaded ikm is the same keying material",
   );
+});
+
+// --- Round 2: the seams extended to every kind whose platform slots fully
+// determine both the mint record and the WIT policy ("tier A"), and the
+// constructor-provenance discipline made uniform across every
+// CryptoKey-holding class. The exclusions are asserted too: a kind whose
+// policy collapses onto fewer platform usages than it has WIT grants has no
+// `fromCryptoKey` at all, and these tests pin that absence so it cannot be
+// added by accident.
+
+Deno.test("391: an injected mac-key MACs exactly what the platform MACs", async () => {
+  const key = await crypto.subtle.generateKey({ name: "HMAC", hash: "SHA-256" }, false, ["sign", "verify"]);
+  const mac = MacKey.fromCryptoKey(key as CryptoKey);
+
+  assertEq(mac.algorithmName(), "HMAC", "the injected key keeps its family");
+  assertEq(mac.algorithmHash(), "SHA-256", "the mint-bound digest is read off HmacKeyAlgorithm");
+  assertEq(mac.algorithmLength(), 512, "SHA-256's default HMAC key length is the block size in bits");
+  assertEq(mac.canSign(), true, "the platform sign usage is the policy");
+  assertEq(mac.canVerify(), true, "and so is verify");
+  assertEq(mac.extractable(), false, "injection preserves non-extractability");
+
+  // The platform is the oracle: MAC through the wrapper, verify the tag with
+  // subtle over the EXTRACTED key. Agreement proves extraction hands back the
+  // same key rather than a lookalike.
+  const tag = await mac.sign(arrayStream(MESSAGE));
+  const ok = await crypto.subtle.verify("HMAC", mac.toCryptoKey(), tag as Uint8Array<ArrayBuffer>, MESSAGE);
+  assertEq(ok, true, "the extracted key verifies the wrapper's tag");
+
+  // And the wrapper refuses a tampered tag with the detail-free verdict.
+  const tampered = tag.slice();
+  tampered[0] ^= 0x01;
+  const err = await assertRejects(() => mac.verify(arrayStream(MESSAGE), tampered));
+  assertEq(kindOf(err), "authentication-failed", "a tampered tag is refused");
+
+  // The persistence round trip: extract, structured-clone (the IndexedDB
+  // step), re-inject, MAC again.
+  const reloaded = MacKey.fromCryptoKey(structuredClone(mac.toCryptoKey()));
+  const again = await reloaded.sign(arrayStream(MESSAGE));
+  assertEq(
+    again.every((b, i) => b === tag[i]),
+    true,
+    "a persisted-and-reloaded mac-key is the same key",
+  );
+
+  // SHA-1 is served by `hmac-sha1`, so an injected SHA-1 key is admitted on
+  // the same terms a minted one is.
+  const sha1 = await crypto.subtle.generateKey({ name: "HMAC", hash: "SHA-1" }, false, ["sign"]);
+  assertEq(MacKey.fromCryptoKey(sha1 as CryptoKey).algorithmHash(), "SHA-1", "hmac-sha1's digest is served");
+});
+
+Deno.test("391: mac-key injection refuses the wrong family and an unserved digest", async () => {
+  const aes = await crypto.subtle.generateKey({ name: "AES-GCM", length: 256 }, false, ["encrypt", "decrypt"]);
+  assertRefuses(
+    "invalid-key",
+    () => MacKey.fromCryptoKey(aes as CryptoKey),
+    "an AES-GCM key is not an HMAC key",
+  );
+
+  const pair = await ed25519Pair();
+  assertRefuses(
+    "invalid-key",
+    () => MacKey.fromCryptoKey(pair.privateKey),
+    "a private key is not a secret key",
+  );
+});
+
+Deno.test("391: an injected kw-key wraps and unwraps across an extract/inject cycle", async () => {
+  const key = await crypto.subtle.generateKey({ name: "AES-KW", length: 256 }, false, ["wrapKey", "unwrapKey"]);
+  const kw = KwKey.fromCryptoKey(key as CryptoKey);
+
+  assertEq(kw.algorithmName(), "AES-KW", "the injected key keeps its family");
+  assertEq(kw.algorithmLength(), 256, "the length is read off AesKeyAlgorithm");
+  assertEq(kw.canWrap(), true, "the wrapKey usage is the policy");
+  assertEq(kw.canUnwrap(), true, "and so is unwrapKey");
+  assertEq(kw.extractable(), false, "injection preserves non-extractability");
+
+  // Wrap a MAC key's material with the injected wrapper, then unwrap it back
+  // into a mac-key through a DIFFERENT wrapper obtained by an extract/inject
+  // cycle. Recovering a working key proves the cycle is lossless.
+  const inner = await crypto.subtle.generateKey({ name: "HMAC", hash: "SHA-256" }, true, ["sign"]);
+  const innerMac = MacKey.fromCryptoKey(inner as CryptoKey);
+  const wrapped = await kw.wrap(await innerMac.toWrapInputRaw());
+
+  const reloaded = KwKey.fromCryptoKey(structuredClone(kw.toCryptoKey()));
+  const recovered = await hmacSha2.unwrapKeyRaw("sha256", await reloaded.unwrap(wrapped), macOptions());
+
+  const expected = await innerMac.sign(arrayStream(MESSAGE));
+  const got = await recovered.sign(arrayStream(MESSAGE));
+  assertEq(
+    got.every((b, i) => b === expected[i]),
+    true,
+    "the unwrapped key is the key that was wrapped",
+  );
+
+  // A tampered wrapped blob still fails the integrity check through an
+  // injected key: injection does not weaken the RFC 3394 ICV.
+  const corrupt = wrapped.slice();
+  corrupt[0] ^= 0x01;
+  const err = await assertRejects(() => reloaded.unwrap(corrupt));
+  assertEq(kindOf(err), "authentication-failed", "a tampered blob is refused");
+});
+
+Deno.test("391: kw-key injection refuses the wrong family and an unserved length", async () => {
+  const gcm = await crypto.subtle.generateKey({ name: "AES-GCM", length: 256 }, false, ["encrypt", "decrypt"]);
+  assertRefuses(
+    "invalid-key",
+    () => KwKey.fromCryptoKey(gcm as CryptoKey),
+    "an AES-GCM key is not a key-wrapping key",
+  );
+
+  const cbc = await crypto.subtle.generateKey({ name: "AES-CBC", length: 256 }, false, ["encrypt", "decrypt"]);
+  assertRefuses(
+    "invalid-key",
+    () => KwKey.fromCryptoKey(cbc as CryptoKey),
+    "an AES-CBC key is not a key-wrapping key",
+  );
+
+  // aes192 is declined package-wide by the WIT's portability ruling, so an
+  // injected 192-bit key is refused exactly as an imported one would be.
+  try {
+    const aes192 = await crypto.subtle.generateKey({ name: "AES-KW", length: 192 }, false, ["wrapKey"]);
+    assertRefuses(
+      "unsupported",
+      () => KwKey.fromCryptoKey(aes192 as CryptoKey),
+      "aes192 is declined package-wide, injection included",
+    );
+  } catch {
+    // A platform that declines to mint AES-192 at all upholds the same
+    // boundary a step earlier; nothing to assert here.
+  }
+});
+
+Deno.test("391: an injected password derives exactly what the platform derives", async () => {
+  // Synthetic, labelled inputs throughout: an all-zero 16-byte "password",
+  // a short ASCII salt, and a small iteration count (this is a
+  // self-consistency check against the platform, not a work-factor test).
+  const passwordBytes = new Uint8Array(16);
+  const salt = new TextEncoder().encode("391-salt");
+  const iterations = 1000;
+
+  const key = await crypto.subtle.importKey("raw", passwordBytes, "PBKDF2", false, ["deriveBits"]);
+  const password = Password.fromCryptoKey(key);
+  assertEq(password.canDeriveBits(), true, "the platform deriveBits slot is the policy");
+  assertEq(password.canDeriveKey(), false, "a slot the platform did not grant is not granted here");
+
+  const viaWrapper = await (await pbkdf2Sha2.prepare("sha256", password, salt, iterations)).deriveBits(256);
+  const viaPlatform = new Uint8Array(
+    await crypto.subtle.deriveBits({ name: "PBKDF2", hash: "SHA-256", salt, iterations }, key, 256),
+  );
+  assertEq(
+    viaWrapper.every((b, i) => b === viaPlatform[i]),
+    true,
+    "the injected password derives the platform's answer",
+  );
+
+  // Persistence round trip.
+  const reloaded = Password.fromCryptoKey(structuredClone(password.toCryptoKey()));
+  const again = await (await pbkdf2Sha2.prepare("sha256", reloaded, salt, iterations)).deriveBits(256);
+  assertEq(
+    again.every((b, i) => b === viaPlatform[i]),
+    true,
+    "a persisted-and-reloaded password is the same keying material",
+  );
+});
+
+Deno.test("391: password injection refuses a key of another derivation family", async () => {
+  const hkdfKey = await crypto.subtle.importKey("raw", new Uint8Array(32), "HKDF", false, ["deriveBits"]);
+  assertRefuses(
+    "invalid-key",
+    () => Password.fromCryptoKey(hkdfKey),
+    "an HKDF key is not a PBKDF2 password",
+  );
+
+  const aes = await crypto.subtle.generateKey({ name: "AES-GCM", length: 256 }, false, ["encrypt"]);
+  assertRefuses(
+    "invalid-key",
+    () => Password.fromCryptoKey(aes as CryptoKey),
+    "an AES key is not a PBKDF2 password",
+  );
+
+  // The mirror of the ikm case: Password and Ikm are distinct kinds and
+  // neither admits the other's key.
+  const pbkdf2Key = await crypto.subtle.importKey("raw", new Uint8Array(16), "PBKDF2", false, ["deriveBits"]);
+  assertRefuses(
+    "invalid-key",
+    () => Ikm.fromCryptoKey(pbkdf2Key),
+    "a PBKDF2 password is not HKDF input keying material",
+  );
+});
+
+Deno.test("391: an injected RSASSA-PKCS1-v1_5 pair signs, verifies, and reports its platform record", async () => {
+  const pair = await rsassaPair(2048, "SHA-256");
+  const signing = SigningKey.fromCryptoKey(pair.privateKey);
+  const verifying = VerifyingKey.fromCryptoKey(pair.publicKey);
+
+  // The mint-bound record is rebuilt from the platform slots, through the
+  // family's own record builder — so the getters report the real key.
+  assertEq(signing.algorithmName(), "RSASSA-PKCS1-v1_5", "the family is read off the key");
+  assertEq(signing.algorithmHash(), "SHA-256", "the digest is read off RsaHashedKeyAlgorithm");
+  assertEq(signing.algorithmLength(), 2048, "the modulus length is read off the key");
+  assertEq(verifying.algorithmHash(), "SHA-256", "the public half agrees");
+  assertEq(verifying.algorithmLength(), 2048, "and on the modulus length");
+  const e = signing.algorithmPublicExponent();
+  assertEq(e === undefined ? -1 : e.length, 3, "the public exponent is the platform's own 3-octet value");
+
+  const sig = await signing.sign(arrayStream(MESSAGE));
+  assertEq(sig.length, 256, "a 2048-bit RSA signature is one modulus wide");
+  await verifying.verify(arrayStream(MESSAGE), sig);
+
+  // Platform oracle in both directions.
+  const platformSig = new Uint8Array(
+    await crypto.subtle.sign("RSASSA-PKCS1-v1_5", signing.toCryptoKey(), MESSAGE),
+  );
+  await verifying.verify(arrayStream(MESSAGE), platformSig);
+
+  const tampered = sig.slice();
+  tampered[0] ^= 0x01;
+  const err = await assertRejects(() => verifying.verify(arrayStream(MESSAGE), tampered));
+  assertEq(kindOf(err), "authentication-failed", "a tampered RSA signature is refused");
+});
+
+Deno.test("391: RSASSA injection applies the mint paths' own admission windows", async () => {
+  // The signing interfaces use a TIGHTER modulus window (2048-8192) than the
+  // verifying ones (1024-16384), because verification is a public operation
+  // over an attacker-supplied key. Injection inherits both windows, so a
+  // 1024-bit key is admissible as a verifying key and refused as a signing
+  // key — the asymmetry is deliberate, not an oversight.
+  const small = await rsassaPair(1024, "SHA-256");
+  assertRefuses(
+    "invalid-key",
+    () => SigningKey.fromCryptoKey(small.privateKey),
+    "a 1024-bit modulus is below the signing window",
+  );
+  assertEq(
+    VerifyingKey.fromCryptoKey(small.publicKey).algorithmLength(),
+    1024,
+    "the same modulus is inside the verifying window",
+  );
+
+  // SHA-1 is deliberately absent from the RSA families' variant table, so a
+  // SHA-1-bound RSASSA key is refused however it was minted.
+  try {
+    const sha1 = await rsassaPair(2048, "SHA-1");
+    assertRefuses(
+      "unsupported",
+      () => VerifyingKey.fromCryptoKey(sha1.publicKey),
+      "the RSA families do not serve SHA-1",
+    );
+  } catch {
+    // A platform that will not mint SHA-1 RSASSA at all upholds the same
+    // boundary earlier.
+  }
+});
+
+Deno.test("391: the excluded families keep their named refusal", async () => {
+  const ecdsa = await crypto.subtle.generateKey(
+    { name: "ECDSA", namedCurve: "P-256" },
+    false,
+    ["sign", "verify"],
+  ) as CryptoKeyPair;
+  const err = assertThrows(() => SigningKey.fromCryptoKey(ecdsa.privateKey));
+  assertEq(kindOf(err), "unsupported", "ECDSA stays outside the injection boundary");
+  const detail = ((err as ComponentException).payload as { value: string }).value;
+  assertTrue(
+    detail.includes("mint bindings") && detail.includes("invent"),
+    "the refusal names the reason: the per-mint binding is not on the key",
+  );
+
+  const pss = await crypto.subtle.generateKey(
+    { name: "RSA-PSS", modulusLength: 2048, publicExponent: new Uint8Array([1, 0, 1]), hash: "SHA-256" },
+    false,
+    ["sign", "verify"],
+  ) as CryptoKeyPair;
+  const pssErr = assertThrows(() => SigningKey.fromCryptoKey(pss.privateKey));
+  assertEq(kindOf(pssErr), "unsupported", "RSA-PSS stays outside too: its salt length is a mint choice");
+});
+
+Deno.test("391: kinds whose policy collapses onto fewer usages expose no injection seam", () => {
+  // These are the documented exclusions (see the tier statement in
+  // signature.ts). The absence is asserted rather than assumed, so a future
+  // change that adds a seam without resolving the policy-collapse question
+  // fails here instead of silently widening an injected key's authority.
+  for (const [name, cls] of collapsedPolicyClasses()) {
+    assertTrue(
+      !("fromCryptoKey" in cls),
+      `${name} must expose no fromCryptoKey: its WIT grants collapse onto fewer platform usages`,
+    );
+    assertTrue(
+      !("toCryptoKey" in cls.prototype),
+      `${name} must expose no toCryptoKey either: no seam means no half of one`,
+    );
+  }
+});
+
+Deno.test("391: every CryptoKey-holding class refuses construction outside its minting interfaces", () => {
+  // One sweep over the whole token-gated roster: the construction token is
+  // package-private and unexported from mod.ts, so no argument a consumer can
+  // build satisfies any of these guards.
+  for (const [name, cls] of tokenGatedClasses()) {
+    // deno-lint-ignore no-explicit-any
+    const err = assertThrows(() => new (cls as any)(), `${name} must refuse a bare construction`);
+    assertEq(kindOf(err), "other", `${name} refuses with the provenance verdict`);
+    const detail = ((err as ComponentException).payload as { value: string }).value;
+    assertTrue(
+      detail.includes("constructed outside its minting interfaces"),
+      `${name} uses the package's provenance phrasing, got: ${detail}`,
+    );
+
+    // A forged token is no better than none: identity is the mechanism.
+    // deno-lint-ignore no-explicit-any
+    const forged = assertThrows(() => new (cls as any)(Symbol("polymorph:webcrypto mint"), {}, {}, {}));
+    assertEq(kindOf(forged), "other", `${name} refuses a same-description forged symbol`);
+  }
 });

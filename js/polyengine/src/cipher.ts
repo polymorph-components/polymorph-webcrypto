@@ -31,6 +31,7 @@ import {
 import { type DeriveInput, deriveKeyFrom } from "./derivation.ts";
 import { consumeUnwrapInput, consumeWrapInput, UnwrapInput, WrapInput } from "./wrapping.ts";
 import type { Stream } from "@polyengine/runtime/embedder";
+import { MINT, requireMint } from "./internal.ts";
 
 const subtle = globalThis.crypto.subtle;
 
@@ -141,7 +142,16 @@ export class CipherKey {
   #lengthBits: number;
   #grants: CipherPolicy;
 
-  constructor(key: CryptoKey, name: CipherName, lengthBits: number, grants: CipherPolicy) {
+  /**
+   * Runtime-internal (polymorph-webcrypto#391): a `cipher-key` exists only as
+   * minted by the `aes-cbc`/`aes-ctr` interfaces below. This kind has NO
+   * `fromCryptoKey` — see the tier statement in signature.ts: `encrypt`/`wrap`
+   * and `decrypt`/`unwrap` collapse onto one platform usage each
+   * (cipher.ts:90-91), so the mint is lossy and injection would have to invent
+   * the missing half of the policy.
+   */
+  constructor(token: typeof MINT, key: CryptoKey, name: CipherName, lengthBits: number, grants: CipherPolicy) {
+    requireMint(token, "cipher-key");
     this.#key = key;
     this.#name = name;
     this.#lengthBits = lengthBits;
@@ -260,7 +270,7 @@ function cipherMinting(name: CipherName): CipherMinting {
         errInvalidKey(`${variant} requires ${expected} key bytes, got ${raw.length}`);
       }
       const key = await importPlatformKey(`${variant} key`, "raw", raw, { name }, policy.extractable, usages);
-      return new CipherKey(key, name, expected * 8, policy);
+      return new CipherKey(MINT, key, name, expected * 8, policy);
     },
 
     async importKeyJwk(variant: string, jwk: string, options: CipherKeyOptions): Promise<CipherKey> {
@@ -274,7 +284,7 @@ function cipherMinting(name: CipherName): CipherMinting {
       if (gotBits !== lengthBits) {
         errInvalidKey(`JWK carries a ${gotBits}-bit key; ${variant} requires ${lengthBits}`);
       }
-      return new CipherKey(key, name, lengthBits, policy);
+      return new CipherKey(MINT, key, name, lengthBits, policy);
     },
 
     async generateKey(variant: string, options: CipherKeyOptions): Promise<CipherKey> {
@@ -283,7 +293,7 @@ function cipherMinting(name: CipherName): CipherMinting {
       const bits = aesVariantByteLength(variant) * 8;
       const key = await platformCall(`${variant} key generation`, () =>
         subtle.generateKey({ name, length: bits }, policy.extractable, usages)) as CryptoKey;
-      return new CipherKey(key, name, bits, policy);
+      return new CipherKey(MINT, key, name, bits, policy);
     },
 
     async deriveKey(variant: string, input: DeriveInput, options: CipherKeyOptions): Promise<CipherKey> {
@@ -291,7 +301,7 @@ function cipherMinting(name: CipherName): CipherMinting {
       const usages = cipherUsages(policy);
       const bits = aesVariantByteLength(variant) * 8;
       const key = await deriveKeyFrom(input, { name, length: bits }, policy.extractable, usages);
-      return new CipherKey(key, name, bits, policy);
+      return new CipherKey(MINT, key, name, bits, policy);
     },
 
     unwrapKeyRaw(variant: string, input: UnwrapInput, options: CipherKeyOptions): Promise<CipherKey> {

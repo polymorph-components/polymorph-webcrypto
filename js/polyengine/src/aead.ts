@@ -16,6 +16,7 @@ import {
   WrapInput,
 } from "./wrapping.ts";
 import type { Stream } from "@polyengine/runtime/embedder";
+import { MINT, requireMint } from "./internal.ts";
 
 const subtle = globalThis.crypto.subtle;
 
@@ -90,7 +91,16 @@ export class AeadKey {
   #lengthBits: number;
   #grants: AeadPolicy;
 
-  constructor(key: CryptoKey, lengthBits: number, grants: AeadPolicy) {
+  /**
+   * Runtime-internal (polymorph-webcrypto#391): an `aead-key` exists only as
+   * minted by the `aes-gcm` interface below. This kind has NO `fromCryptoKey`
+   * — see the tier statement in signature.ts: `can-seal || can-wrap` collapse
+   * onto "encrypt" and `can-open || can-unwrap` onto "decrypt" (aead.ts:68-72),
+   * so a platform key cannot say which grants were actually given and
+   * injection would silently widen the key's authority on every reload.
+   */
+  constructor(token: typeof MINT, key: CryptoKey, lengthBits: number, grants: AeadPolicy) {
+    requireMint(token, "aead-key");
     this.#key = key;
     this.#lengthBits = lengthBits;
     this.#grants = { ...grants };
@@ -232,7 +242,7 @@ async function importAesGcmKey(bits: number, raw: Uint8Array, options: AeadKeyOp
   const usages = platformUsages(policy);
   const key = await platformCall("AES-GCM import key", () =>
     subtle.importKey("raw", asBufferSource(raw), { name: "AES-GCM", length: bits }, policy.extractable, usages));
-  return new AeadKey(key as CryptoKey, bits, policy);
+  return new AeadKey(MINT, key as CryptoKey, bits, policy);
 }
 
 /** The `polymorph:webcrypto/aes-gcm@0.1.0` interface. */
@@ -258,7 +268,7 @@ export const aesGcm = {
     if (gotBits !== bits) {
       errInvalidKey(`JWK carries a ${gotBits}-bit key; ${variant} requires ${bits}`);
     }
-    return new AeadKey(key, bits, policy);
+    return new AeadKey(MINT, key, bits, policy);
   },
   generateKey: async (variant: string, options: AeadKeyOptions): Promise<AeadKey> => {
     const bits = aesBits(variant);
@@ -266,14 +276,14 @@ export const aesGcm = {
     const usages = platformUsages(policy);
     const key = await platformCall(`AES-${bits}-GCM key generation`, () =>
       subtle.generateKey({ name: "AES-GCM", length: bits }, policy.extractable, usages));
-    return new AeadKey(key as CryptoKey, bits, policy);
+    return new AeadKey(MINT, key as CryptoKey, bits, policy);
   },
   deriveKey: async (variant: string, input: DeriveInput, options: AeadKeyOptions): Promise<AeadKey> => {
     const bits = aesBits(variant);
     const policy = optionsOf(options);
     const usages = platformUsages(policy);
     const key = await deriveKeyFrom(input, { name: "AES-GCM", length: bits }, policy.extractable, usages);
-    return new AeadKey(key, bits, policy);
+    return new AeadKey(MINT, key, bits, policy);
   },
   unwrapKeyRaw: (variant: string, input: UnwrapInput, options: AeadKeyOptions): Promise<AeadKey> => {
     const { bytes } = consumeUnwrapInput(input);

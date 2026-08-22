@@ -32,7 +32,17 @@ import {
 import { b64urlDecode } from "./platform.ts";
 import { consumeUnwrapInput, type UnwrapInput, WrapInput } from "./wrapping.ts";
 import { errOther } from "./errors.ts";
-import { MINT } from "./internal.ts";
+import { injectedKey, launderCryptoKey, MINT, requireKeyType, requireMint } from "./internal.ts";
+// The RSASSA injection admission lives with the family's own validators and
+// record builder (rsaSignature.ts), which is where the mint paths keep them —
+// importing it here rather than restating the rules is the point.
+//
+// This is an import CYCLE (rsaSignature.ts imports this module's resource
+// classes). It is safe by evaluation order rather than by luck: neither
+// module touches the other's bindings at module-evaluation time — every use
+// is inside a function body — so whichever module is entered first completes
+// the other's evaluation before any call can occur.
+import { rsassaInjectedAlgorithm } from "./rsaSignature.ts";
 import type { Stream } from "@polyengine/runtime/embedder";
 
 const subtle = globalThis.crypto.subtle;
@@ -150,57 +160,91 @@ function ed25519PointStrict(encoded: Uint8Array): boolean {
 // into IndexedDB — was unreachable through this package because the platform
 // key never came back out. `toCryptoKey` opens it; `fromCryptoKey` closes the
 // loop and refuses the degenerate injections on the way back in.
+//
+// --- WHICH KINDS HAVE SEAMS, AND WHY THE REST DO NOT.
+//
+// The admission rule is a single question: do the platform key's slots FULLY
+// DETERMINE both the mint-bound record and the WIT policy? Where they do, a
+// `CryptoKey` is a lossless carrier of the resource and `fromCryptoKey` is
+// exactly its inverse. Where they do not, injection would have to INVENT the
+// missing half — and inventing policy or bindings on a security resource is
+// the failure mode these seams exist to avoid, so those kinds are refused
+// outright rather than served approximately.
+//
+// SERVED (slots determine everything):
+//   - `signing-key` / `verifying-key` for Ed25519 and RSASSA-PKCS1-v1_5.
+//     Ed25519's record is a constant; RSASSA's hash, modulus length and
+//     public exponent all ride `RsaHashedKeyAlgorithm`. Policy is `sign` /
+//     `verify`, 1:1 with the platform usages.
+//   - `mac-key`: the HMAC hash and length ride `HmacKeyAlgorithm`; the
+//     `can-sign`/`can-verify` grants are 1:1 with the platform usages
+//     (mac.ts:56-64).
+//   - `kw-key`: AES-KW's length is the only parameter; `can-wrap`/
+//     `can-unwrap` are 1:1 with `wrapKey`/`unwrapKey` (keyWrap.ts:59-65).
+//   - `ikm` (hkdf.ts) and `password` (pbkdf2.ts): `can-derive-bits`/
+//     `can-derive-key` are 1:1 with `deriveBits`/`deriveKey`
+//     (derivation.ts:45-54, pbkdf2.ts:46-54).
+//
+// EXCLUDED — POLICY COLLAPSE. These kinds carry more WIT grants than the
+// platform has usages to hold them in, so the mint is lossy: the platform key
+// cannot say which of the collapsed grants were actually given, and reading
+// the wider grant off the narrower usage would SILENTLY WIDEN the key's
+// authority on every reload.
+//   - `aead-key`: `can-seal || can-wrap` both become "encrypt", and
+//     `can-open || can-unwrap` both become "decrypt" (aead.ts:68-72).
+//   - `cipher-key`: same collapse, `encrypt`/`wrap` and `decrypt`/`unwrap`
+//     (cipher.ts:90-91).
+//   - `decryption-key`: `can-decrypt || can-unwrap` both become "decrypt"
+//     (publicEncryption.ts:188-191). `encryption-key` is excluded with it:
+//     the public half alone has no consumer, and splitting a family's seams
+//     across its two halves is an API seam nobody asked for.
+//
+// EXCLUDED — POLICY IS NOT ON THE KEY AT ALL. Key-agreement's `secret-key`
+// and `public-key` are minted with CONSTANT platform usages regardless of the
+// policy the caller granted (keyAgreement.ts:240); the whole policy lives in
+// the resource's own state, so an injected key would arrive with no policy
+// whatsoever.
+//
+// EXCLUDED — MINT BINDINGS ABSENT FROM THE KEY. ECDSA's per-mint digest and
+// RSA-PSS's salt length are chosen at mint and are NOT carried by the
+// platform key (see `SignatureAlgorithm` above, and the file header on why
+// `CryptoKey.algorithm` is never the authority). Injecting one would have to
+// invent the binding or read it off the untrusted key; both are refused.
+//
+// Admitting any excluded kind needs an explicit policy-or-bindings parameter
+// alongside the key. The anticipated shape is the family's existing mint
+// options resource (`aead-key-options`, `cipher-key-options`,
+// `agreement-key-options`, …), which already spells exactly the grants that
+// collapse — but that is an API addition, and its design waits for a
+// consumer with a concrete persistence requirement. No stub methods in the
+// meantime: an excluded class simply has no `fromCryptoKey`, so the refusal
+// is a type error rather than a runtime surprise.
 
 /**
- * Launder an embedder-supplied `CryptoKey` into a clone this module owns.
+ * The signature families key injection serves, and the record each one's
+ * platform slots determine.
  *
- * `CryptoKey`'s internal slots are immutable, but its PROTOTYPE GETTERS are
- * shadowable — `Object.defineProperty(key, "usages", { value: [...] })` makes
- * `key.usages` say whatever the caller likes. Structured clone serializes the
- * internal slots only and drops own properties, so the clone answers with
- * platform truth; validating and storing the CLONE (never the argument) is
- * what makes every downstream policy mirror trustworthy. Storing a clone also
- * denies the caller a live handle to the wrapper's key.
+ * Ed25519's record is the module constant. RSASSA-PKCS1-v1_5's is rebuilt
+ * from the key's own `RsaHashedKeyAlgorithm` slots THROUGH THE MINT PATH'S
+ * OWN validators and record builder (rsaSignature.ts), so an injected key is
+ * admitted on exactly the terms an imported one is and carries an identical
+ * record. ECDSA and RSA-PSS keep the named refusal.
  */
-function launderCryptoKey(what: string, key: CryptoKey): CryptoKey {
-  try {
-    return structuredClone(key);
-  } catch {
-    // Not a taxonomy fudge: on a host whose structured-clone algorithm does
-    // not serialize `CryptoKey` (the WebCrypto-spec behaviour is optional in
-    // practice), injecting a host-held key is a well-formed request this
-    // implementation cannot serve.
+function injectedSignatureAlgorithm(what: string, key: CryptoKey, half: "private" | "public"): SignatureAlgorithm {
+  const name = key.algorithm.name;
+  if (name === "Ed25519") return ED25519_ALGORITHM;
+  if (name === "RSASSA-PKCS1-v1_5") return rsassaInjectedAlgorithm(what, key, half);
+  if (name === "ECDSA" || name === "RSA-PSS") {
     errUnsupported(
-      `${what}: this host does not serialize CryptoKey (structured clone), which key injection requires`,
-    );
-  }
-}
-
-/** The shape gate shared by every `fromCryptoKey`: a real platform key, not a duck-typed stand-in. */
-function requirePlatformKey(what: string, key: CryptoKey): void {
-  if (!(key instanceof CryptoKey)) {
-    errInvalidKey(`${what} takes a platform CryptoKey`);
-  }
-}
-
-/**
- * The v1 family boundary for key injection: Ed25519 only.
- *
- * Every other signature family carries a mint binding the PLATFORM KEY DOES
- * NOT RECORD — ECDSA's per-mint digest, RSA-PSS's salt length (see
- * `SignatureAlgorithm` above, and the file header on why `CryptoKey.algorithm`
- * is never the authority). Injecting one would mean inventing those bindings
- * or reading them off the untrusted key; both are refused. Admitting those
- * families needs an explicit bindings parameter, which waits for a consumer.
- */
-function requireEd25519Injection(what: string, algorithmName: string): void {
-  if (algorithmName !== "Ed25519") {
-    errUnsupported(
-      `${what} serves Ed25519 only: a ${algorithmName} key's mint bindings ` +
+      `${what} does not serve ${name}: its mint bindings ` +
         "(the ECDSA per-mint hash, the RSA-PSS salt length) are not carried by a CryptoKey, " +
         "so injecting one would have to invent them",
     );
   }
+  errUnsupported(
+    `${what} does not serve ${name}: the served signature families for key injection are ` +
+      "Ed25519 and RSASSA-PKCS1-v1_5",
+  );
 }
 
 /** `signature.verifying-key`: a public key, secret-free. */
@@ -217,7 +261,7 @@ export class VerifyingKey {
    * reach this signature.
    */
   constructor(token: typeof MINT, key: CryptoKey, algorithm: SignatureAlgorithm) {
-    if (token !== MINT) errOther("verifying-key constructed outside its minting interfaces");
+    requireMint(token, "verifying-key");
     this.#key = key;
     this.#algorithm = algorithm;
   }
@@ -228,23 +272,25 @@ export class VerifyingKey {
    * structured-cloned out of IndexedDB comes back as a wrapper here.
    *
    * Synchronous, and validating: the key must be a platform `CryptoKey`, of
-   * type `public`, of the Ed25519 family (see {@link requireEd25519Injection}
-   * for the v1 boundary), and must permit `verify` — a verifying key that
+   * type `public`, of a served family (Ed25519 or RSASSA-PKCS1-v1_5 — see the
+   * tier statement above), and must permit `verify` — a verifying key that
    * cannot verify is a degenerate injection and is refused loudly rather than
    * minted into a resource that will only fail later. Validation reads the
    * LAUNDERED clone, so shadowed accessors on the argument cannot talk their
    * way past any of it.
+   *
+   * RSASSA keys are admitted on the VERIFYING window (1024-16384 bits), the
+   * same window `rsassa-pkcs1-v15-verify`'s import paths use — verification
+   * is a public operation over an attacker-supplied key, so it is deliberately
+   * wider than the signing window.
    */
   static fromCryptoKey(key: CryptoKey): VerifyingKey {
     const what = "verifying-key injection";
-    requirePlatformKey(what, key);
-    const clone = launderCryptoKey(what, key);
-    if (clone.type !== "public") {
-      errInvalidKey(`${what} takes a public key, got a ${clone.type} key`);
-    }
-    requireEd25519Injection(what, clone.algorithm.name);
+    const clone = injectedKey(what, key);
+    requireKeyType(what, clone, "public");
+    const algorithm = injectedSignatureAlgorithm(what, clone, "public");
     if (!clone.usages.includes("verify")) notPermitted("verify");
-    return new VerifyingKey(MINT, clone, ED25519_ALGORITHM);
+    return new VerifyingKey(MINT, clone, algorithm);
   }
 
   /**
@@ -344,7 +390,7 @@ export class SigningKey {
    * interface in this module or by {@link SigningKey.fromCryptoKey}.
    */
   constructor(token: typeof MINT, key: CryptoKey, algorithm: SignatureAlgorithm) {
-    if (token !== MINT) errOther("signing-key constructed outside its minting interfaces");
+    requireMint(token, "signing-key");
     this.#key = key;
     this.#algorithm = algorithm;
   }
@@ -356,26 +402,40 @@ export class SigningKey {
    * to an extractable-material posture.
    *
    * Synchronous, and validating: a platform `CryptoKey`, of type `private`, of
-   * the Ed25519 family (see {@link requireEd25519Injection}), permitting
-   * `sign`. The usage check mirrors the mint rule that an untouched options
-   * resource cannot mint (derivation.ts:50-52): a signing key that cannot sign
-   * is a degenerate injection, refused here rather than at first use.
+   * a served family (Ed25519 or RSASSA-PKCS1-v1_5 — see the tier statement
+   * above), permitting `sign`. The usage check mirrors the mint rule that an
+   * untouched options resource cannot mint (derivation.ts:50-52): a signing
+   * key that cannot sign is a degenerate injection, refused here rather than
+   * at first use.
    *
-   * Validation reads the LAUNDERED clone (see {@link launderCryptoKey}), which
-   * is also what the wrapper stores — a caller cannot shadow `type`, `usages`
-   * or `algorithm` on the argument to get a key admitted, and cannot retain a
-   * live handle to the key the wrapper signs with.
+   * RSASSA keys are admitted on the SIGNING window (2048-8192 bits,
+   * rsaSignature.ts:45-46) with the same odd-and-at-least-3 exponent rule the
+   * import paths apply, and are subject to the same `setRsaPrivateKeyPolicy`
+   * decline — a posture that gates RSA private-key operations must gate the
+   * injection path too, or it would be bypassable by an embedder holding a
+   * platform key.
+   *
+   * HONEST ASYMMETRY: the import paths run MATERIAL-based checks that have no
+   * slot analogue and therefore cannot run here — Ed25519's point strictness
+   * (canonical, non-small-order `A`) is verified over the encoded key at
+   * import, and the JWK paths check strict base64url and the JOSE `alg`
+   * spelling. An injected key was minted by the platform from material this
+   * package never saw, so those checks are neither possible nor meaningful;
+   * what IS checked is everything the slots carry, on the same terms as an
+   * import.
+   *
+   * Validation reads the LAUNDERED clone, which is also what the wrapper
+   * stores — a caller cannot shadow `type`, `usages` or `algorithm` on the
+   * argument to get a key admitted, and cannot retain a live handle to the key
+   * the wrapper signs with.
    */
   static fromCryptoKey(key: CryptoKey): SigningKey {
     const what = "signing-key injection";
-    requirePlatformKey(what, key);
-    const clone = launderCryptoKey(what, key);
-    if (clone.type !== "private") {
-      errInvalidKey(`${what} takes a private key, got a ${clone.type} key`);
-    }
-    requireEd25519Injection(what, clone.algorithm.name);
+    const clone = injectedKey(what, key);
+    requireKeyType(what, clone, "private");
+    const algorithm = injectedSignatureAlgorithm(what, clone, "private");
     if (!clone.usages.includes("sign")) notPermitted("sign");
-    return new SigningKey(MINT, clone, ED25519_ALGORITHM);
+    return new SigningKey(MINT, clone, algorithm);
   }
 
   /**

@@ -40,6 +40,7 @@ import {
   rsaJwkAlgPrefix,
 } from "./rsaSignature.ts";
 import { consumeUnwrapInput, consumeWrapInput, UnwrapInput, WrapInput } from "./wrapping.ts";
+import { MINT, requireMint } from "./internal.ts";
 
 const subtle = globalThis.crypto.subtle;
 
@@ -104,7 +105,15 @@ export class EncryptionKey {
   #key: CryptoKey;
   #algorithm: OaepAlgorithm;
 
-  constructor(key: CryptoKey, algorithm: OaepAlgorithm) {
+  /**
+   * Runtime-internal (polymorph-webcrypto#391): an `encryption-key` exists
+   * only as minted by the `rsa-oaep-*` interfaces below. No `fromCryptoKey`:
+   * the public half is excluded with its private counterpart for family
+   * coherence (see the tier statement in signature.ts) — a seam on the public
+   * half alone has no consumer.
+   */
+  constructor(token: typeof MINT, key: CryptoKey, algorithm: OaepAlgorithm) {
+    requireMint(token, "encryption-key");
     this.#key = key;
     this.#algorithm = algorithm;
   }
@@ -204,7 +213,16 @@ export class DecryptionKey {
   #algorithm: OaepAlgorithm;
   #grants: DecryptionPolicy;
 
-  constructor(key: CryptoKey, algorithm: OaepAlgorithm, grants: DecryptionPolicy) {
+  /**
+   * Runtime-internal (polymorph-webcrypto#391): a `decryption-key` exists only
+   * as minted by the `rsa-oaep-decrypt` interface below. This kind has NO
+   * `fromCryptoKey` — see the tier statement in signature.ts:
+   * `can-decrypt || can-unwrap` both become "decrypt"
+   * (publicEncryption.ts:188-191), so the platform key cannot distinguish the
+   * two grants.
+   */
+  constructor(token: typeof MINT, key: CryptoKey, algorithm: OaepAlgorithm, grants: DecryptionPolicy) {
+    requireMint(token, "decryption-key");
     this.#key = key;
     this.#algorithm = algorithm;
     this.#grants = { ...grants };
@@ -288,7 +306,7 @@ export const rsaOaepEncrypt = {
       ["encrypt"],
     );
     const modulusLength = rsaOaepAdmitted(key, "RSA-OAEP spki");
-    return new EncryptionKey(key, oaepAlgorithm(entry, modulusLength));
+    return new EncryptionKey(MINT, key, oaepAlgorithm(entry, modulusLength));
   },
   importEncryptionKeyJwk: async (variant: string, jwkText: string): Promise<EncryptionKey> => {
     const entry = served(RSA_VARIANTS, variant);
@@ -304,7 +322,7 @@ export const rsaOaepEncrypt = {
       ["encrypt"],
     );
     const modulusLength = rsaOaepAdmitted(key, "RSA-OAEP public JWK");
-    return new EncryptionKey(key, oaepAlgorithm(entry, modulusLength));
+    return new EncryptionKey(MINT, key, oaepAlgorithm(entry, modulusLength));
   },
 };
 
@@ -328,8 +346,8 @@ export const rsaOaepDecrypt = {
       )) as CryptoKeyPair;
     const algorithm = oaepAlgorithm(entry, modulusLength);
     return [
-      new DecryptionKey(pair.privateKey, algorithm, policy),
-      new EncryptionKey(pair.publicKey, algorithm),
+      new DecryptionKey(MINT, pair.privateKey, algorithm, policy),
+      new EncryptionKey(MINT, pair.publicKey, algorithm),
     ];
   },
 
@@ -351,7 +369,7 @@ export const rsaOaepDecrypt = {
       usages,
     );
     const modulusLength = rsaOaepAdmitted(key, "RSA-OAEP pkcs8");
-    return new DecryptionKey(key, oaepAlgorithm(entry, modulusLength), policy);
+    return new DecryptionKey(MINT, key, oaepAlgorithm(entry, modulusLength), policy);
   },
 
   importDecryptionKeyJwk: async (
@@ -377,7 +395,7 @@ export const rsaOaepDecrypt = {
     );
     if (key.type !== "private") errInvalidKey("RSA private JWK must carry `d` and the CRT members");
     const modulusLength = rsaOaepAdmitted(key, "RSA-OAEP private JWK");
-    return new DecryptionKey(key, oaepAlgorithm(entry, modulusLength), policy);
+    return new DecryptionKey(MINT, key, oaepAlgorithm(entry, modulusLength), policy);
   },
 
   unwrapDecryptionKeyPkcs8: (

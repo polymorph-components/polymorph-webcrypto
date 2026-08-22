@@ -1,6 +1,13 @@
 // `polymorph:webcrypto/hkdf` + `hkdf-sha2` + `hkdf-sha1` — wit/hkdf.wit.
 
-import { errInvalidKey, errNotPermitted, errOther, errUnsupported, notPermitted, platformCall } from "./errors.ts";
+import { errOther, errUnsupported, notPermitted, platformCall } from "./errors.ts";
+import {
+  injectedKey,
+  launderCryptoKey,
+  requireAlgorithmName,
+  requireKeyType,
+  requireSomeUsage,
+} from "./internal.ts";
 import {
   DeriveInput,
   type DerivePolicy,
@@ -51,36 +58,22 @@ export class Ikm {
    * resource granting nothing (derivation.ts:50-52).
    *
    * Validation and storage both use a LAUNDERED clone (see
-   * signature.ts's `launderCryptoKey` for the reasoning): `usages` and
-   * `algorithm` are shadowable own-property accessors on the caller's object,
-   * and structured clone carries only the internal slots, so `canDeriveBits()`
-   * answers platform truth and no caller retains a handle to the key this
-   * `ikm` derives with.
+   * {@link injectedKey} / `internal.ts`'s `launderCryptoKey` for the
+   * reasoning): `usages` and `algorithm` are shadowable own-property
+   * accessors on the caller's object, and structured clone carries only the
+   * internal slots, so `canDeriveBits()` answers platform truth and no caller
+   * retains a handle to the key this `ikm` derives with.
    */
   static fromCryptoKey(key: CryptoKey): Ikm {
     const what = "ikm injection";
-    if (!(key instanceof CryptoKey)) errInvalidKey(`${what} takes a platform CryptoKey`);
-    let clone: CryptoKey;
-    try {
-      clone = structuredClone(key);
-    } catch {
-      errUnsupported(
-        `${what}: this host does not serialize CryptoKey (structured clone), which key injection requires`,
-      );
-    }
-    if (clone.type !== "secret") {
-      errInvalidKey(`${what} takes a secret key, got a ${clone.type} key`);
-    }
-    if (clone.algorithm.name !== "HKDF") {
-      errInvalidKey(`${what} takes an HKDF key, got ${clone.algorithm.name}`);
-    }
+    const clone = injectedKey(what, key);
+    requireKeyType(what, clone, "secret");
+    requireAlgorithmName(what, clone, "HKDF");
     const policy: DerivePolicy = {
       deriveBits: clone.usages.includes("deriveBits"),
       deriveKey: clone.usages.includes("deriveKey"),
     };
-    if (!policy.deriveBits && !policy.deriveKey) {
-      errNotPermitted("an ikm permitting neither derive-bits nor derive-key cannot be injected");
-    }
+    requireSomeUsage(policy.deriveBits || policy.deriveKey, "ikm", "derive-bits nor derive-key");
     return mintIkm(clone, policy);
   }
 
@@ -106,7 +99,7 @@ export class Ikm {
   toCryptoKey(): CryptoKey {
     const state = ikmState.get(this);
     if (state === undefined) errOther("ikm minted by another provider");
-    return structuredClone(state.key);
+    return launderCryptoKey("ikm extraction", state.key);
   }
 }
 

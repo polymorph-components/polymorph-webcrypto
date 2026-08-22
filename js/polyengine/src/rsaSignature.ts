@@ -312,3 +312,51 @@ export const rsassaPkcs1V15Sign: RsaSigningInterface = rsaSigningInterface("RSAS
 
 /** The `polymorph:webcrypto/rsa-pss-sign@0.1.0` interface. */
 export const rsaPssSign: RsaSigningInterface = rsaSigningInterface("RSA-PSS");
+
+/**
+ * The mint-bound record for an INJECTED RSASSA-PKCS1-v1_5 key
+ * (polymorph-webcrypto#391), rebuilt from the platform key's own
+ * `RsaHashedKeyAlgorithm` slots.
+ *
+ * RSASSA is the one RSA family whose record the slots fully determine: the
+ * digest, modulus length and public exponent all ride the key, and the scheme
+ * takes no per-mint parameter (contrast RSA-PSS, whose salt length is a mint
+ * choice the key does not carry — which is why it stays excluded).
+ *
+ * Every admission rule is the MINT PATH'S OWN, called here rather than
+ * restated:
+ *   - the served digest set is `RSA_VARIANTS` (= `SHA2_VARIANTS`, this file's
+ *     line 38-39): SHA-256/384/512, with SHA-1 deliberately absent from the
+ *     RSA families. A key bound to any other digest is refused.
+ *   - the modulus window and the odd-and-at-least-3 public exponent rule come
+ *     from `rsaAdmittedModulusLength` (this file, line 57), with the same
+ *     windows the import paths use — the private half on the tightened
+ *     signing window (`RSA_SIGNING_MIN_BITS`..`RSA_SIGNING_MAX_BITS`), the
+ *     public half on the wider verification window.
+ *   - the private half additionally runs `requireRsaPrivateKeysServed`, so an
+ *     embedding that declined RSA private-key operations cannot have the
+ *     decline bypassed by injecting a platform key.
+ *
+ * The record itself is built by `rsaSigningAlgorithm`, the same builder the
+ * import and generate paths use, so an injected key is indistinguishable from
+ * an imported one downstream.
+ */
+export function rsassaInjectedAlgorithm(
+  what: string,
+  key: CryptoKey,
+  half: "private" | "public",
+): SignatureAlgorithm {
+  const name = "RSASSA-PKCS1-v1_5";
+  if (half === "private") requireRsaPrivateKeysServed();
+  const { hash } = key.algorithm as RsaHashedKeyAlgorithm;
+  const entry = Object.values(RSA_VARIANTS).find((v) => v !== undefined && v.hash === hash.name);
+  if (entry === undefined) {
+    errUnsupported(
+      `${what}: ${name} is served over SHA-256/SHA-384/SHA-512; this key is bound to ${hash.name}`,
+    );
+  }
+  const modulusLength = half === "private"
+    ? rsaAdmittedModulusLength(key, `${name} injection`, RSA_SIGNING_MIN_BITS, RSA_SIGNING_MAX_BITS)
+    : rsaAdmittedModulusLength(key, `${name} injection`);
+  return rsaSigningAlgorithm(name, entry, modulusLength);
+}

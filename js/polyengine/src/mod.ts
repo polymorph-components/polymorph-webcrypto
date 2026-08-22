@@ -54,6 +54,7 @@ import { aead, aesGcm } from "./aead.ts";
 import { aesCbc, aesCtr, cipher } from "./cipher.ts";
 import { aesKw, keyWrap } from "./keyWrap.ts";
 import { publicEncryption, rsaOaepDecrypt, rsaOaepEncrypt } from "./publicEncryption.ts";
+import { createInject, type Inject } from "./inject.ts";
 
 export { Digest, sha2 } from "./digest.ts";
 export { sha1Checked } from "./sha1Checked.ts";
@@ -92,6 +93,37 @@ export {
   rsaOaepEncrypt,
 } from "./publicEncryption.ts";
 export type { WcErrorPayload } from "./errors.ts";
+export type { DerivationKey, Inject } from "./inject.ts";
+
+/**
+ * Build a host: the `polymorph:webcrypto@0.1.0` imports fragment, paired
+ * with the injection functions that turn embedder-held `CryptoKey`s into
+ * guest-visible key handles.
+ *
+ * ```ts
+ * const { imports, inject } = webcryptoHost();
+ * const identity = inject.signingKey(await loadDeviceKey());
+ * const instance = await instantiate(artifacts, {
+ *   ...wasi(),
+ *   ...imports,
+ *   "app:device/identity": { deviceIdentity: () => identity },
+ * });
+ * ```
+ *
+ * `inject` belongs to THE `imports` RECORD IT CAME WITH. A handle is a
+ * host object that the runtime gives a table rep when it crosses into a
+ * guest, and the graph it crosses into is the one built from these
+ * imports; hand an injected handle to an instance graph built from a
+ * different invocation's record and you are outside this API's contract,
+ * whatever the runtime happens to do with it. Take the pair, use the
+ * pair.
+ *
+ * `webcryptoImports()` remains the simple form for embedders that inject
+ * nothing: it is exactly this function's `imports`.
+ */
+export function webcryptoHost(): { imports: Record<string, unknown>; inject: Inject } {
+  return { imports: webcryptoImports(), inject: createInject() };
+}
 
 /**
  * Build the `polymorph:webcrypto@0.1.0` imports fragment for `instantiate`.
@@ -99,7 +131,8 @@ export type { WcErrorPayload } from "./errors.ts";
  * Usage: `instantiate(artifacts, { ...wasi(), ...webcryptoImports() })`
  * — the shape both conformance suites are driven with (see
  * `conformance/driver-ct/polyengine/run.ts`, whose two legs instantiate the
- * shared and signing suites against exactly this record).
+ * shared and signing suites against exactly this record). Embedders that
+ * inject host-held keys take `webcryptoHost()` instead.
  */
 export function webcryptoImports(): Record<string, unknown> {
   return {

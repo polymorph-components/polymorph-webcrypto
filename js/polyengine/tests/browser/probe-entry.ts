@@ -1,241 +1,250 @@
-// The keystore browser probe's page body: the checks that need a real
-// browser — IndexedDB, `CryptoKey` structured clone, and a page reload —
-// which the Deno unit suite cannot run (Deno has no IndexedDB).
+// The injection probe's page body: `webcryptoHost().inject` exercised
+// against a real browser's Web Crypto — the lane that can mint the
+// non-extractable and hardware-shaped `CryptoKey`s an embedder actually
+// holds, which is the whole subject of the API.
 //
-// The steps run through `globalThis.keystoreProbe`, called by
-// ../run.mjs's driver from Playwright: it evaluates the pre-reload steps,
-// RELOADS the page (a fresh JS realm, fresh module state, one surviving
-// IndexedDB origin), and evaluates the post-reload steps. That reload is
-// the whole point of the lane — the port's promise is about instances
-// that do not share memory.
+// SCOPE. These are host-module-level assertions: the checks call the
+// injected handles' methods directly, exactly as the runtime's lift path
+// calls them when a guest invokes a method on the handle, rather than
+// driving a real component. Wrapping a guest around it would add a
+// component build and an app-owned WIT world to observe the one thing
+// this API does — hand back the host object the lift path expects — and
+// the conformance suites already gate the resource-class surface under
+// real instantiation. What is NOT covered here, and is named in the
+// report: the table crossing itself.
 //
-// Every value crossing `page.evaluate` is JSON-safe; key material never
-// does. The one public value that crosses is the verification key, hex
-// encoded, which is what the driver checks the post-reload signature
-// against.
-//
-// The message signed throughout is a labeled synthetic constant (bytes
-// 0,1,2,…), not a captured or realistic-looking value: the checks are
-// about key identity, so the message content carries no meaning.
+// Every value crossing `page.evaluate` is JSON-safe, and no key material
+// crosses. The message and the IKM are labeled synthetic constants
+// (byte i = i, and an all-zero secret): the subject is which key answers,
+// never the data.
 
 /// <reference lib="dom" />
 
-import { ed25519Sign, ed25519Verify, SigningKey, SigningKeyOptions } from "../../src/mod.ts";
-import { keystoreImports } from "../../src/keystore.ts";
 import { arrayStream } from "../testStream.ts";
+import { DeriveInput, Ikm, Password, SigningKey, webcryptoHost } from "../../src/mod.ts";
 
 /** A labeled synthetic message: byte i = i. Nothing about it is secret or meaningful. */
 const MESSAGE = Uint8Array.from({ length: 32 }, (_, i) => i);
+/** A labeled synthetic KDF secret: 32 zero bytes. Not a key anyone should use. */
+const ZERO_IKM = new Uint8Array(32);
+const SALT = Uint8Array.from({ length: 16 }, (_, i) => i);
+const INFO = new TextEncoder().encode("polymorph:webcrypto inject probe");
 
-const KEYSTORE_ID = "polymorph:webcrypto-keystore/signing-keystore@0.1.0";
-
-interface Keystore {
-  persistSigningKey(key: SigningKey, id: string): Promise<void>;
-  loadSigningKey(id: string): Promise<SigningKey | undefined>;
-}
-
-function keystore(namespace?: string): Keystore {
-  const fragment = keystoreImports(namespace === undefined ? undefined : { namespace });
-  return fragment[KEYSTORE_ID] as Keystore;
-}
+const ED25519_SIGN = "polymorph:webcrypto/ed25519-sign@0.1.0";
+const HKDF_SHA2 = "polymorph:webcrypto/hkdf-sha2@0.1.0";
+const PBKDF2_SHA2 = "polymorph:webcrypto/pbkdf2-sha2@0.1.0";
+const SIGNATURE = "polymorph:webcrypto/signature@0.1.0";
 
 function hex(bytes: Uint8Array): string {
   return Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
 }
 
-async function mintSigningKey(extractable: boolean): Promise<[SigningKey, string]> {
-  const options = new SigningKeyOptions();
-  options.canSign(true);
-  options.extractable(extractable);
-  const [signingKey, verifyingKey] = await ed25519Sign.generateKey(options);
-  return [signingKey, hex(await verifyingKey.exportKeyRaw())];
-}
-
-/** The `ComponentException` payload of a refusal, as a string for the driver. */
-function refusal(e: unknown): string {
-  const payload = (e as { payload?: unknown })?.payload;
-  return typeof payload === "string" ? payload : String((e as Error)?.message ?? e);
-}
-
-async function expectRefusal(what: string, run: () => Promise<unknown>): Promise<string> {
+/** The message the wrap site refused with, or a failure if it did not refuse. */
+function expectRejection(what: string, run: () => unknown): string {
   try {
-    await run();
+    run();
   } catch (e) {
-    return refusal(e);
+    return (e as Error)?.message ?? String(e);
   }
-  throw new Error(`${what}: expected a refusal, got success`);
+  throw new Error(`${what}: expected a rejection at the wrap site, got a handle`);
 }
 
-/** Write a value straight into a namespace's object store, bypassing the port. */
-function plant(namespace: string, id: string, value: unknown): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const open = indexedDB.open(namespace, 1);
-    open.onupgradeneeded = () => {
-      const db = open.result;
-      if (!db.objectStoreNames.contains("signing-keys")) db.createObjectStore("signing-keys");
-    };
-    open.onerror = () => reject(open.error);
-    open.onsuccess = () => {
-      const db = open.result;
-      const tx = db.transaction("signing-keys", "readwrite");
-      tx.objectStore("signing-keys").put(value, id);
-      tx.oncomplete = () => {
-        db.close();
-        resolve();
-      };
-      tx.onabort = tx.onerror = () => {
-        db.close();
-        reject(tx.error);
-      };
-    };
-  });
-}
-
-function rawEntry(namespace: string, id: string): Promise<unknown> {
-  return new Promise((resolve, reject) => {
-    const open = indexedDB.open(namespace, 1);
-    open.onupgradeneeded = () => {
-      const db = open.result;
-      if (!db.objectStoreNames.contains("signing-keys")) db.createObjectStore("signing-keys");
-    };
-    open.onerror = () => reject(open.error);
-    open.onsuccess = () => {
-      const db = open.result;
-      const get = db.transaction("signing-keys").objectStore("signing-keys").get(id);
-      get.onsuccess = () => {
-        db.close();
-        resolve(get.result);
-      };
-      get.onerror = () => {
-        db.close();
-        reject(get.error);
-      };
-    };
-  });
+async function verifyWith(publicKey: CryptoKey, signature: Uint8Array): Promise<boolean> {
+  return await crypto.subtle.verify(
+    "Ed25519",
+    publicKey,
+    signature as BufferSource,
+    MESSAGE as BufferSource,
+  );
 }
 
 const probe = {
-  /** Mint a non-extractable signing key, store it, and report its public half. */
-  async mintAndPersist(namespace: string, id: string) {
-    const [key, publicKeyHex] = await mintSigningKey(false);
-    await keystore(namespace).persistSigningKey(key, id);
-    return { publicKeyHex, signatureHex: hex(await key.sign(arrayStream(MESSAGE))) };
-  },
-
   /**
-   * Load the key stored under `id` and sign the probe message with it —
-   * the post-reload half of the round trip. The signature is verified
-   * against `publicKeyHex`, the public half of the key minted BEFORE the
-   * reload: a different key cannot produce a signature that verifies.
+   * The first consumer's shape: a non-extractable Ed25519 private key the
+   * embedder holds becomes a handle that signs, and whose getters
+   * describe the key rather than a mint that never happened.
    */
-  async loadAndSign(namespace: string, id: string, publicKeyHex: string) {
-    const key = await keystore(namespace).loadSigningKey(id);
-    if (key === undefined) return { loaded: false };
-    const signatureHex = hex(await key.sign(arrayStream(MESSAGE)));
-    const verifying = await ed25519Verify.importVerifyingKeyRaw(
-      Uint8Array.from(publicKeyHex.match(/../g) ?? [], (b) => parseInt(b, 16)),
-    );
-    let verified = true;
-    try {
-      await verifying.verify(arrayStream(MESSAGE), Uint8Array.from(signatureHex.match(/../g) ?? [], (b) => parseInt(b, 16)));
-    } catch {
-      verified = false;
-    }
+  async injectNonExtractable() {
+    const { inject } = webcryptoHost();
+    const pair = await crypto.subtle.generateKey("Ed25519", false, ["sign", "verify"]) as CryptoKeyPair;
+    const handle = inject.signingKey(pair.privateKey);
+    const signature = await handle.sign(arrayStream(MESSAGE));
     return {
-      loaded: true,
-      verified,
-      signatureHex,
-      extractable: key.extractable(),
-      canSign: key.canSign(),
-      algorithm: key.algorithmName(),
-    };
-  },
-
-  /** An extractable key must be refused at the store edge, and nothing may land. */
-  async persistExtractable(namespace: string, id: string) {
-    const [key] = await mintSigningKey(true);
-    const message = await expectRefusal(
-      "persisting an extractable key",
-      () => keystore(namespace).persistSigningKey(key, id),
-    );
-    return { message, stored: (await rawEntry(namespace, id)) !== undefined };
-  },
-
-  /** A name nothing was stored under is `none`, not an error. */
-  async loadMissing(namespace: string, id: string) {
-    return { loaded: (await keystore(namespace).loadSigningKey(id)) !== undefined };
-  },
-
-  /** Without the embedder's namespace, both functions refuse. */
-  async withoutKeystore() {
-    const [signingKey] = await mintSigningKey(false);
-    return {
-      persist: await expectRefusal("persist without a keystore", () => keystore().persistSigningKey(signingKey, "id")),
-      load: await expectRefusal("load without a keystore", () => keystore().loadSigningKey("id")),
+      isSigningKey: handle instanceof SigningKey,
+      verified: await verifyWith(pair.publicKey, signature),
+      extractable: handle.extractable(),
+      canSign: handle.canSign(),
+      algorithm: handle.algorithmName(),
+      curve: handle.algorithmCurve() ?? null,
+      hash: handle.algorithmHash() ?? null,
+      length: handle.algorithmLength() ?? null,
     };
   },
 
   /**
-   * An entry that fails the load-side validation is discarded and
-   * reported as `none`. The planted entry is an EXTRACTABLE key — the
-   * exact thing the store edge refuses — standing in for any entry
-   * written by something other than this port, since IndexedDB is
-   * writable by anything else in the origin.
+   * An extractable key is accepted — the embedder holds it either way —
+   * and the `extractable` getter says so, which is what the guest needs
+   * in order to know what it was handed. Export follows the getter.
    */
-  async plantedExtractable(namespace: string, id: string) {
+  async injectExtractable() {
+    const { inject } = webcryptoHost();
     const pair = await crypto.subtle.generateKey("Ed25519", true, ["sign", "verify"]) as CryptoKeyPair;
-    await plant(namespace, id, pair.privateKey);
-    const loaded = await keystore(namespace).loadSigningKey(id);
-    return { loaded: loaded !== undefined, remaining: (await rawEntry(namespace, id)) !== undefined };
-  },
-
-  /** A non-key entry is discarded the same way. */
-  async plantedGarbage(namespace: string, id: string) {
-    await plant(namespace, id, { note: "not a CryptoKey" });
-    const loaded = await keystore(namespace).loadSigningKey(id);
-    return { loaded: loaded !== undefined, remaining: (await rawEntry(namespace, id)) !== undefined };
-  },
-
-  /** Two namespaces are two stores: the same identifier does not collide. */
-  async namespaceIsolation(namespaceA: string, namespaceB: string, id: string) {
-    const [key] = await mintSigningKey(false);
-    await keystore(namespaceA).persistSigningKey(key, id);
+    const handle = inject.signingKey(pair.privateKey);
+    const pkcs8 = await handle.exportKeyPkcs8();
     return {
-      inA: (await keystore(namespaceA).loadSigningKey(id)) !== undefined,
-      inB: (await keystore(namespaceB).loadSigningKey(id)) !== undefined,
+      extractable: handle.extractable(),
+      exportedBytes: pkcs8.length,
+      verified: await verifyWith(pair.publicKey, await handle.sign(arrayStream(MESSAGE))),
     };
   },
 
-  /** An empty identifier is refused on both functions. */
-  async emptyId(namespace: string) {
-    const [key] = await mintSigningKey(false);
-    return {
-      persist: await expectRefusal("persist with an empty id", () => keystore(namespace).persistSigningKey(key, "")),
-      load: await expectRefusal("load with an empty id", () => keystore(namespace).loadSigningKey("")),
-    };
-  },
-
-  /** Storing twice under one name converges on the later key (documented last-write-wins). */
-  async restoreOverwrites(namespace: string, id: string) {
-    const [first] = await mintSigningKey(false);
-    const [second, secondPublicHex] = await mintSigningKey(false);
-    const store = keystore(namespace);
-    await store.persistSigningKey(first, id);
-    await store.persistSigningKey(second, id);
-    const loaded = await store.loadSigningKey(id);
-    if (loaded === undefined) return { loaded: false };
-    const signatureHex = hex(await loaded.sign(arrayStream(MESSAGE)));
-    const verifying = await ed25519Verify.importVerifyingKeyRaw(
-      Uint8Array.from(secondPublicHex.match(/../g) ?? [], (b) => parseInt(b, 16)),
-    );
-    let isSecond = true;
+  /** The non-extractable handle refuses export through the ordinary path, and still signs. */
+  async injectedExportRefusal() {
+    const { inject } = webcryptoHost();
+    const pair = await crypto.subtle.generateKey("Ed25519", false, ["sign", "verify"]) as CryptoKeyPair;
+    const handle = inject.signingKey(pair.privateKey);
+    let payload: unknown = null;
     try {
-      await verifying.verify(arrayStream(MESSAGE), Uint8Array.from(signatureHex.match(/../g) ?? [], (b) => parseInt(b, 16)));
-    } catch {
-      isSecond = false;
+      await handle.exportKeyPkcs8();
+    } catch (e) {
+      payload = (e as { payload?: unknown }).payload ?? null;
     }
-    return { loaded: true, isSecond };
+    return {
+      payload,
+      stillSigns: await verifyWith(pair.publicKey, await handle.sign(arrayStream(MESSAGE))),
+    };
+  },
+
+  /** A public key is not a signing key: refused at the wrap site. */
+  async injectPublicKey() {
+    const { inject } = webcryptoHost();
+    const pair = await crypto.subtle.generateKey("Ed25519", false, ["sign", "verify"]) as CryptoKeyPair;
+    return { message: expectRejection("a public key", () => inject.signingKey(pair.publicKey)) };
+  },
+
+  /** An algorithm whose mint-bound record a CryptoKey cannot carry is refused. */
+  async injectWrongSigningAlgorithm() {
+    const { inject } = webcryptoHost();
+    const pair = await crypto.subtle.generateKey(
+      { name: "ECDSA", namedCurve: "P-256" },
+      false,
+      ["sign", "verify"],
+    ) as CryptoKeyPair;
+    return { message: expectRejection("an ECDSA key", () => inject.signingKey(pair.privateKey)) };
+  },
+
+  /**
+   * Injected and package-minted keys are the same kind of thing in one
+   * invocation: same class, both usable, distinct objects.
+   */
+  async coexistence() {
+    const { imports, inject } = webcryptoHost();
+    // deno-lint-ignore no-explicit-any
+    const ed25519Sign = imports[ED25519_SIGN] as any;
+    // deno-lint-ignore no-explicit-any
+    const SigningKeyOptions = (imports[SIGNATURE] as any).SigningKeyOptions;
+
+    const options = new SigningKeyOptions();
+    options.canSign(true);
+    const [minted, mintedPublic] = await ed25519Sign.generateKey(options);
+
+    const pair = await crypto.subtle.generateKey("Ed25519", false, ["sign", "verify"]) as CryptoKeyPair;
+    const injected = inject.signingKey(pair.privateKey);
+
+    const mintedSig = await minted.sign(arrayStream(MESSAGE));
+    const injectedSig = await injected.sign(arrayStream(MESSAGE));
+    const mintedPublicKey = await crypto.subtle.importKey(
+      "raw",
+      (await mintedPublic.exportKeyRaw()) as BufferSource,
+      "Ed25519",
+      true,
+      ["verify"],
+    );
+    return {
+      sameClass: minted instanceof SigningKey && injected instanceof SigningKey,
+      distinct: minted !== injected,
+      mintedVerified: await verifyWith(mintedPublicKey, mintedSig),
+      injectedVerified: await verifyWith(pair.publicKey, injectedSig),
+      differentSignatures: hex(mintedSig) !== hex(injectedSig),
+    };
+  },
+
+  /**
+   * The passkey-PRF shape: an embedder-held HKDF secret becomes `ikm`,
+   * drives the package's own derivation path, and yields exactly what
+   * the platform yields for the same parameters.
+   */
+  async injectHkdf() {
+    const { imports, inject } = webcryptoHost();
+    // deno-lint-ignore no-explicit-any
+    const hkdfSha2 = imports[HKDF_SHA2] as any;
+    const key = await crypto.subtle.importKey("raw", ZERO_IKM as BufferSource, "HKDF", false, [
+      "deriveBits",
+      "deriveKey",
+    ]);
+    const handle = inject.derivationKey(key);
+    const input: DeriveInput = await hkdfSha2.prepare("sha256", handle, SALT, INFO);
+    const derived = await input.deriveBits(256);
+    const expected = new Uint8Array(
+      await crypto.subtle.deriveBits(
+        { name: "HKDF", hash: "SHA-256", salt: SALT as BufferSource, info: INFO as BufferSource },
+        key,
+        256,
+      ),
+    );
+    return {
+      isIkm: handle instanceof Ikm,
+      canDeriveBits: handle.canDeriveBits(),
+      canDeriveKey: handle.canDeriveKey(),
+      matchesPlatform: hex(derived) === hex(expected),
+    };
+  },
+
+  /** The grants an injected base secret reports are the key's own usages. */
+  async injectHkdfBitsOnly() {
+    const { inject } = webcryptoHost();
+    const key = await crypto.subtle.importKey("raw", ZERO_IKM as BufferSource, "HKDF", false, ["deriveBits"]);
+    const handle = inject.derivationKey(key);
+    return { canDeriveBits: handle.canDeriveBits(), canDeriveKey: handle.canDeriveKey() };
+  },
+
+  /** A PBKDF2 secret lands on the other derivation resource and drives its path. */
+  async injectPbkdf2() {
+    const { imports, inject } = webcryptoHost();
+    // deno-lint-ignore no-explicit-any
+    const pbkdf2Sha2 = imports[PBKDF2_SHA2] as any;
+    const key = await crypto.subtle.importKey("raw", ZERO_IKM as BufferSource, "PBKDF2", false, ["deriveBits"]);
+    const handle = inject.derivationKey(key);
+    const input: DeriveInput = await pbkdf2Sha2.prepare("sha256", handle, SALT, 1000);
+    const derived = await input.deriveBits(256);
+    const expected = new Uint8Array(
+      await crypto.subtle.deriveBits(
+        { name: "PBKDF2", hash: "SHA-256", salt: SALT as BufferSource, iterations: 1000 },
+        key,
+        256,
+      ),
+    );
+    return {
+      isPassword: handle instanceof Password,
+      canDeriveBits: handle.canDeriveBits(),
+      matchesPlatform: hex(derived) === hex(expected),
+    };
+  },
+
+  /** A key of another kind is not a derivation base secret. */
+  async injectWrongDerivationAlgorithm() {
+    const { inject } = webcryptoHost();
+    const key = await crypto.subtle.generateKey({ name: "AES-GCM", length: 256 }, false, ["encrypt", "decrypt"]);
+    return { message: expectRejection("an AES-GCM key", () => inject.derivationKey(key as CryptoKey)) };
+  },
+
+  /** `webcryptoImports()` and `webcryptoHost().imports` serve the same interface set. */
+  async importsParity() {
+    const { webcryptoImports } = await import("../../src/mod.ts");
+    const plain = Object.keys(webcryptoImports()).sort();
+    const paired = Object.keys(webcryptoHost().imports).sort();
+    return { equal: JSON.stringify(plain) === JSON.stringify(paired), count: paired.length };
   },
 };
 
-(globalThis as unknown as { keystoreProbe: typeof probe }).keystoreProbe = probe;
+(globalThis as unknown as { injectProbe: typeof probe }).injectProbe = probe;

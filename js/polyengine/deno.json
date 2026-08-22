@@ -2,10 +2,7 @@
   "name": "@polymorph/webcrypto",
   "version": "0.3.0",
   "license": "Apache-2.0",
-  "exports": {
-    ".": "./src/mod.ts",
-    "./keystore": "./src/keystore.ts"
-  },
+  "exports": "./src/mod.ts",
   "//": "MODULE-IDENTITY CONSTRAINT: polyengine's wasi module imports @polyengine/runtime/embedder by bare specifier internally. This file's @polyengine/runtime/embedder entry is a caret range (published-package convention: consumers resolve one shared @polyengine/runtime across their dependency graph); conformance/driver-ct/polyengine/deno.json (repo-internal, not published) exact-pins the same package for its own module-identity needs. The pin gate (just conformance-ct::polyengine-pin-check) asserts the two deno.locks resolve to one @polyengine/runtime version repo-wide.",
   "imports": {
     "@polyengine/runtime/embedder": "jsr:@polyengine/runtime@^0.3.0/embedder"

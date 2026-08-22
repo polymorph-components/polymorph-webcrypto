@@ -214,9 +214,6 @@ export class SigningKey {
     this.#key = key;
     this.#algorithm = algorithm;
   }
-  get cryptoKey(): CryptoKey {
-    return this.#key;
-  }
 
   async sign(data: Stream<number>): Promise<Uint8Array> {
     const message = await collectByteStream(data);

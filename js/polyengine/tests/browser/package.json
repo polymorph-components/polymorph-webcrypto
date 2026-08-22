@@ -1,8 +1,8 @@
 {
-  "name": "@polymorph/webcrypto-polyengine-browser-probe",
+  "name": "@polymorph/webcrypto-polyengine-inject-probe",
   "private": true,
   "type": "module",
-  "description": "Playwright driver for the keystore browser probe: js/polyengine's polymorph:webcrypto-keystore host module against a real Chromium's IndexedDB + Web Crypto, across a real page reload.",
+  "description": "Playwright driver for the injection probe: the polyengine host module's webcryptoHost().inject API against a real Chromium's Web Crypto.",
   "dependencies": {
     "playwright-core": "1.62.1"
   }

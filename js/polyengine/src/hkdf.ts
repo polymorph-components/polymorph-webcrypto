@@ -33,6 +33,18 @@ function mintIkm(key: CryptoKey, policy: DerivePolicy): Ikm {
   return ikm;
 }
 
+/**
+ * Wrap an embedder-held HKDF key as `ikm` (see inject.ts). The grants
+ * come from the key's `[[usages]]`, which is where `import-ikm` puts
+ * them too: it imports with exactly `deriveUsages(policy)`, so the
+ * state's policy and the key's usages agree on both paths.
+ *
+ * @internal
+ */
+export function mintInjectedIkm(key: CryptoKey, policy: DerivePolicy): Ikm {
+  return mintIkm(key, policy);
+}
+
 async function importIkmKey(raw: Uint8Array, options: DeriveOptions): Promise<Ikm> {
   const policy = readPolicy(options);
   const usages = deriveUsages(policy);

@@ -36,37 +36,60 @@ host's Node posture — Deno's `crypto.subtle` mints those keys. A
 browser-hosted embedding should call `setRsaPrivateKeyPolicy("decline")`
 (`src/rsaSignature.ts`), the posture `jco-browser` runs under.
 
-## The keystore module
+## Injecting embedder-held keys
 
-`src/keystore.ts` (`@polymorph/webcrypto/keystore`) serves a *different*
-WIT package: [`polymorph:webcrypto-keystore`](../../wit-keystore), which
-keeps a signing key across instantiations by a name the guest chooses.
-`keystoreImports({ namespace })` is its entry point, and `namespace` is
-the IndexedDB database the embedder assigns — persistence is a capability
-the embedder grants, so `keystoreImports()` with no argument returns
-functions that refuse.
+`webcryptoHost()` returns the imports record **paired with** injection
+functions, for embedders that hand the guest a key they hold themselves:
 
 ```ts
-instantiate(artifacts, {
+const { imports, inject } = webcryptoHost();
+const identity = inject.signingKey(await loadDeviceKey());
+await instantiate(artifacts, {
   ...wasi(),
-  ...webcryptoImports(),
-  ...keystoreImports({ namespace: "pm-device-7" }),
+  ...imports,
+  "app:device/identity": { deviceIdentity: () => identity },
 });
 ```
 
-No key material crosses the interface in either direction: what IndexedDB
-holds is the `CryptoKey` handle, structured-cloned, so a non-extractable
-key survives a reload with its material still unreadable. The module
-refuses to store an extractable key, and re-validates every entry on the
-way back out (algorithm, key type, usages, `extractable`), because
-IndexedDB is writable by anything else in the origin.
+The returned handle is what the package's own minting interfaces return:
+same resource class, same table, same getters. Only this module can
+produce one — the resource tables are package-internal — which is the
+whole reason the API exists. The guest-visible function that hands the
+key over is the consumer's own WIT, not this package's (see
+[#391](https://github.com/polymorph-components/polymorph-webcrypto/issues/391),
+and #389 for why the alternative — a keystore in WIT — was rejected).
 
-Its gate is `just polyengine-keystore-probe` — a Playwright-driven
-Chromium page (`tests/browser/`) covering the store/reload/load/sign round
-trip, the extractability refusals on both edges, the missing-name and
-no-keystore answers, and namespace isolation. It is a separate lane
-because Deno has no IndexedDB, so `deno task test` cannot observe any of
-it.
+`webcryptoImports()` is unchanged and remains the simple form for
+embedders that inject nothing; it is exactly `webcryptoHost().imports`.
+
+**`inject` belongs to the `imports` record it came with.** Take the pair
+and use the pair: injecting through one invocation and instantiating from
+another invocation's record is outside the contract.
+
+v1 serves two kinds:
+
+| function | accepts | returns |
+| --- | --- | --- |
+| `inject.signingKey` | a **private** `Ed25519` key | `SigningKey` |
+| `inject.derivationKey` | a **secret** `HKDF` or `PBKDF2` key | `Ikm` / `Password` |
+
+Ed25519 is the only signature algorithm served because it is the only one
+whose entire mint-bound record is recoverable from `[[algorithm]]`: ECDSA
+binds a digest at mint and RSA-PSS a salt length, and WebCrypto carries
+neither on the key. Wrong kind, wrong key type, or an algorithm outside
+those sets throws a `TypeError` — this is an embedder API, so its
+failures are programming errors, not WIT `error`s.
+
+Policy is reported, never enforced. An embedder may inject an extractable
+key or one with no usages; `extractable()` and the per-kind `can-*`
+getters answer from the key's own `[[extractable]]`/`[[usages]]`, and
+operations the key does not permit fail through the usual
+`not-permitted`/`not-extractable` paths. Injection is not a place to
+defend against the party that already holds the key.
+
+The gate is `just polyengine-inject-probe` (`tests/browser/`): a
+Playwright-driven Chromium page, because non-extractable platform keys
+are the subject and Deno's suite cannot mint the shapes that matter.
 
 ## Module identity
 

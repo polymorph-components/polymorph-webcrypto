@@ -53,6 +53,18 @@ async function importPassword(raw: Uint8Array, options: DeriveOptions): Promise<
   return password;
 }
 
+/**
+ * Wrap an embedder-held PBKDF2 key as `password` (see inject.ts). As on
+ * `import-password`, the grants ride the key's usages.
+ *
+ * @internal
+ */
+export function mintInjectedPassword(key: CryptoKey, policy: DerivePolicy): Password {
+  const password = new Password();
+  passwordState.set(password, { key, policy: { ...policy } });
+  return password;
+}
+
 /** The `polymorph:webcrypto/pbkdf2@0.1.0` interface. */
 export const pbkdf2 = {
   Password,

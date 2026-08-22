@@ -94,9 +94,6 @@ are specified in [`wit/README.md`](wit/README.md) and the WIT doc comments.
 
 ```
 wit/                    # the polymorph:webcrypto package (defined once, here)
-wit-keystore/           # the polymorph:webcrypto-keystore sibling package:
-                        #   store/load a signing key by name, no material
-                        #   crossing the interface
 rust/                   # the Rust crates (dir = crate name minus the
                         #   `polymorph-webcrypto-` family root)
   core/                 # shared RustCrypto core of both Rust

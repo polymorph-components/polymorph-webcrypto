@@ -110,7 +110,7 @@ jobs:
         # Owns the rev derivation, the rev-keyed tools cache, the
         # install, and the pins gate; conformance-ct::_ct-tools
         # recognizes the stamped install and does not repeat it.
-        uses: polymorph-components/polymorph-test/actions/setup@38bfedf2b989522b82ddce5320fc1557a2f61461
+        uses: polymorph-components/polymorph-test/actions/setup@9f9e4d544b90e3321ac0572be92c57339b963d34
 
       - name: Install Node 24
         # Exact-pinned, like every engine here (Deno, the Playwright
@@ -487,7 +487,7 @@ jobs:
           save-if: false
 
       - name: Install the component-test tools at the pinned revision
-        uses: polymorph-components/polymorph-test/actions/setup@38bfedf2b989522b82ddce5320fc1557a2f61461
+        uses: polymorph-components/polymorph-test/actions/setup@9f9e4d544b90e3321ac0572be92c57339b963d34
 
       - name: Download the ubuntu conformance results
         uses: actions/download-artifact@v4
@@ -520,7 +520,7 @@ jobs:
       # input polices the `uses:` refs against the pin.
       - name: Publish the conformance matrix
         if: always() && hashFiles('conformance/driver-ct/results/*.jsonl') != ''
-        uses: polymorph-components/polymorph-test/actions/aggregate@38bfedf2b989522b82ddce5320fc1557a2f61461
+        uses: polymorph-components/polymorph-test/actions/aggregate@9f9e4d544b90e3321ac0572be92c57339b963d34
         with:
           lock: conformance/guest-ct/tests.lock
           manifest: conformance/driver-ct/targets.toml
@@ -539,7 +539,7 @@ jobs:
 
       - name: Publish the signing conformance matrix
         if: always() && hashFiles('conformance/driver-ct/results/*.jsonl') != ''
-        uses: polymorph-components/polymorph-test/actions/aggregate@38bfedf2b989522b82ddce5320fc1557a2f61461
+        uses: polymorph-components/polymorph-test/actions/aggregate@9f9e4d544b90e3321ac0572be92c57339b963d34
         with:
           lock: conformance/signing-guest-ct/tests.lock
           manifest: conformance/driver-ct/targets-signing.toml

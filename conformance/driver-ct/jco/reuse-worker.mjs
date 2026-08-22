@@ -3,8 +3,8 @@
 // callback — so one component instance serves a worker's whole shard
 // instead of ~19.9k instantiations per suite serving one case each.
 //
-// REUSE RATIONALE (the deltic-deno leg's, measured there at ~22x —
-// see ../deltic/run.ts "CONTAINMENT MODE" for the full argument): a
+// REUSE RATIONALE (the polyengine-deno leg's, measured there at ~22x —
+// see ../polyengine/run.ts "CONTAINMENT MODE" for the full argument): a
 // fresh instance per case is ~free under wasmtime but dominates wall
 // time under a browser engine — Gecko most of all, where the fresh
 // convention priced the jco-firefox leg near an hour. Reuse is sound

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Extract the deltic translator-shim wasm from a `deno info --json` module
+"""Extract the polyengine translator-shim wasm from a `deno info --json` module
 graph, i.e. from the deno.lock-pinned JSR module cache — no network, no
 sha256 bookkeeping (JSR package integrity already lives in the lock).
 
@@ -19,9 +19,9 @@ import sys
 def main() -> None:
     info_path, out_path, expected_pin = sys.argv[1], sys.argv[2], sys.argv[3]
     graph = json.load(open(info_path))
-    mods = [m for m in graph["modules"] if "/@deltic/" in m.get("specifier", "")]
+    mods = [m for m in graph["modules"] if "/@polyengine/" in m.get("specifier", "")]
     if not mods:
-        sys.exit("no @deltic modules found in module graph")
+        sys.exit("no @polyengine modules found in module graph")
 
     bad = {m["specifier"] for m in mods if expected_pin not in m["specifier"]}
     if bad:
@@ -29,7 +29,7 @@ def main() -> None:
 
     candidates = [m for m in mods if m["specifier"].endswith("/translator_shim.wasm")]
     if not candidates:
-        sys.exit("translator_shim.wasm not found in @deltic module graph")
+        sys.exit("translator_shim.wasm not found in @polyengine module graph")
     asset = candidates[0]
 
     data = open(asset["local"], "rb").read()

@@ -1,0 +1,10 @@
+{
+  "name": "@polymorph/webcrypto-conformance-polyengine-browser",
+  "private": true,
+  "type": "module",
+  "description": "Node driver + bundled worker inputs for the polyengine-browser conformance rows: both suites runtime-linked inside headless Chromium with this repo's polyengine host module, through the upstream page driver and polyengine worker-main.",
+  "dependencies": {
+    "@jsr/polymorph__test": "0.2.0",
+    "playwright-core": "1.62.1"
+  }
+}

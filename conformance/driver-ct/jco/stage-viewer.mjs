@@ -2,8 +2,8 @@
 // pinned checkout, argv[2]) into ./viewer/, wired to this repository's
 // data: the demo button loads the committed lockfiles/manifests plus
 // the last run's results-JSONL, and the live pane defaults to this
-// repository's suites — runtime-linked through the deltic-browser
-// worker bundle (built by `just conformance-ct::_deltic-browser-bundle`).
+// repository's suites — runtime-linked through the polyengine-browser
+// worker bundle (built by `just conformance-ct::_polyengine-browser-bundle`).
 // Every injected path is RELATIVE to the viewer page: the page is
 // served from two roots that both mirror the repository layout — the
 // repo root locally (`just conformance-ct::web`) and the project
@@ -14,9 +14,9 @@
 // review the bump owes.
 //
 // Invoked by `conformance-ct::_viewer-prepared`, which also stages the
-// viewer's wasm engine (the raw viewer-aggregate component — deltic
-// translates it in-page; no transpile) and the pinned deltic release
-// assets into viewer/generated/ and viewer/deltic/; ./viewer/ is
+// viewer's wasm engine (the raw viewer-aggregate component — polyengine
+// translates it in-page; no transpile) and the pinned polyengine release
+// assets into viewer/generated/ and viewer/polyengine/; ./viewer/ is
 // gitignored, stamped with the rev.
 import { copyFileSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
@@ -42,8 +42,8 @@ function rewrite(text, anchor, replacement, what) {
 }
 
 // Pass-through files: the page's import closure — app.mjs pulls
-// harness.mjs and deltic.mjs, and harness.mjs pulls context.js.
-for (const file of ["viewer.css", "harness.mjs", "deltic.mjs", "context.js"]) {
+// harness.mjs and polyengine.mjs, and harness.mjs pulls context.js.
+for (const file of ["viewer.css", "harness.mjs", "polyengine.mjs", "context.js"]) {
   copyFileSync(join(from, file), join("viewer", file));
 }
 
@@ -84,7 +84,7 @@ html = rewrite(
 html = rewrite(
   html,
   `<input type="text" id="live-target" value="native" spellcheck="false">`,
-  `<input type="text" id="live-target" value="deltic-browser" spellcheck="false">`,
+  `<input type="text" id="live-target" value="polyengine-browser" spellcheck="false">`,
   "the live target default",
 );
 writeFileSync("viewer/index.html", html);
@@ -130,8 +130,8 @@ const handler = `$("btn-demo").onclick = async () => {
         ["jco-browser", RESULTS + "jco-browser.jsonl"],
         ["jco-firefox", RESULTS + "jco-firefox.jsonl"],
         ["jco-webkit", RESULTS + "jco-webkit.jsonl"],
-        ["deltic-deno", RESULTS + "deltic-deno.jsonl"],
-        ["deltic-browser", RESULTS + "deltic-browser.jsonl"],
+        ["polyengine-deno", RESULTS + "polyengine-deno.jsonl"],
+        ["polyengine-browser", RESULTS + "polyengine-browser.jsonl"],
       ],
     },
     signing: {
@@ -143,8 +143,8 @@ const handler = `$("btn-demo").onclick = async () => {
         ["jco-browser", RESULTS + "jco-browser-signing.jsonl"],
         ["jco-firefox", RESULTS + "jco-firefox-signing.jsonl"],
         ["jco-webkit", RESULTS + "jco-webkit-signing.jsonl"],
-        ["deltic-deno", RESULTS + "deltic-deno-signing.jsonl"],
-        ["deltic-browser", RESULTS + "deltic-browser-signing.jsonl"],
+        ["polyengine-deno", RESULTS + "polyengine-deno-signing.jsonl"],
+        ["polyengine-browser", RESULTS + "polyengine-browser-signing.jsonl"],
       ],
     },
   };
@@ -176,17 +176,17 @@ app = app.slice(0, start) + handler + app.slice(end + "\n};".length);
 // app.mjs: the live pane's shard worker must serve this package's
 // imports — the suites are runtime-linked and import polymorph:webcrypto,
 // which upstream's stock (no-SUT) worker cannot satisfy — so it is the
-// deltic-browser worker bundle (deltic engine + this repo's host module),
-// built by `just conformance-ct::_deltic-browser-bundle` and served from
-// target/deltic-browser/ (page-relative: the repo root is four levels up
+// polyengine-browser worker bundle (polyengine engine + this repo's host module),
+// built by `just conformance-ct::_polyengine-browser-bundle` and served from
+// target/polyengine-browser/ (page-relative: the repo root is four levels up
 // from viewer/). The translator must match the bundled engine's pin —
-// this repository's deltic pin, not the viewer checkout's — so the
+// this repository's polyengine pin, not the viewer checkout's — so the
 // worker message's translatorUrl is rewritten to the shim extracted
-// beside the bundle instead of the viewer's own deltic assets.
+// beside the bundle instead of the viewer's own polyengine assets.
 app = rewrite(
   app,
-  `new URL("../runner-deltic/browser-worker.mjs", import.meta.url),`,
-  `new URL("../../../../target/deltic-browser/webcrypto-worker.mjs", import.meta.url),`,
+  `new URL("../runner-polyengine/browser-worker.mjs", import.meta.url),`,
+  `new URL("../../../../target/polyengine-browser/webcrypto-worker.mjs", import.meta.url),`,
   "the live pane's worker URL",
 );
 app = rewrite(
@@ -196,7 +196,7 @@ app = rewrite(
             suiteUrl,`,
   `            bundleUrl,
             translatorUrl: new URL(
-              "../../../../target/deltic-browser/deltic-translator-shim.wasm",
+              "../../../../target/polyengine-browser/polyengine-translator-shim.wasm",
               import.meta.url,
             ).href,
             suiteUrl,`,

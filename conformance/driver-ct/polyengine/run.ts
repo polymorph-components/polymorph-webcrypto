@@ -1,8 +1,8 @@
-// The deltic-native leg of the conformance matrix: the `deltic-deno`
+// The polyengine-native leg of the conformance matrix: the `polyengine-deno`
 // target for BOTH suites (shared and signing), runtime-linked under stock
 // Deno.
 //
-// This is the deltic analogue of `conformance/driver-ct/jco/runner.mjs`,
+// This is the polyengine analogue of `conformance/driver-ct/jco/runner.mjs`,
 // mirroring it leg for leg:
 //
 //   runner.mjs (jco-node)                      | this runner
@@ -15,11 +15,11 @@
 //   `envelope(target, suite)`                  | ct-runner's envelope (same identity)
 //   worker pool, `--jobs`                      | single-threaded case loop
 //
-// deltic is a runtime linker: unlike the jco legs there is no transpile
+// polyengine is a runtime linker: unlike the jco legs there is no transpile
 // step, no generated tree, no npm install, and no engine flag — the
 // suite's async exports run on the callback ABI under stock Deno.
 //
-//   just conformance-ct::run-deltic          # both legs
+//   just conformance-ct::run-polyengine          # both legs
 //   … run.ts [--translator <shim.wasm>] [--suite shared|signing] [--only SUB]
 //            [--fresh-cases] [--jspi]
 //
@@ -27,14 +27,14 @@
 // the jco leg transpiles (jco/package.json's `transpile` /
 // `transpile:signing` scripts name them), with `polymorph:webcrypto/*`
 // still imported and served by the host module under test
-// (js/deltic/src/mod.ts). The sibling `composed` artifact has the
+// (js/polyengine/src/mod.ts). The sibling `composed` artifact has the
 // RustCrypto provider plugged in-guest and would exercise no host module
 // at all. Because the artifact IS the locked one, ct-runner's envelope
 // `artifact-sha256` (computed from these bytes) is the lockfile's
 // identity — no `--suite-artifact` indirection is needed, unlike the
 // composed leg.
 //
-// EXIT STATUS. Case failures do NOT fail this runner: the `deltic-deno`
+// EXIT STATUS. Case failures do NOT fail this runner: the `polyengine-deno`
 // target carries declared expected-fail debt (targets.toml /
 // targets-signing.toml, tracked in polymorph-webcrypto#351), and the
 // aggregate is what assesses a failure as expected-or-not and fails the
@@ -71,21 +71,21 @@
 // green — per the KAT asymmetry above. When debugging any such run,
 // `--fresh-cases` restores per-case containment.
 //
-// MODULE-IDENTITY CONSTRAINT: deltic's wasi module imports
-// `@deltic/runtime/embedder` by bare specifier internally; this leg's
-// `deno.json` AND `js/deltic/deno.json` must map that specifier to the
+// MODULE-IDENTITY CONSTRAINT: polyengine's wasi module imports
+// `@polyengine/runtime/embedder` by bare specifier internally; this leg's
+// `deno.json` AND `js/polyengine/deno.json` must map that specifier to the
 // IDENTICAL exact-pinned JSR version, or the embedder module loads twice
 // and `instanceof ComponentException` stops holding across the module boundary.
-// `just conformance-ct::deltic-pin-check` gates that.
+// `just conformance-ct::polyengine-pin-check` gates that.
 
-import { Translator } from "@deltic/runtime/shim";
-import type { ComponentArtifacts } from "@deltic/runtime/embedder";
-import { runSuite } from "@deltic/ct-runner";
-import { wasi } from "@deltic/wasi";
-import { defaultTranslator } from "@deltic/translator";
-import { webcryptoImports } from "../../../js/deltic/src/mod.ts";
+import { Translator } from "@polyengine/runtime/shim";
+import type { ComponentArtifacts } from "@polyengine/runtime/embedder";
+import { runSuite } from "@polyengine/ct-runner";
+import { wasi } from "@polyengine/wasi";
+import { defaultTranslator } from "@polyengine/translator";
+import { webcryptoImports } from "../../../js/polyengine/src/mod.ts";
 
-// This file sits at conformance/driver-ct/deltic/run.ts, so the repo root
+// This file sits at conformance/driver-ct/polyengine/run.ts, so the repo root
 // is three levels up.
 const ROOT = new URL("../../../", import.meta.url);
 const SUITE_DIR = new URL("target/wasm32-wasip2/release/", ROOT);
@@ -112,17 +112,17 @@ interface SuiteSpec {
 }
 
 // The `missing` lists mirror targets.toml / targets-signing.toml's
-// `[targets.deltic-deno]` entries, which the aggregate cross-checks.
+// `[targets.polyengine-deno]` entries, which the aggregate cross-checks.
 const SUITES: Readonly<Record<string, SuiteSpec>> = {
   shared: {
     name: "conformance-guest-ct",
     wasm: new URL("conformance_guest_ct.wasm", SUITE_DIR),
-    out: new URL("deltic-deno.jsonl", RESULTS),
+    out: new URL("polyengine-deno.jsonl", RESULTS),
     // Two capabilities no `crypto.subtle` host can serve here, mirroring
-    // targets.toml's `[targets.deltic-deno] missing-features`:
+    // targets.toml's `[targets.polyengine-deno] missing-features`:
     //   sha1-checked    — no platform carries sha1dc collision detection,
     //                     so the host declines it fail-closed
-    //                     (js/deltic/src/sha1Checked.ts), as jco-node does.
+    //                     (js/polyengine/src/sha1Checked.ts), as jco-node does.
     //   rsa-verify-8192 — Deno refuses to IMPORT an 8192-bit RSA public
     //                     key at all (polymorph-webcrypto#351), so the
     //                     whole rsassa-…-8192 row is unservable.
@@ -132,10 +132,10 @@ const SUITES: Readonly<Record<string, SuiteSpec>> = {
   signing: {
     name: "conformance-signing-guest-ct",
     wasm: new URL("conformance_signing_guest_ct.wasm", SUITE_DIR),
-    out: new URL("deltic-deno-signing.jsonl", RESULTS),
+    out: new URL("polyengine-deno-signing.jsonl", RESULTS),
     // Deno's `crypto.subtle` serves the gated RSA private-key mints, so
     // the host module serves them here too — the Node posture, not the
-    // browser one (see js/deltic/src/rsaSignature.ts). Nothing missing.
+    // browser one (see js/polyengine/src/rsaSignature.ts). Nothing missing.
     missing: [],
   },
 };
@@ -156,7 +156,7 @@ interface Cli {
 function parseArgs(argv: string[]): Cli {
   const cli: Cli = {
     jspi: false,
-    target: "deltic-deno",
+    target: "polyengine-deno",
     suites: [],
     freshCases: false,
   };

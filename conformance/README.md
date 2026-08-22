@@ -40,8 +40,8 @@ class-d/           # the class-D gate's dedicated probe worlds (no Rust:
                    #   generic-kind exports keep those mints uncomposable
 driver-ct/         # the host driver (ct-driver: wasmtime + RustCrypto as
                    #   the SUT, component-test-runner as the harness), the
-                   #   jco/Node runner (jco/), the deltic/Deno runner
-                   #   (deltic/), targets.toml (target capability
+                   #   jco/Node runner (jco/), the polyengine/Deno runner
+                   #   (polyengine/), targets.toml (target capability
                    #   manifests), the justfile module, the committed
                    #   matrix.md / matrix-signing.md, and compat/ (the
                    #   generated support matrix: registry + page +
@@ -134,18 +134,18 @@ the lockfiles, runs the targets, and aggregates:
   Runs as the dedicated macOS CI job (the transpiles are built on ubuntu
   and handed over); results reach local checkouts via the CI artifact
   flow.
-- **deltic-deno** (`run-deltic`): the same reference host rewritten over
-  deltic's embedder API, runtime-linked under stock Deno — no transpile;
+- **polyengine-deno** (`run-polyengine`): the same reference host rewritten over
+  polyengine's embedder API, runtime-linked under stock Deno — no transpile;
   missing `sha1-checked` and `rsa-verify-8192`, with an expected-fail
   ledger for the Deno platform windows (#351).
-- **deltic-browser** (`run-deltic-browser`): the deltic host module
+- **polyengine-browser** (`run-polyengine-browser`): the polyengine host module
   runtime-linked in headless Chromium (the worker is one deno-bundled
   module — no transpile, no generated tree); the same platform posture
   as jco-browser. Optional like jco-browser: gates in CI, locally
   `CONFORMANCE_BROWSER=1`.
 - The **signing suite** runs under the host-backed targets
   (wasmtime-rustcrypto, jco-node, the browser-engine targets, and
-  deltic-deno) only: its world imports
+  polyengine-deno) only: its world imports
   `ecdsa-sign` structurally, which class D keeps out of the
   in-guest provider (see `rust/guest-provider/README.md`). The
   negative-composition gate (`just conformance-ct::class-d`, part of
@@ -187,9 +187,9 @@ main CI run's results.
 repository's data wiring (`driver-ct/jco/stage-viewer.mjs`) — over the
 repository root: the matrix pane aggregates the last run's
 `driver-ct/results/` with the gate's own aggregation code (the raw
-viewer-aggregate component, translated in-page by deltic), and the live
+viewer-aggregate component, translated in-page by polyengine), and the live
 pane runs the suites runtime-linked in the browser — it needs the
-deltic-browser worker bundle from `just conformance-ct::run-deltic-browser`
+polyengine-browser worker bundle from `just conformance-ct::run-polyengine-browser`
 and a suite build. The Pages site publishes the same viewer (results
 pane only — #362) with the latest main CI run's results staged from the
 `conformance-results` artifact, alongside the compat page.

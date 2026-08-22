@@ -47,9 +47,9 @@ jobs:
   # The cross-implementation conformance targets that run in this job
   # (component-test stack): both suites across wasmtime-rustcrypto,
   # composed, jco-node, jco-browser (headless Chromium via jco),
-  # deltic-browser (headless Chromium via deltic), and deltic-deno
+  # polyengine-browser (headless Chromium via polyengine), and polyengine-deno
   # (runtime-linked under stock Deno) — plus the aggregates over those
-  # targets and the deltic host module's unit gate. The jco-firefox and
+  # targets and the polyengine host module's unit gate. The jco-firefox and
   # jco-webkit legs run as their own jobs below (Firefox needs a runner
   # to itself; WebKit needs macOS); the committed-matrix and compat
   # gates run in conformance-aggregate once every target's results
@@ -110,7 +110,7 @@ jobs:
         # Owns the rev derivation, the rev-keyed tools cache, the
         # install, and the pins gate; conformance-ct::_ct-tools
         # recognizes the stamped install and does not repeat it.
-        uses: polymorph-components/polymorph-test/actions/setup@b4444a25a22106ad4128549bdc9e579552e62210
+        uses: polymorph-components/polymorph-test/actions/setup@38bfedf2b989522b82ddce5320fc1557a2f61461
 
       - name: Install Node 24
         # Exact-pinned, like every engine here (Deno, the Playwright
@@ -127,10 +127,10 @@ jobs:
           node-version: "24.19.0"
 
       - name: Install Deno
-        # For the deltic-deno conformance target and js/deltic's own unit
-        # gate: deltic runs the suites RUNTIME-LINKED under stock Deno,
-        # its runtime graph pinned by the conformance/driver-ct/deltic and
-        # js/deltic import maps + frozen deno.lock files (no npm tree, no
+        # For the polyengine-deno conformance target and js/polyengine's own unit
+        # gate: polyengine runs the suites RUNTIME-LINKED under stock Deno,
+        # its runtime graph pinned by the conformance/driver-ct/polyengine and
+        # js/polyengine import maps + frozen deno.lock files (no npm tree, no
         # transpile). Version-pinned like every other toolchain here.
         uses: denoland/setup-deno@v2
         with:
@@ -487,7 +487,7 @@ jobs:
           save-if: false
 
       - name: Install the component-test tools at the pinned revision
-        uses: polymorph-components/polymorph-test/actions/setup@b4444a25a22106ad4128549bdc9e579552e62210
+        uses: polymorph-components/polymorph-test/actions/setup@38bfedf2b989522b82ddce5320fc1557a2f61461
 
       - name: Download the ubuntu conformance results
         uses: actions/download-artifact@v4
@@ -520,7 +520,7 @@ jobs:
       # input polices the `uses:` refs against the pin.
       - name: Publish the conformance matrix
         if: always() && hashFiles('conformance/driver-ct/results/*.jsonl') != ''
-        uses: polymorph-components/polymorph-test/actions/aggregate@b4444a25a22106ad4128549bdc9e579552e62210
+        uses: polymorph-components/polymorph-test/actions/aggregate@38bfedf2b989522b82ddce5320fc1557a2f61461
         with:
           lock: conformance/guest-ct/tests.lock
           manifest: conformance/driver-ct/targets.toml
@@ -529,17 +529,17 @@ jobs:
             composed=conformance/driver-ct/results/composed.jsonl
             jco-node=conformance/driver-ct/results/jco-node.jsonl
             jco-browser=conformance/driver-ct/results/jco-browser.jsonl
-            deltic-browser=conformance/driver-ct/results/deltic-browser.jsonl
+            polyengine-browser=conformance/driver-ct/results/polyengine-browser.jsonl
             jco-firefox=conformance/driver-ct/results/jco-firefox.jsonl
             jco-webkit=conformance/driver-ct/results/jco-webkit.jsonl
-            deltic-deno=conformance/driver-ct/results/deltic-deno.jsonl
+            polyengine-deno=conformance/driver-ct/results/polyengine-deno.jsonl
           summary-title: Conformance matrix
           cli: target/ct-tools/bin/component-test
           cargo-lock: Cargo.lock
 
       - name: Publish the signing conformance matrix
         if: always() && hashFiles('conformance/driver-ct/results/*.jsonl') != ''
-        uses: polymorph-components/polymorph-test/actions/aggregate@b4444a25a22106ad4128549bdc9e579552e62210
+        uses: polymorph-components/polymorph-test/actions/aggregate@38bfedf2b989522b82ddce5320fc1557a2f61461
         with:
           lock: conformance/signing-guest-ct/tests.lock
           manifest: conformance/driver-ct/targets-signing.toml
@@ -547,10 +547,10 @@ jobs:
             wasmtime-rustcrypto=conformance/driver-ct/results/wasmtime-signing.jsonl
             jco-node=conformance/driver-ct/results/jco-node-signing.jsonl
             jco-browser=conformance/driver-ct/results/jco-browser-signing.jsonl
-            deltic-browser=conformance/driver-ct/results/deltic-browser-signing.jsonl
+            polyengine-browser=conformance/driver-ct/results/polyengine-browser-signing.jsonl
             jco-firefox=conformance/driver-ct/results/jco-firefox-signing.jsonl
             jco-webkit=conformance/driver-ct/results/jco-webkit-signing.jsonl
-            deltic-deno=conformance/driver-ct/results/deltic-deno-signing.jsonl
+            polyengine-deno=conformance/driver-ct/results/polyengine-deno-signing.jsonl
           summary-title: Signing conformance matrix
           cli: target/ct-tools/bin/component-test
           cargo-lock: Cargo.lock

@@ -9,13 +9,13 @@ version = "0.1"
 # ── Columns ──────────────────────────────────────────────────────────
 # The platform-backed hosts first, engine-major, then the two Rust
 # implementations of this repository. Chromium is one column serving
-# both host stacks: deltic (the primary JS path) carries the results,
+# both host stacks: polyengine (the primary JS path) carries the results,
 # and the jco arm folds in under the builder's cell-equality gate — a
 # divergence between the stacks on the same platform fails the build,
 # splitting the columns again.
 
 [[columns]]
-target = "deltic-browser"
+target = "polyengine-browser"
 label = "Chromium"
 kind = "host"
 merges = "jco-browser"
@@ -36,7 +36,7 @@ label = "Node.js"
 kind = "host"
 
 [[columns]]
-target = "deltic-deno"
+target = "polyengine-deno"
 label = "Deno"
 kind = "host"
 

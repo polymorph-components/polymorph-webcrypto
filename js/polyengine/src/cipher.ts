@@ -30,7 +30,7 @@ import {
 } from "./platform.ts";
 import { type DeriveInput, deriveKeyFrom } from "./derivation.ts";
 import { consumeUnwrapInput, consumeWrapInput, UnwrapInput, WrapInput } from "./wrapping.ts";
-import type { Stream } from "@deltic/runtime/embedder";
+import type { Stream } from "@polyengine/runtime/embedder";
 
 const subtle = globalThis.crypto.subtle;
 

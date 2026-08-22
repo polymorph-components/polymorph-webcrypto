@@ -3210,7 +3210,7 @@ async fn sha1_checked_minting_declined() -> Result<String, String> {
 /// The assertion deliberately does not pin one error variant or one
 /// stage. Where the refusal surfaces is a host implementation detail:
 /// a host that parses key material at import refuses there with
-/// `invalid-key`, while the deltic host (js/deltic) materializes the
+/// `invalid-key`, while the polyengine host (js/polyengine) materializes the
 /// platform key lazily, so `import-verifying-key-*` returns a handle and
 /// the refusal surfaces at `verify` as `other` (the underlying platform
 /// message is "public key error: SPKI cryptographic key data

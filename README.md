@@ -2,7 +2,7 @@
 
 A WebCrypto-flavored WIT package plus multiple implementations that run the
 *same* guest component: a Wasmtime host backed by RustCrypto, two JS hosts
-backed by the platform's Web Crypto API — [deltic](https://github.com/lann/deltic)
+backed by the platform's Web Crypto API — [polyengine](https://github.com/polymorph-components/polyengine)
 (runtime-linked on stock Deno and in the browser; the primary JS path) and
 jco (transpile-based) — and an in-guest wasm component
 (RustCrypto compiled to wasm, composable via `wac plug`). A sibling of
@@ -15,7 +15,7 @@ Everything here is **unstable** (0.x), but [releases](../../releases) are
 **caret-honest**: within a minor line they stay backward-compatible, and
 anything breaking bumps the minor. Consumption is pinned at a release's
 commit — cargo git dependencies, vendored WIT, the release-pinned
-deltic/JSR graph — and bumped deliberately.
+polyengine/JSR graph — and bumped deliberately.
 
 ## Design
 
@@ -111,12 +111,12 @@ rust/                   # the Rust crates (dir = crate name minus the
                         #   timing-channel classification & export policy
 js/                     # the JS packages (dir = npm name minus the
                         #   `@polymorph/webcrypto-` family root)
-  deltic/               # deltic host MODULE: src/mod.ts, the same
-                        #   reference host rewritten over deltic's
+  polyengine/               # polyengine host MODULE: src/mod.ts, the same
+                        #   reference host rewritten over polyengine's
                         #   embedder API and runtime-linked (no
                         #   transpile step, no engine flag); the
-                        #   canonical module deltic-family consumers
-                        #   pin by URL. Gate: `just deltic-module-check`
+                        #   canonical module polyengine-family consumers
+                        #   pin by URL. Gate: `just polyengine-module-check`
   jco/                  # jco host library: webcrypto.js,
                         #   browser-compatible Web Crypto API only
                         #   (crypto.subtle / getRandomValues); no
@@ -159,7 +159,7 @@ crate's bindings instead.
 ## Build & run
 
 Prerequisites: Rust (via rustup; the toolchain and wasm target are pinned in
-`rust-toolchain.toml`), `wasm-tools`, Deno 2.x (the deltic host — the
+`rust-toolchain.toml`), `wasm-tools`, Deno 2.x (the polyengine host — the
 primary JS path; stock, no flags), and — for the jco host — Node 24+
 (jco's async ABI uses JSPI). `./scripts/setup.sh` installs the rest. The
 [polymorph-components/polymorph-test](https://github.com/polymorph-components/polymorph-test) test stack is
@@ -169,10 +169,10 @@ an ordinary git dependency pinned by rev in the root `Cargo.toml`
 ```sh
 just test                    # Rust tests, incl. the guest-under-Wasmtime integration test
 just demo::wasmtime          # run the guest under the Wasmtime (RustCrypto) host
-just conformance-ct::run-deltic  # the conformance suites under the deltic host
+just conformance-ct::run-polyengine  # the conformance suites under the polyengine host
                              #   (runtime-linked on stock Deno — the primary
-                             #   JS path; `run-deltic-browser` for Chromium)
-just deltic-module-check     # js/deltic's own gate (type-check + KAT units)
+                             #   JS path; `run-polyengine-browser` for Chromium)
+just polyengine-module-check     # js/polyengine's own gate (type-check + KAT units)
 just demo::test-node         # transpile and run the same guest under the jco host
 just demo::test-composed     # compose guest + in-guest provider + driver (wac plug)
                              #   and run the whole thing under `wasmtime run`
@@ -214,7 +214,7 @@ All implementations run identical suite components. The conformance
 tests (the vendored Wycheproof/CAVP/speccheck vectors — see
 [`conformance/vectors/README.md`](conformance/vectors/README.md) — under
 multiple stream-chunking schedules, plus API-contract probes) gate the
-wasmtime-rustcrypto, deltic-deno, and jco-node targets everywhere (the
+wasmtime-rustcrypto, polyengine-deno, and jco-node targets everywhere (the
 browser targets gate in CI); the `crypto-demo` guest additionally covers
 the jco host end to end.
 

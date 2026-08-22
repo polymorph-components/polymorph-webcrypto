@@ -1,20 +1,20 @@
-# `js/deltic` — the deltic-native `polymorph:webcrypto` host module
+# `js/polyengine` — the polyengine-native `polymorph:webcrypto` host module
 
-`src/mod.ts` is the [deltic](https://github.com/lann/deltic)-native port of
+`src/mod.ts` is the [polyengine](https://github.com/polymorph-components/polyengine)-native port of
 [`js/jco/webcrypto.js`](../jco/webcrypto.js): the same behavioral reference
 host — one platform-WebCrypto-backed implementation of every
-`polymorph:webcrypto@0.1.0` interface — rewritten over deltic's embedder
+`polymorph:webcrypto@0.1.0` interface — rewritten over polyengine's embedder
 API (typed `Stream<T>` rather than jco's bare-payload `Stream`, and
 `ComponentException` throws rather than `throw { tag, val }`). It was developed as
-deltic's own `ports/webcrypto` reference-host port and is upstreamed here
-per [lann/deltic#40](https://github.com/lann/deltic/pull/40); the WIT
+polyengine's own `ports/webcrypto` reference-host port and is upstreamed here
+per [polymorph-components/polyengine#40](https://github.com/polymorph-components/polyengine/pull/40); the WIT
 contract is [`wit/`](../../wit), and every doc comment quoting a contract
 quotes that package. Doc comments citing `contracts/embedder-api.md` cite
-the *deltic* repository's embedder contract, the port's other authority.
+the *polyengine* repository's embedder contract, the port's other authority.
 
 `webcryptoImports()` is the whole entry point: it returns the imports
 record — one entry per WIT interface, keyed by the fully qualified id with
-version — that deltic's `instantiate` takes.
+version — that polyengine's `instantiate` takes.
 
 ## Standing declines
 
@@ -38,14 +38,14 @@ browser-hosted embedding should call `setRsaPrivateKeyPolicy("decline")`
 
 ## Module identity
 
-`deno.json`'s `@deltic/runtime/embedder` import maps to the exact same
+`deno.json`'s `@polyengine/runtime/embedder` import maps to the exact same
 pinned JSR version as
-[`conformance/driver-ct/deltic/deno.json`](../../conformance/driver-ct/deltic/deno.json).
-deltic's `wasi-shims` module imports that specifier by bare name
+[`conformance/driver-ct/polyengine/deno.json`](../../conformance/driver-ct/polyengine/deno.json).
+polyengine's `wasi-shims` module imports that specifier by bare name
 internally; if the two configs ever disagreed, the embedder module would
 load twice and `instanceof ComponentException` would stop holding across the
 boundary. Keep both import maps' version identical for that one entry —
-`just conformance-ct::deltic-pin-check` gates that.
+`just conformance-ct::polyengine-pin-check` gates that.
 
 ## Unit tests
 
@@ -57,18 +57,18 @@ the WIT taxonomy's verdict for that condition; vectors are named by file +
 tcId, never inlined.
 
 ```sh
-cd js/deltic
+cd js/polyengine
 deno task check
 deno task test
 ```
 
 Both run against the pinned JSR release with `deno.lock` frozen (`just
-deltic-module-check` runs the pair as CI does). The exhaustive behavioral
+polyengine-module-check` runs the pair as CI does). The exhaustive behavioral
 surface is the real conformance suite, which lives at
-[`conformance/driver-ct/deltic/`](../../conformance/driver-ct/deltic).
+[`conformance/driver-ct/polyengine/`](../../conformance/driver-ct/polyengine).
 
 ## The pin
 
-See [`conformance/driver-ct/deltic/README.md`](../../conformance/driver-ct/deltic/README.md)
+See [`conformance/driver-ct/polyengine/README.md`](../../conformance/driver-ct/polyengine/README.md)
 — it owns the bump procedure for both pin sites (this `deno.json`
 included).

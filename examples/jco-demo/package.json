@@ -12,6 +12,6 @@
   },
   "devDependencies": {
     "@bytecodealliance/jco-transpile": "0.7.0",
-    "@jsr/polymorph__test": "0.1.1"
+    "@jsr/polymorph__test": "0.2.0"
   }
 }

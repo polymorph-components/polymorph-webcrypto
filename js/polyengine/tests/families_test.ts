@@ -1,8 +1,8 @@
-// Focused known-answer tests for the deltic host module, one per family:
+// Focused known-answer tests for the polyengine host module, one per family:
 // cipher/aes-cbc + aes-ctr, key-wrap/aes-kw, pbkdf2, ecdh, ecdsa, the RSA
 // signature verifiers, RSA-OAEP, and the sha1-checked decline.
 //
-// Upstreamed from deltic's own port suite (lann/deltic
+// Upstreamed from polyengine's own port suite (polymorph-components/polyengine
 // ports/webcrypto/tests/families_test.ts), with the vector tree resolved
 // RELATIVELY to this repository's own `conformance/vectors` rather than
 // through the port's absolute consumer-checkout path.
@@ -15,7 +15,7 @@
 // here; the vectors are read from disk.
 //
 // The exhaustive behavioral surface is the conformance suite itself
-// (`just conformance-ct::run-deltic`); this file is the fast local check
+// (`just conformance-ct::run-polyengine`); this file is the fast local check
 // that the module wires up and agrees with the published vectors.
 
 import { assertEq, assertRejects } from "./asserts.ts";
@@ -40,9 +40,9 @@ import {
   AgreementKeyOptions,
 } from "../src/mod.ts";
 import { arrayStream } from "./testStream.ts";
-import { ComponentException } from "@deltic/runtime/embedder";
+import { ComponentException } from "@polyengine/runtime/embedder";
 
-// This file sits at js/deltic/tests/, so the repo root is three levels up
+// This file sits at js/polyengine/tests/, so the repo root is three levels up
 // and the vector tree is in-repo — no absolute path, and no skip guard:
 // a missing vector file here is a broken checkout, not an optional input.
 const VECTORS_DIR = new URL("../../../conformance/vectors/", import.meta.url);
@@ -212,7 +212,7 @@ Deno.test("ecdsa-sign: generate -> sign -> verify round-trip (P-384/SHA-384)", a
   const o = new SigningKeyOptions();
   o.canSign(true);
   const [sk, vk] = await ecdsaSign.generateKey("p384-sha384", o);
-  const message = new TextEncoder().encode("deltic ecdsa round trip");
+  const message = new TextEncoder().encode("polyengine ecdsa round trip");
   const sig = await sk.sign(arrayStream(message));
   assertEq(sig.length, 96);
   await vk.verify(arrayStream(message), sig);

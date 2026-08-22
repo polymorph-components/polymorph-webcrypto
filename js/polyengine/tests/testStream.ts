@@ -4,7 +4,7 @@
 // runtime's full stream/store machinery for unit tests (the exec-model
 // integration test exercises the real `Stream<T>` handle end-to-end).
 
-import type { Stream } from "@deltic/runtime/embedder";
+import type { Stream } from "@polyengine/runtime/embedder";
 
 export function arrayStream(bytes: Uint8Array): Stream<number> {
   let offset = 0;

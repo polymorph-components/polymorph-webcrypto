@@ -1,15 +1,15 @@
 // The `polymorph:webcrypto@0.1.0` host-module port for
-// [deltic](https://github.com/lann/deltic): `webcryptoImports()` returns
-// the imports-record fragment for deltic's `instantiate` (interface keys
+// [polyengine](https://github.com/polymorph-components/polyengine): `webcryptoImports()` returns
+// the imports-record fragment for polyengine's `instantiate` (interface keys
 // are the fully qualified WIT id, version included).
 //
-// PORT PROVENANCE. Upstreamed verbatim from deltic's own reference-host
-// port, `lann/deltic ports/webcrypto/src/`, where it was developed and
+// PORT PROVENANCE. Upstreamed verbatim from polyengine's own reference-host
+// port, `polymorph-components/polyengine ports/webcrypto/src/`, where it was developed and
 // where its unit suite lives; the only edit on the way in is the import
-// rewrite from deltic-repo-relative paths
-// (`../../../runtime/src/embedder/…`) to the pinned `@deltic/runtime/embedder`
+// rewrite from polyengine-repo-relative paths
+// (`../../../runtime/src/embedder/…`) to the pinned `@polyengine/runtime/embedder`
 // specifier this repo's import maps resolve (see ../README.md). It is the
-// deltic-conventions sibling of [`js/jco/webcrypto.js`](../jco/webcrypto.js)
+// polyengine-conventions sibling of [`js/jco/webcrypto.js`](../jco/webcrypto.js)
 // — same behavioral reference host, `ComponentException` throws and typed `Stream<T>`
 // instead of jco's bare-payload conventions. The WIT contract is
 // [`wit/`](../../wit); every doc comment quoting a contract quotes it.
@@ -98,7 +98,7 @@ export type { WcErrorPayload } from "./errors.ts";
  *
  * Usage: `instantiate(artifacts, { ...wasi(), ...webcryptoImports() })`
  * — the shape both conformance suites are driven with (see
- * `conformance/driver-ct/deltic/run.ts`, whose two legs instantiate the
+ * `conformance/driver-ct/polyengine/run.ts`, whose two legs instantiate the
  * shared and signing suites against exactly this record).
  */
 export function webcryptoImports(): Record<string, unknown> {

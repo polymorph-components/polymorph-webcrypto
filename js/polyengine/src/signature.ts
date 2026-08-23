@@ -43,7 +43,7 @@ import { injectedKey, launderCryptoKey, MINT, requireKeyType, requireMint } from
 // is inside a function body — so whichever module is entered first completes
 // the other's evaluation before any call can occur.
 import { rsassaInjectedAlgorithm } from "./rsaSignature.ts";
-import type { Stream } from "@polyengine/runtime/embedder";
+import type { Stream } from "@polyengine/protocol";
 
 const subtle = globalThis.crypto.subtle;
 

@@ -40,7 +40,7 @@ import {
   AgreementKeyOptions,
 } from "../src/mod.ts";
 import { arrayStream } from "./testStream.ts";
-import { ComponentException } from "@polyengine/runtime/embedder";
+import { ComponentException } from "@polyengine/protocol";
 
 // This file sits at js/polyengine/tests/, so the repo root is three levels up
 // and the vector tree is in-repo — no absolute path, and no skip guard:

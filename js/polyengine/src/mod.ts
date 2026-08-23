@@ -7,7 +7,7 @@
 // port, `polymorph-components/polyengine ports/webcrypto/src/`, where it was developed and
 // where its unit suite lives; the only edit on the way in is the import
 // rewrite from polyengine-repo-relative paths
-// (`../../../runtime/src/embedder/…`) to the pinned `@polyengine/runtime/embedder`
+// (`../../../runtime/src/embedder/…`) to the pinned `@polyengine/protocol`
 // specifier this repo's import maps resolve (see ../README.md). It is the
 // polyengine-conventions sibling of [`js/jco/webcrypto.js`](../jco/webcrypto.js)
 // — same behavioral reference host, `ComponentException` throws and typed `Stream<T>`

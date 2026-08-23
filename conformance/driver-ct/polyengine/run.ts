@@ -71,12 +71,11 @@
 // green — per the KAT asymmetry above. When debugging any such run,
 // `--fresh-cases` restores per-case containment.
 //
-// MODULE-IDENTITY CONSTRAINT: polyengine's wasi module imports
-// `@polyengine/runtime/embedder` by bare specifier internally; this leg's
-// `deno.json` AND `js/polyengine/deno.json` must map that specifier to the
-// IDENTICAL exact-pinned JSR version, or the embedder module loads twice
-// and `instanceof ComponentException` stops holding across the module boundary.
-// `just conformance-ct::polyengine-pin-check` gates that.
+// MODULE-IDENTITY CONSTRAINT: this leg loads the embedder from
+// `deno.json`'s exact-pinned `@polyengine/runtime/embedder` entry.
+// Stateful handles minted by one runtime copy are refused by another, so
+// any other place this process loads the embedder must resolve the same
+// version. `just conformance-ct::polyengine-pin-check` gates that.
 
 import { Translator } from "@polyengine/runtime/shim";
 import type { ComponentArtifacts } from "@polyengine/runtime/embedder";

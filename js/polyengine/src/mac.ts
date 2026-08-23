@@ -16,7 +16,7 @@ import { importPlatformKeyJwk, jwkKeyBytes, jwkMaterial, requireStrictBase64url 
 import { asBufferSource, unwrappedJwk, utf8Encode } from "./util.ts";
 import { deriveKeyFrom, type DeriveInput } from "./derivation.ts";
 import { consumeUnwrapInput, type UnwrapInput, WrapInput } from "./wrapping.ts";
-import type { Stream } from "@polyengine/runtime/embedder";
+import type { Stream } from "@polyengine/protocol";
 import { collectByteStream } from "./util.ts";
 import {
   injectedKey,

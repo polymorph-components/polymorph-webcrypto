@@ -38,14 +38,13 @@ browser-hosted embedding should call `setRsaPrivateKeyPolicy("decline")`
 
 ## Module identity
 
-`deno.json`'s `@polyengine/runtime/embedder` import maps to the exact same
-pinned JSR version as
-[`conformance/driver-ct/polyengine/deno.json`](../../conformance/driver-ct/polyengine/deno.json).
-polyengine's `wasi-shims` module imports that specifier by bare name
-internally; if the two configs ever disagreed, the embedder module would
-load twice and `instanceof ComponentException` would stop holding across the
-boundary. Keep both import maps' version identical for that one entry —
-`just conformance-ct::polyengine-pin-check` gates that.
+This module depends only on `@polyengine/protocol` (never
+`@polyengine/runtime`, per the A22 host-module rule): the protocol's brand
+and handle vocabulary is designed to be robust to duplicate copies, so
+there is no module-identity constraint to keep in sync here.
+`just conformance-ct::polyengine-pin-check` gates one `@polyengine/protocol`
+version repo-wide and that this package's dependency graph carries no
+`@polyengine/runtime` specifier.
 
 ## Unit tests
 

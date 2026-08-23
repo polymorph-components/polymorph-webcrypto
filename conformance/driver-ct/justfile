@@ -11,6 +11,7 @@ ct-tools := root + "/target/ct-tools"
 ct := ct-tools + "/bin/component-test"
 ct-runner := ct-tools + "/bin/ct-runner"
 guest := root + "/target/wasm32-wasip2/release/conformance_guest_ct.wasm"
+guest-wizened := root + "/target/conformance-guest-ct-wizened.wasm"
 signing := root + "/target/wasm32-wasip2/release/conformance_signing_guest_ct.wasm"
 provider := root + "/target/wasm32-wasip2/release/polymorph_webcrypto_guest_provider.wasm"
 composed := root + "/target/conformance-composed-ct.wasm"
@@ -363,9 +364,26 @@ build-provider:
 # aggregate's cross-check against targets.toml. The signing suite never
 # runs composed: its world imports ecdsa-sign, so it cannot even link
 # against the provider (the class-d recipe asserts exactly that).
+#
+# The suite is wizer-pre-initialized BEFORE composition: ct-runner's
+# default fresh-instance-per-case containment pays the suite's registry
+# construction per case, which dominated this leg's wall time; the
+# wizened suite is born with the registry built, keeping per-case
+# isolation at a fraction of the cost (the residual per-case tax is the
+# census handle lift — measured ~2.6x less total CPU on this corpus).
+# The order is forced from both sides: wasmtime-wizer cannot process
+# the composed bundle (nested components with modules), and the bare
+# suite's `polymorph:webcrypto/*` imports keep the shipped plain-suite
+# `component-test wizen` out — so the driver's own `--wizen` mode
+# (`wizen_with` over the same full-support linker the wasmtime leg
+# runs) wizens the bare suite, and `wac plug` composes the result.
+# --suite-artifact keeps the envelope identity and tags on the
+# canonical bare artifact; the wizened enumeration is census-identical
+# (the aggregate's lock binding gates that on every run).
 run-composed: build build-provider _ct-tools
     mkdir -p results
-    wac plug {{guest}} --plug {{provider}} -o {{composed}}
+    {{root}}/target/release/ct-driver {{guest}} --wizen {{guest-wizened}}
+    wac plug {{guest-wizened}} --plug {{provider}} -o {{composed}}
     {{ct-runner}} {{composed}} --jobs 8 --jsonl \
         --suite-artifact {{guest}} \
         --missing ecdsa-sign --target composed > results/composed.jsonl

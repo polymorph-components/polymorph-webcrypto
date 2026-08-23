@@ -3,7 +3,7 @@
 //!
 //! Usage: ct-driver <suite.wasm> [--jsonl] [--missing f1,f2,...]
 //! [--jobs N] [--cases-per-instance N] [--target key] [--only substring]
-//! [--enumerate]
+//! [--enumerate] [--wizen <out.wasm>]
 
 use std::path::PathBuf;
 use std::process::ExitCode;
@@ -48,6 +48,25 @@ impl RunnerView for Data {
     }
 }
 
+fn make_data() -> Data {
+    Data {
+        wasi: WasiCtxBuilder::new().inherit_stderr().build(),
+        table: ResourceTable::new(),
+        ct: CtCtx::default(),
+        webcrypto: WasiWebcryptoCtx::default(),
+    }
+}
+
+/// The full-support target: every gated interface enabled.
+fn configure_linker(linker: &mut wasmtime::component::Linker<Data>) -> wasmtime::Result<()> {
+    let mut options = LinkOptions::default();
+    options
+        .sha1_checked(true)
+        .rsa_sign(true)
+        .rsa_oaep_decrypt(true);
+    add_to_linker_with_options(linker, &options)
+}
+
 fn main() -> ExitCode {
     match run() {
         Ok(code) => code,
@@ -67,6 +86,7 @@ fn run() -> Result<ExitCode> {
     let mut target: String = "wasmtime-rustcrypto".into();
     let mut only: Option<String> = None;
     let mut enumerate = false;
+    let mut wizen_out: Option<PathBuf> = None;
     let mut args = std::env::args().skip(1);
     while let Some(arg) = args.next() {
         match arg.as_str() {
@@ -101,6 +121,12 @@ fn run() -> Result<ExitCode> {
             }
             "--jsonl" => mode = OutputMode::Jsonl,
             "--enumerate" => enumerate = true,
+            "--wizen" => {
+                wizen_out =
+                    Some(PathBuf::from(args.next().ok_or_else(|| {
+                        anyhow::anyhow!("--wizen needs an output path")
+                    })?));
+            }
             _ if suite.is_none() => suite = Some(PathBuf::from(arg)),
             other => bail!("unexpected argument `{other}`"),
         }
@@ -109,7 +135,7 @@ fn run() -> Result<ExitCode> {
         anyhow::anyhow!(
             "usage: ct-driver <suite.wasm> [--jsonl] [--missing f1,f2,...] \
              [--jobs N] [--cases-per-instance N] [--target key] [--only substring] \
-             [--enumerate]"
+             [--enumerate] [--wizen <out.wasm>]"
         )
     })?;
     let suite_name = suite
@@ -118,25 +144,23 @@ fn run() -> Result<ExitCode> {
         .unwrap_or("suite")
         .to_string();
 
-    let runner = Runner::with_data(
-        &suite,
-        || Data {
-            wasi: WasiCtxBuilder::new().inherit_stderr().build(),
-            table: ResourceTable::new(),
-            ct: CtCtx::default(),
-            webcrypto: WasiWebcryptoCtx::default(),
-        },
-        |linker| {
-            // The full-support target: every gated interface enabled.
-            let mut options = LinkOptions::default();
-            options
-                .sha1_checked(true)
-                .rsa_sign(true)
-                .rsa_oaep_decrypt(true);
-            add_to_linker_with_options(linker, &options)
-        },
-    )
-    .map_err(|e| anyhow::anyhow!("{e:#}"))?;
+    // Wizen mode: pre-initialize the suite — its own `all()` runs here,
+    // once, and the built registry is snapshotted into the emitted
+    // artifact, so every future instance skips registry construction.
+    // The suites import `polymorph:webcrypto/*`, which only this driver's
+    // linker can satisfy (`component-test wizen` serves plain suites
+    // only), hence `wizen_with` with the same store data and linker
+    // setup the run path uses.
+    if let Some(out) = wizen_out {
+        let bytes = std::fs::read(&suite)?;
+        let wizened = component_test_runner::wizen::wizen_with(&bytes, make_data, configure_linker)
+            .map_err(|e| anyhow::anyhow!("{e:#}"))?;
+        std::fs::write(&out, wizened)?;
+        return Ok(ExitCode::SUCCESS);
+    }
+
+    let runner = Runner::with_data(&suite, make_data, configure_linker)
+        .map_err(|e| anyhow::anyhow!("{e:#}"))?;
 
     // The suite's full case enumeration (one name per line): the
     // `lock --leaves` input that pins the generated rows' leaves.

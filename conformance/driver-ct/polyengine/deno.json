@@ -11,6 +11,6 @@
   },
   "minimumDependencyAge": { "age": "P1D", "exclude": ["jsr:@polyengine/*", "jsr:@polymorph/*"] },
   "tasks": {
-    "check": "deno check run.ts browser/worker-entry.ts browser-bundle-entry.ts"
+    "check": "deno check run.ts shard-worker.ts browser/worker-entry.ts browser-bundle-entry.ts"
   }
 }

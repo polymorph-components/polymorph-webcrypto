@@ -310,11 +310,10 @@ run-jco: build _jco-prepared
 # aggregate is what assesses it. run.ts still exits nonzero on any
 # runner-level error.
 #
-# The suites run as two CONCURRENT processes: each process's case loop
-# is single-threaded (ct-runner has no shard option yet — polymorph-components/polyengine#110
-# tracks one; #372 tracks the worker fan-out here), so suite-level
-# concurrency is the available parallelism, hiding the signing leg's
-# wall time under the shared leg's.
+# The suites run as two CONCURRENT processes, and each process's case loop
+# is ALSO striped across Deno Web Worker shards via ct-runner's `shard`
+# option (run.ts's `--shards`, defaulting to the core count capped at 8),
+# so both suite-level and case-level parallelism are in play.
 run-polyengine: build
     #!/usr/bin/env bash
     set -euo pipefail

@@ -13,7 +13,7 @@
 //   `--missing sha1-checked` (shared suite)    | SUITES.shared.missing
 //   `--suite conformance-signing-guest-ct`     | `--suite signing`
 //   `envelope(target, suite)`                  | ct-runner's envelope (same identity)
-//   worker pool, `--jobs`                      | single-threaded case loop
+//   worker pool, `--jobs`                      | Deno Web Worker shard fan-out (`--shards`)
 //
 // polyengine is a runtime linker: unlike the jco legs there is no transpile
 // step, no generated tree, no npm install, and no engine flag — the
@@ -21,7 +21,7 @@
 //
 //   just conformance-ct::run-polyengine          # both legs
 //   … run.ts [--translator <shim.wasm>] [--suite shared|signing] [--only SUB]
-//            [--fresh-cases] [--jspi]
+//            [--fresh-cases] [--jspi] [--shards N]
 //
 // SUITE ARTIFACTS. Both legs run the BARE suites — the same components
 // the jco leg transpiles (jco/package.json's `transpile` /
@@ -42,9 +42,9 @@
 // A runner-level problem (translate error, inventory drift, missing
 // imports) still throws and exits nonzero.
 //
-// CONTAINMENT MODE. This leg runs each suite on ONE component instance
-// (ct-runner's `freshCases: false`), not the family's fresh-instance-
-// per-case convention. That convention is an artifact of wasmtime
+// CONTAINMENT MODE. This leg runs each suite on ONE component instance PER
+// SHARD WORKER (ct-runner's `freshCases: false`), not the family's fresh-
+// instance-per-case convention. That convention is an artifact of wasmtime
 // economics — a fresh instance is ~free there (precompiled module,
 // CoW memory image) — while under a runtime linker each fresh instance
 // re-copies the suite's ~14 MB of embedded vectors and re-lifts all
@@ -68,8 +68,22 @@
 // unreliable. Both suites measure zero traps and zero timeouts (every
 // verdict is provenance `returned`), and any poisoning event mid-run
 // makes later rows either loudly wrong or correct — never quietly
-// green — per the KAT asymmetry above. When debugging any such run,
-// `--fresh-cases` restores per-case containment.
+// green — per the KAT asymmetry above. With shard workers, a poisoning
+// event only affects the rest of that one shard's stripe, not the whole
+// run. When debugging any such run, `--fresh-cases` restores per-case
+// containment.
+//
+// SHARDING. Each suite's case loop is striped across `--shards` Deno Web
+// Worker shards (default: core count capped at 8): case `i` in census
+// order belongs to shard `i % count`, per upstream ct-runner's `shard`
+// option (`@polyengine/ct-runner`'s `RunSuiteOptions.shard`). Each shard
+// worker runs its own `runSuite` call and emits its own envelope and its
+// own `{"segment-end":true}` terminator; the parent keeps exactly one
+// envelope (asserting every shard's envelope is byte-identical — this
+// also catches a shard reading a different artifact), reorders the rows
+// back into census order using the per-row case index, writes the single
+// terminator, and sums the per-shard `RunCounts`. `--shards 1` runs the
+// whole suite unsharded in a single worker.
 //
 // MODULE-IDENTITY CONSTRAINT: this leg loads the embedder from
 // `deno.json`'s exact-pinned `@polyengine/runtime/embedder` entry.
@@ -77,12 +91,8 @@
 // any other place this process loads the embedder must resolve the same
 // version. `just conformance-ct::polyengine-pin-check` gates that.
 
-import { Translator } from "@polyengine/runtime/shim";
-import type { ComponentArtifacts } from "@polyengine/runtime/embedder";
-import { runSuite } from "@polyengine/ct-runner";
-import { wasi } from "@polyengine/wasi";
-import { defaultTranslator } from "@polyengine/translator";
-import { webcryptoImports } from "../../../js/polyengine/src/mod.ts";
+import type { RunCounts } from "@polyengine/ct-runner";
+import type { ShardDone, ShardReply, ShardRequest } from "./shard-worker.ts";
 
 // This file sits at conformance/driver-ct/polyengine/run.ts, so the repo root
 // is three levels up.
@@ -96,7 +106,10 @@ const RESULTS = new URL("conformance/driver-ct/results/", ROOT);
  * `probe/large-stream` measures 6.1s on a workstation and 72s on the
  * 2-core Actions runner (run 31394527207) — a hardware ratio, not a
  * hang. 300s keeps the hang guard while clearing that worst case with
- * ~4x margin; the next-slowest case is 10.3s on the same runner.
+ * ~4x margin; the next-slowest case is 10.3s on the same runner. Shard
+ * workers contend for cores, so per-case wall time under sharding can
+ * exceed the single-threaded measurements above; the 300s budget already
+ * covers that headroom.
  */
 const CASE_TIMEOUT_MS = 300_000;
 
@@ -150,7 +163,11 @@ interface Cli {
   missing?: string[];
   /** Opt back into fresh-instance-per-case (see CONTAINMENT MODE). */
   freshCases: boolean;
+  /** Shard worker count (see SHARDING). */
+  shards: number;
 }
+
+const DEFAULT_SHARDS = Math.min(navigator.hardwareConcurrency ?? 1, 8);
 
 function parseArgs(argv: string[]): Cli {
   const cli: Cli = {
@@ -158,6 +175,7 @@ function parseArgs(argv: string[]): Cli {
     target: "polyengine-deno",
     suites: [],
     freshCases: false,
+    shards: DEFAULT_SHARDS,
   };
   for (let i = 0; i < argv.length; i++) {
     switch (argv[i]) {
@@ -185,6 +203,15 @@ function parseArgs(argv: string[]): Cli {
       case "--fresh-cases":
         cli.freshCases = true;
         break;
+      case "--shards": {
+        const raw = argv[++i];
+        const n = Number(raw);
+        if (!Number.isInteger(n) || n < 1) {
+          throw new Error(`--shards must be an integer >= 1, got '${raw}'`);
+        }
+        cli.shards = n;
+        break;
+      }
       default:
         throw new Error(`unknown argument ${argv[i]}`);
     }
@@ -203,48 +230,102 @@ function parseArgs(argv: string[]): Cli {
   return cli;
 }
 
-async function loadArtifacts(
-  translatorPath: string | undefined,
-  wasm: URL,
-): Promise<ComponentArtifacts> {
-  const translator = translatorPath
-    ? await Translator.create(await Deno.readFile(translatorPath))
-    : await defaultTranslator();
-  const componentBytes = await Deno.readFile(wasm);
-  const { plan, adapters } = translator.translate(componentBytes);
-  return { plan, componentBytes, adapters };
+/** Runs one shard worker to completion and resolves with its reply. */
+function runShard(req: ShardRequest): Promise<ShardReply> {
+  const worker = new Worker(new URL("./shard-worker.ts", import.meta.url), {
+    type: "module",
+  });
+  return new Promise((resolve, reject) => {
+    worker.onmessage = (event: MessageEvent<ShardReply>) => {
+      worker.terminate();
+      resolve(event.data);
+    };
+    worker.onerror = (event: ErrorEvent) => {
+      worker.terminate();
+      reject(event.error ?? new Error(event.message));
+    };
+    worker.postMessage(req);
+  });
+}
+
+function sumCounts(counts: RunCounts[]): RunCounts {
+  return counts.reduce(
+    (acc, c) => ({
+      passed: acc.passed + c.passed,
+      failed: acc.failed + c.failed,
+      skipped: acc.skipped + c.skipped,
+      na: acc.na + c.na,
+      total: acc.total + c.total,
+    }),
+    { passed: 0, failed: 0, skipped: 0, na: 0, total: 0 },
+  );
 }
 
 async function runOne(spec: SuiteSpec, cli: Cli): Promise<void> {
-  const artifacts = await loadArtifacts(cli.translator!, spec.wasm);
-  // The whole import surface: WASI (no ambient environment — the suites
-  // read none, exactly as the jco legs' `env: []`) plus every
-  // `polymorph:webcrypto/*` interface from the host module under test.
-  // ct-runner adds `polymorph:test/test-context` itself.
-  const imports = {
-    ...wasi({ cli: { env: {}, passthrough: false } }),
-    ...webcryptoImports(),
-  };
-  const out = cli.out ?? spec.out.pathname;
-  const lines: string[] = [];
-  const started = performance.now();
-  const counts = await runSuite(artifacts, {
-    imports,
+  const baseRequest: Omit<ShardRequest, "shard"> = {
+    wasmPath: spec.wasm.pathname,
+    translatorPath: cli.translator,
     target: cli.target,
     suiteName: spec.name,
     only: cli.only,
     missing: cli.missing ?? spec.missing,
     caseTimeoutMs: CASE_TIMEOUT_MS,
     jspi: cli.jspi,
-    // One instance per suite run by default — see CONTAINMENT MODE.
+    // One instance per shard worker by default — see CONTAINMENT MODE.
     freshCases: cli.freshCases,
-    emit: (line) => lines.push(line),
-  });
+  };
+
+  const started = performance.now();
+  const replies = await Promise.all(
+    Array.from({ length: cli.shards }, (_, index) =>
+      runShard(
+        cli.shards > 1
+          ? { ...baseRequest, shard: { index, count: cli.shards } }
+          : { ...baseRequest },
+      )),
+  );
+
+  const dones: ShardDone[] = [];
+  for (const [index, reply] of replies.entries()) {
+    if (reply.kind === "error") {
+      throw new Error(`shard ${index} failed: ${reply.error}`);
+    }
+    dones.push(reply);
+  }
+
+  const envelope = dones[0].envelope;
+  const terminator = dones[0].terminator;
+  for (const [index, done] of dones.entries()) {
+    if (done.envelope !== envelope) {
+      throw new Error(
+        `shard ${index}'s envelope diverges from shard 0's (artifact mismatch?)`,
+      );
+    }
+    if (done.terminator !== terminator) {
+      throw new Error(`shard ${index}'s terminator diverges from shard 0's`);
+    }
+  }
+
+  const rows = dones.flatMap((d) => d.rows);
+  rows.sort((a, b) => a[0] - b[0]);
+  for (let i = 1; i < rows.length; i++) {
+    if (rows[i][0] <= rows[i - 1][0]) {
+      throw new Error(
+        `merge produced a non-increasing case index at position ${i} ` +
+          `(${rows[i - 1][0]} then ${rows[i][0]}) — duplicate shard rows`,
+      );
+    }
+  }
+
+  const lines = [envelope, ...rows.map(([, line]) => line), terminator];
+  const out = cli.out ?? spec.out.pathname;
   await Deno.writeTextFile(out, lines.join("\n") + "\n");
+
+  const counts = sumCounts(dones.map((d) => d.counts));
   console.error(
     `[${cli.target}/${spec.name}] ${counts.passed} passed | ${counts.failed} failed | ` +
       `${counts.skipped} skipped | ${counts.na} n/a (${counts.total} total) in ` +
-      `${((performance.now() - started) / 1000).toFixed(1)}s -> ${out}`,
+      `${((performance.now() - started) / 1000).toFixed(1)}s (${cli.shards} shards) -> ${out}`,
   );
 }
 

@@ -10,7 +10,7 @@
 // authority for which verdict each is.
 
 import { errInvalidKey, errNotExtractable, errUnsupported, platformCall } from "./errors.ts";
-import { ComponentException } from "@polyengine/runtime/embedder";
+import { ComponentException } from "@polyengine/protocol";
 import { asBufferSource } from "./util.ts";
 
 const subtle = globalThis.crypto.subtle;

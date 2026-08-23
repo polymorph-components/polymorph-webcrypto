@@ -15,7 +15,7 @@ import {
   type WrapInput as WrapInputT,
   WrapInput,
 } from "./wrapping.ts";
-import type { Stream } from "@polyengine/runtime/embedder";
+import type { Stream } from "@polyengine/protocol";
 import { MINT, requireMint } from "./internal.ts";
 
 const subtle = globalThis.crypto.subtle;

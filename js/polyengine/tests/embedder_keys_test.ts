@@ -36,7 +36,7 @@ import {
   VerifyingKey,
 } from "../src/mod.ts";
 import { arrayStream } from "./testStream.ts";
-import { ComponentException } from "@polyengine/runtime/embedder";
+import { ComponentException } from "@polyengine/protocol";
 
 function kindOf(err: unknown): string {
   return ((err as ComponentException).payload as { kind: string }).kind;

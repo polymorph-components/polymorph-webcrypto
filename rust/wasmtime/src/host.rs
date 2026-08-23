@@ -93,7 +93,7 @@ fn rng_trap(what: &str) -> impl Fn(polymorph_webcrypto_core::RngError) -> wasmti
 // --- shared operation shapes ---------------------------------------------------
 
 /// The message for a mint the retention budget cannot admit.
-fn retention_message(limit: u64) -> String {
+pub(crate) fn retention_message(limit: u64) -> String {
     format!(
         "minted resources exceed the retention limit ({limit} bytes); see \
          WasiWebcryptoCtx::set_retention_limit"

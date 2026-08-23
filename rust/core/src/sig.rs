@@ -849,8 +849,10 @@ pub struct SigningKeyMaterial {
 
 impl SigningKeyMaterial {
     /// Import a 32-byte RFC 8032 seed, rendering `invalid-key` for wrong
-    /// lengths (the `ed25519-sign.import-signing-key` contract).
+    /// lengths and `not-permitted` for a policy granting no usage (the mint
+    /// rule every signing-key constructor enforces).
     pub fn import_ed25519_seed(raw: &[u8], policy: SigningPolicy) -> Result<Self, Error> {
+        policy.check_useful()?;
         let seed: &[u8; 32] = raw.try_into().map_err(|_| {
             Error::InvalidKey(format!(
                 "Ed25519 private keys are 32-byte seeds, got {} bytes",
@@ -877,14 +879,16 @@ impl SigningKeyMaterial {
     }
 
     /// Import a raw big-endian scalar for the declared variant, rendering
-    /// `invalid-key` for wrong lengths and out-of-range scalars (the
-    /// `ecdsa-sign.import-signing-key` contract).
+    /// `invalid-key` for wrong lengths and out-of-range scalars, and
+    /// `not-permitted` for a policy granting no usage (the mint rule every
+    /// signing-key constructor enforces).
     #[cfg(not(target_family = "wasm"))]
     pub fn import_ecdsa_scalar(
         variant: EcdsaVariant,
         raw: &[u8],
         policy: SigningPolicy,
     ) -> Result<Self, Error> {
+        policy.check_useful()?;
         let (curve, hash) = variant_parts(variant)?;
         let private = per_curve!(curve, SigPrivate, |ec, mint, name| {
             ec::SigningKey::from_slice(raw)
@@ -1002,15 +1006,17 @@ impl SigningKeyMaterial {
             Ok((EcdsaCurve::P384, _)) => 48,
             Err(err) => return Ok(Err(err)),
         };
-        // Bound the retries. Both rejections `import_ecdsa_scalar` can
-        // report — an out-of-range scalar and a length mismatch — arrive as
-        // `InvalidKey`, so the loop cannot tell "draw again" from "this can
-        // never succeed" by matching. Unbounded retrying therefore couples
-        // it to the invariant that `scalar_len` matches the variant: true
-        // today, and an infinite loop inside a host call if a future variant
-        // breaks it. A draw is rejected with probability under 2^-32 for
-        // these curves, so exhausting eight attempts is not sampling luck —
-        // it is that invariant failing, and saying so beats hanging.
+        // Bound the retries. The policy check above excludes `NotPermitted`
+        // from this loop, so both rejections `import_ecdsa_scalar` can still
+        // report here — an out-of-range scalar and a length mismatch —
+        // arrive as `InvalidKey`, and the loop cannot tell "draw again" from
+        // "this can never succeed" by matching. Unbounded retrying therefore
+        // couples it to the invariant that `scalar_len` matches the variant:
+        // true today, and an infinite loop inside a host call if a future
+        // variant breaks it. A draw is rejected with probability under
+        // 2^-32 for these curves, so exhausting eight attempts is not
+        // sampling luck — it is that invariant failing, and saying so beats
+        // hanging.
         const ATTEMPTS: usize = 8;
         for _ in 0..ATTEMPTS {
             let mut raw = Zeroizing::new(vec![0u8; scalar_len]);
@@ -1460,6 +1466,30 @@ mod tests {
                 assert_eq!(msg, "Ed25519 private keys are 32-byte seeds, got 16 bytes")
             }
             _ => panic!("expected invalid-key"),
+        }
+    }
+
+    /// A policy granting no usage is rejected before the seed is even
+    /// parsed, for a seed that is otherwise well formed.
+    #[test]
+    fn ed25519_seed_import_rejects_a_useless_policy() {
+        match SigningKeyMaterial::import_ed25519_seed(&[7u8; 32], SigningPolicy::default()) {
+            Err(Error::NotPermitted(_)) => {}
+            other => panic!("expected not-permitted, got {other:?}"),
+        }
+    }
+
+    /// A policy granting no usage is rejected before the scalar is even
+    /// parsed, for an in-range scalar.
+    #[test]
+    fn ecdsa_scalar_import_rejects_a_useless_policy() {
+        match SigningKeyMaterial::import_ecdsa_scalar(
+            EcdsaVariant::P256Sha256,
+            &[7u8; 32],
+            SigningPolicy::default(),
+        ) {
+            Err(Error::NotPermitted(_)) => {}
+            other => panic!("expected not-permitted, got {other:?}"),
         }
     }
 

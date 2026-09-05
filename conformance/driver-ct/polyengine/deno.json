@@ -1,13 +1,13 @@
 {
   "//": "MODULE IDENTITY (A22): applications that load the embedder in more than one config must still resolve ONE runtime version — stateful handles minted by one copy are refused by another. The @polyengine/runtime/embedder entry here must map to the same exact-pinned JSR version everywhere this config's process loads the embedder (polyengine ships as exact-pinned JSR releases; caret-honest upstream — within a minor line releases stay compatible, breaking bumps the minor; between releases, per-commit `<next>-pre.g<hash>` prereleases exist — pin exactly). Published host modules (../../../js/polyengine) now couple only to @polyengine/protocol, whose copies are harmless by construction, so this constraint no longer spans that config. deno.lock carries integrity, --frozen enforced; the pin gate (just conformance-ct::polyengine-pin-check) asserts one @polyengine/runtime version where resolved and one @polyengine/protocol version repo-wide.",
   "imports": {
-    "@polyengine/ct-runner": "jsr:@polyengine/ct-runner@0.5.0",
-    "@polyengine/runtime/embedder": "jsr:@polyengine/runtime@0.5.0/embedder",
-    "@polyengine/runtime/shim": "jsr:@polyengine/runtime@0.5.0/shim",
-    "@polyengine/wasi": "jsr:@polyengine/wasi@0.5.0",
-    "@polyengine/translator": "jsr:@polyengine/translator@0.5.0",
-    "@polyengine/protocol": "jsr:@polyengine/protocol@0.2.2",
-    "@polymorph/test/polyengine-worker-main": "jsr:@polymorph/test@0.2.1/polyengine-worker-main"
+    "@polyengine/ct-runner": "jsr:@polyengine/ct-runner@0.6.3",
+    "@polyengine/runtime/embedder": "jsr:@polyengine/runtime@0.6.3/embedder",
+    "@polyengine/runtime/shim": "jsr:@polyengine/runtime@0.6.3/shim",
+    "@polyengine/wasi": "jsr:@polyengine/wasi@0.6.3",
+    "@polyengine/translator": "jsr:@polyengine/translator@0.6.3",
+    "@polyengine/protocol": "jsr:@polyengine/protocol@0.3.1",
+    "@polymorph/test/polyengine-worker-main": "jsr:@polymorph/test@0.3.0/polyengine-worker-main"
   },
   "minimumDependencyAge": { "age": "P1D", "exclude": ["jsr:@polyengine/*", "jsr:@polymorph/*"] },
   "tasks": {

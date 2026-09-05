@@ -61,7 +61,7 @@ self.onmessage = async (event: MessageEvent<ShardRequest>) => {
     // `polymorph:webcrypto/*` interface from the host module under test.
     // ct-runner adds `polymorph:test/test-context` itself.
     const imports = {
-      ...wasi({ cli: { env: {}, passthrough: false } }),
+      ...wasi({ cli: { env: {} } }),
       ...webcryptoImports(),
     };
 

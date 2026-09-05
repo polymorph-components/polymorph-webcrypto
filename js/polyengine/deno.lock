@@ -1,16 +1,16 @@
 {
   "version": "5",
   "specifiers": {
-    "jsr:@polyengine/protocol@~0.2.2": "0.2.2"
+    "jsr:@polyengine/protocol@~0.3.1": "0.3.1"
   },
   "jsr": {
-    "@polyengine/protocol@0.2.2": {
-      "integrity": "ff470d7183924119ae181cc513093318f1587f7ad5c4bc02db7344e90c9ff52b"
+    "@polyengine/protocol@0.3.1": {
+      "integrity": "3cba0ded857c5cc911fcf9c0782c7566c79af89ddc8e0ec4e48ece60c807a518"
     }
   },
   "workspace": {
     "dependencies": [
-      "jsr:@polyengine/protocol@~0.2.2"
+      "jsr:@polyengine/protocol@~0.3.1"
     ]
   }
 }

@@ -1,6 +1,6 @@
 {
   "name": "@polymorph/webcrypto",
-  "version": "0.6.0",
+  "version": "0.6.1",
   "license": "Apache-2.0",
   "exports": "./src/mod.ts",
   "//": "MODULE-IDENTITY CONSTRAINT (A22): this package couples only to @polyengine/protocol, whose copies are harmless by construction (the protocol's brand/handle vocabulary is designed to be robust to duplication), so there is no module-identity constraint to state here. This file's @polyengine/protocol entry is a caret range (published-package convention: consumers resolve one shared @polyengine/protocol across their dependency graph); conformance/driver-ct/polyengine/deno.json (repo-internal, not published) exact-pins the same package. The pin gate (just conformance-ct::polyengine-pin-check) asserts one @polyengine/protocol version repo-wide, one @polyengine/runtime version across the configs that resolve it, and that this package's lockfile carries no @polyengine/runtime specifier.",

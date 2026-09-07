@@ -13,6 +13,6 @@ path = "src/main.rs"
 # The `polymorph:webcrypto` host implementation lives in this crate; the binary
 # obtains its imports from its `add_to_linker`.
 polymorph-webcrypto-wasmtime = { path = "../../rust/wasmtime" }
-wasmtime = { version = "47", features = ["component-model", "component-model-async", "async", "cranelift", "runtime"] }
+wasmtime = { version = "48", features = ["component-model", "component-model-async", "async", "cranelift", "runtime"] }
 tokio = { version = "1", features = ["macros", "rt-multi-thread", "time"] }
 anyhow = "1"

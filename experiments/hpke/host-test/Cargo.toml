@@ -7,7 +7,7 @@ description = "Wasmtime-host smoke tests for the experimental HPKE component."
 
 [dependencies]
 polymorph-webcrypto-wasmtime = { path = "../../../rust/wasmtime" }
-wasmtime = { version = "47", features = ["component-model", "component-model-async", "async", "cranelift", "runtime"] }
+wasmtime = { version = "48", features = ["component-model", "component-model-async", "async", "cranelift", "runtime"] }
 anyhow = "1"
 
 [dev-dependencies]

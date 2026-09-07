@@ -7,7 +7,7 @@
     "@polyengine/wasi": "jsr:@polyengine/wasi@0.6.3",
     "@polyengine/translator": "jsr:@polyengine/translator@0.6.3",
     "@polyengine/protocol": "jsr:@polyengine/protocol@0.3.1",
-    "@polymorph/test/polyengine-worker-main": "jsr:@polymorph/test@0.3.0/polyengine-worker-main"
+    "@polymorph/test/polyengine-worker-main": "jsr:@polymorph/test@0.3.1/polyengine-worker-main"
   },
   "minimumDependencyAge": { "age": "P1D", "exclude": ["jsr:@polyengine/*", "jsr:@polymorph/*"] },
   "tasks": {

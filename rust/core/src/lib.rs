@@ -22,12 +22,15 @@
 //!   surfaces it as a trap-shaped host error, the guest treats WASI random
 //!   as infallible.
 //!
-//! ## Class-D policy: ECDSA signing and the RSA private-key families are not compiled for wasm
+//! ## Class-D policy: ECDSA signing and the RSA private-key families are withheld from wasm
 //!
 //! ECDSA signing handles a per-signature secret nonce whose timing leakage
 //! is key-recovering, and RSA private-key operations leak key material
-//! through timing unless constant-time end to end — class D in
-//! polymorph-webcrypto-guest-provider's timing-channel classification. The
+//! through timing unless constant-time end to end. The in-guest provider
+//! withholds both under class D in its timing-channel classification —
+//! for ECDSA, a conservative exclusion pending signing-path assurance
+//! rather than a claim that constant-time ECDSA is infeasible in wasm
+//! (see that crate's README for the distinction from Ed25519). The
 //! load-bearing enforcement is the in-guest provider's world, which never
 //! exports `ecdsa-sign`, the `rsa-sign` interfaces, or (with working
 //! implementations) the RSA-OAEP operations: a composition that

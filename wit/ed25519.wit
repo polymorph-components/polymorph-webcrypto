@@ -51,9 +51,16 @@ interface ed25519-verify {
 /// Ed25519 signing-key minting (RFC 8032).
 ///
 /// Split from `ed25519-verify` so a provider can serve verification alone.
-/// Ed25519 signing is constant-time by construction (no per-signature
-/// secret nonce, complete addition laws), so providers in shared timing
-/// domains can serve it (see `README.md`, "Timing-channel policy").
+///
+/// Security:
+/// - Signing derives a per-message secret nonce scalar deterministically
+///   from a secret prefix and the message
+///   ([RFC 8032, section 5.1.6](https://www.rfc-editor.org/rfc/rfc8032.html#section-5.1.6)).
+///   Determinism removes the need for fresh per-signature randomness; it
+///   does not protect the nonce from timing leakage, which can expose the
+///   signing key. Providers must assess their implementation against the
+///   deployment's timing requirements (see `README.md`, "Timing-channel
+///   policy").
 ///
 /// Signing keys import as PKCS#8 or an OKP private JWK — the platform
 /// pass-through formats — and never as a bare seed (see `README.md`,

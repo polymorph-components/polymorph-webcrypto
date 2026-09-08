@@ -807,11 +807,8 @@ impl std::fmt::Debug for SigPublic {
 }
 
 /// The private key backing a [`SigningKeyMaterial`]. The ECDSA and RSA
-/// arms exist only on non-wasm targets: ECDSA signing is class D
-/// (per-signature secret nonce; small timing leaks are key-recovering),
-/// and RSA private-key operations are class D outright (the Marvin attack
-/// lineage), so their code is structurally absent from every wasm build
-/// (see the crate doc).
+/// arms exist only on non-wasm targets — both are withheld under class D
+/// (see the crate doc for the policy and the enforcement mechanics).
 enum SigPrivate {
     Ed25519(ed25519_dalek::SigningKey),
     #[cfg(not(target_family = "wasm"))]

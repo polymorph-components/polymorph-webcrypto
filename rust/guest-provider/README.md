@@ -54,15 +54,16 @@ JIT), weighted by how **forgiving of failure** the construction is
 | **A — structurally constant-time** | None beyond a correct compiler: no secret-dependent branches or memory indices, only add/xor/rotate. Nothing for a JIT to miscompile into a leak. | SHA-2, SHA-3, BLAKE2/3, HMAC, HKDF | Export freely. |
 | **B — CT given a constant-time multiplier and benign lowering** | Constant-latency hardware multiply; JIT lowers select/cmov without branches. This is where the two-compiler problem lives. | GHASH, X25519/Ed25519 | Export with the CT-variant implementation; document. |
 | **C — CT only via costly variants** | The *fast* implementation leaks (secret-indexed tables); a bitsliced/fixsliced variant is CT at a several-fold cost. | AES | Export **only** the CT variant. |
-| **D — not realistically CT in portable wasm** | Heroic implementation effort with near-zero leak tolerance: bignum branches, secret-dependent allocation, catastrophic small leaks (nonce bits → key recovery; remote-exploitable history). | RSA private-key ops, ECDSA signing, classic DH | **Never exported by this provider.** |
+| **D — withheld from this provider** | Known variable-time hazards in the available implementation, or signing-path assurance not established. ECDSA signing is a conservative policy exclusion, not an inherent constant-time limitation — see below. | RSA private-key ops, ECDSA signing, classic DH | **Never exported by this provider.** |
 
 Class D is enforced structurally, not by documentation: this provider simply
 does not export those algorithm interfaces, so a composition that needs them
-**fails at `wac plug` time** rather than running quietly degraded — and one
-level deeper, the shared `polymorph-webcrypto-core` compiles no ECDSA signing
-code for wasm targets at all (`#[cfg(not(target_family = "wasm"))]`), so the
-class-D code is absent from this component's binary, not merely unexported.
-Choose a host-side provider for them.
+**fails at `wac plug` time** rather than running quietly degraded. The shared
+`polymorph-webcrypto-core` cfg-gates its own ECDSA and RSA private-key arms out
+of wasm targets; RSA's signing backend is additionally dependency-gated out of the
+wasm build entirely, while ECDSA's absence from the final `.wasm` rests on
+dead-code elimination (see `rust/core/src/lib.rs`'s crate doc for the
+distinction). Choose a host-side provider for ECDSA or RSA signing.
 
 `just conformance-ct::class-d` is that enforcement's gate: it asserts that the
 conformance signing guest, whose world imports `ecdsa-sign`, does not
@@ -120,8 +121,8 @@ what marks where secrets flow.
 | ECDH P-256/P-384 (key agreement) | B | `p256`/`p384` (RustCrypto: complete Renes–Costello–Batina formulas, constant-time field and scalar arithmetic, no secret-dependent branches or indices; strict point validation at import) | Constant-latency integer multiply; JIT does not pathologically rewrite straight-line arithmetic. |
 | SHA-2 digests (256/384/512) | exempt (secret-free) | `sha2` | The `digest` primitive is unkeyed — hashing public data carries no secret to leak. |
 | Checked SHA-1 digests (`sha1-checked`) | exempt (secret-free) | `sha1-checked` (sha1dc counter-cryptanalysis; both postures) | Unkeyed, like SHA-2; the collision detection branches only on the input, which the digest kind treats as public. |
-| Ed25519 (sign + verify) | B | `ed25519-dalek` (complete addition laws, no per-signature secret nonce, constant-time scalar arithmetic) | Constant-latency integer multiply; JIT does not pathologically rewrite straight-line arithmetic. |
-| ECDSA P-256/P-384 (**verify only**) | exempt (secret-free) | `p256`/`p384` verification — public keys and public signatures | Signing is class D (per-signature secret nonce; small leaks are key-recovering) and its interface (`ecdsa-sign`) is **not exported**; compositions requiring it fail at `wac plug` time. |
+| Ed25519 (sign + verify) | B | `ed25519-dalek` (complete addition laws, constant-time scalar arithmetic; a deterministic per-message secret nonce) | Constant-latency integer multiply; LLVM and the runtime preserve secret-independent control flow and memory access; `timing-lab/` does not currently probe Ed25519 signing. |
+| ECDSA P-256/P-384 (**verify only**) | exempt (secret-free) | `p256`/`p384` verification — public keys and public signatures | Signing carries a per-signature secret nonce and is withheld under this provider's class-D policy; its interface (`ecdsa-sign`) is **not exported**, so compositions requiring it fail at `wac plug` time. |
 | RSASSA-PKCS1-v1_5 / RSA-PSS (**verify only**) | exempt (secret-free) | `rsa` crate verification — public keys and public signatures | Signing and decryption are class D (per-message secrets and blinded private-key ops; the `rsa` crate's private-key operations additionally carry RUSTSEC-2023-0071, the Marvin timing sidechannel) — the RSA private-key interfaces (`rsassa-pkcs1-v15-sign`, `rsa-pss-sign`) are **not exported**. |
 | RSA-OAEP (**neither half exported**) | D (decrypt); encrypt has no secret-free half | None — the `public-encryption` kind is exported with uninhabited key resources | Decryption is class D and the attack lineage's prime target (blinded private-key ops; the Marvin sidechannel, RUSTSEC-2023-0071). Encryption is *not* secret-free, unlike signature verification: the plaintext is the secret, and it transits general-purpose bignum arithmetic with no constant-time variant — so the kind has no exportable half at all. Exporting the kind makes compositions requiring `rsa-oaep-encrypt` or `rsa-oaep-decrypt` fail at `wac plug` time. |
 
@@ -133,6 +134,20 @@ paths despite returning the same error. Timing can therefore reveal more
 than the padding verdict; the uniform error does not remove this risk.
 This applies to both decryption and key unwrapping. Prefer AES-GCM where
 the format is not fixed; do not use unauthenticated CBC plaintext.
+
+Ed25519 and ECDSA signing both handle a per-message secret nonce scalar;
+Ed25519's determinism (deriving it from a secret prefix and the message,
+[RFC 8032, section 5.1.6](https://www.rfc-editor.org/rfc/rfc8032.html#section-5.1.6))
+removes the need for fresh per-signature randomness, not the risk of
+leaking that nonce through timing. The pinned P-256 and P-384 crates
+already use fixed-width, constant-time-designed field and scalar
+arithmetic, including for nonce-scalar inversion. ECDSA signing's
+class-D policy is a conservative exclusion pending signing-path
+assurance, not a measured safety difference from Ed25519: Ed25519's
+class-B classification rests on its source design (complete addition
+laws, constant-time scalar arithmetic) plus the stated compiler and
+runtime assumptions, and neither classification claims a proven
+end-to-end constant-time guarantee.
 
 AES-GCM (fixsliced, class C + B) is the package's only AEAD, and in-guest
 it is a heroic implementation working against the algorithm's nature: the

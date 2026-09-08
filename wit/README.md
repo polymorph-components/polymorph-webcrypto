@@ -255,14 +255,14 @@ NOT include any of it.
 
 ## Timing-channel policy
 
-Some algorithms leak key material through execution timing when the
-implementation shares a timing domain with an observer. In particular,
-ECDSA signing handles a per-signature secret nonce whose timing leakage is
-key-recovering. Providers that execute inside an attacker-observable timing
-domain should not export such interfaces; a composition that requires one
-then fails at composition (`wac plug`) time rather than at run time. This
-repository's in-guest provider documents its classification and policy in
-`rust/guest-provider/README.md`.
+Execution timing can reveal secret material when an implementation shares
+a timing domain with an observer. Both Ed25519 and ECDSA signing use secret
+nonce scalars; deterministic generation does not remove their secrecy
+requirement. Resistance to timing leakage depends on the implementation,
+compiler, runtime, and hardware, not the algorithm alone. Providers should
+withhold interfaces that cannot meet their deployment's timing requirements.
+This repository's in-guest provider documents its classification and
+composition-time enforcement in `rust/guest-provider/README.md`.
 
 ## Portability contract
 

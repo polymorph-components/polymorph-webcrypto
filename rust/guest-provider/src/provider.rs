@@ -1672,11 +1672,9 @@ options_resource! {
 /// An exported `verifying-key`: public material bound to its algorithm
 /// (and its curve, digest, or salt-length parameterization) at minting.
 /// The ECDSA and RSA arms exist for *verification only* — secret-free, so
-/// exempt from the timing-channel classes; ECDSA signing is class D, its
-/// interface is not exported, and the shared core compiles no ECDSA
-/// signing code for wasm targets. The RSA private-key interfaces
-/// (`rsassa-pkcs1-v15-sign`, `rsa-pss-sign`, `rsa-oaep-decrypt`) are
-/// likewise class D and not exported.
+/// exempt from the timing-channel classes. ECDSA signing and RSA
+/// private-key interfaces are withheld under class D (see this crate's
+/// README for the policy).
 pub struct VerifyingKey {
     public: SigPublic,
 }
@@ -1721,10 +1719,8 @@ impl GuestVerifyingKey for VerifyingKey {
 }
 
 /// An exported `signing-key`: the shared core's signing-key material. On
-/// this wasm target the core mints only Ed25519 signing keys
-/// (constant-time by construction); ECDSA signing is class D, its
-/// interface is not exported, and the core compiles no ECDSA signing code
-/// for wasm targets.
+/// this wasm target the core mints only Ed25519 signing keys (see this
+/// crate's README for the timing-channel policy).
 pub struct SigningKey {
     material: SigningKeyMaterial,
 }

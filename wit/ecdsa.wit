@@ -79,11 +79,10 @@ interface ecdsa-verify {
 /// ECDSA signing-key minting (FIPS 186-5).
 ///
 /// Security:
-/// - ECDSA signing handles a per-signature secret nonce whose timing
-///   leakage is key-recovering. Providers in attacker-observable timing
-///   domains do not export this interface, and compositions requiring it
-///   then fail at composition time (see `README.md`, "Timing-channel
-///   policy"). Host-backed providers serve it.
+/// - ECDSA signing handles a per-signature secret nonce. Leakage of that
+///   nonce can expose the signing key. Providers must assess their
+///   implementation against the deployment's timing requirements (see
+///   `README.md`, "Timing-channel policy").
 ///
 /// Signing keys import as PKCS#8 or an EC private JWK — the platform
 /// pass-through formats — and never as bare scalars (no platform door;

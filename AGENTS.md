@@ -252,7 +252,8 @@ component — see the conventions note in that file's header).
 
 `rust/guest-provider/README.md` carries the timing-channel classification (classes
 A–D) and this provider's policy: only class A–C algorithms are exported,
-always via constant-time-variant implementations; class D algorithm
+via constant-time-variant implementations with the recorded CBC-unpadding
+exception; class D algorithm
 interfaces (RSA private-key ops, ECDSA signing, …) are **never** exported by
 the in-guest provider, so compositions requiring them fail at `wac plug`
 time. Secret-free operations (hashing public data, signature *verification*)

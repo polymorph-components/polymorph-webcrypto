@@ -345,12 +345,13 @@ impl CipherKeyMaterial {
 
     /// CBC-decrypt and unpad (the `cbc` crate over the keyed block
     /// cipher). Uniform failure: wrong-shape ciphertext and bad padding
-    /// are indistinguishable — every failure, including the crate's
-    /// `UnpadError`, renders as the mode's one fixed message.
-    /// `block-padding`'s unpad reads the final block with data-dependent
-    /// branches; what that timing can distinguish is bounded by the
-    /// uniform error and recorded in the in-guest provider's
-    /// timing-channel classification.
+    /// are indistinguishable in the *returned error* — every failure,
+    /// including the crate's `UnpadError`, renders as the mode's one
+    /// fixed message. `block-padding`'s unpad reads the final block with
+    /// data-dependent branches; a uniform returned error does not imply
+    /// uniform execution timing, and this path is not constant-time. See
+    /// the in-guest provider's timing-channel classification for the
+    /// accepted residual risk.
     fn cbc_decrypt(&self, iv: [u8; BLOCK], ciphertext: &[u8]) -> Result<Vec<u8>, Error> {
         if ciphertext.is_empty() || !ciphertext.len().is_multiple_of(BLOCK) {
             return Err(self.mode.decrypt_failed());

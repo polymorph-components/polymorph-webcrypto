@@ -127,10 +127,11 @@ interface aes-gcm {
 ///   influence future plaintexts (CWE-329; the BEAST class), not merely
 ///   unique: generate it fresh and randomly per message.
 /// - CBC with visible decryption failures is padding-oracle-prone by
-///   nature. The `cipher` kind's uniform-failure rule bounds what this
-///   API reveals to the verdict itself; protocols that surface the
-///   verdict per message to an active attacker remain at risk. Prefer
-///   `aes-gcm` anywhere the format is not already fixed.
+///   nature. The `cipher` kind's uniform-failure rule gives every
+///   malformed input the same returned error; a uniform returned error
+///   does not guarantee uniform execution timing, and protocols that
+///   surface the verdict per message to an active attacker remain at
+///   risk. Prefer `aes-gcm` anywhere the format is not already fixed.
 interface aes-cbc {
     use types.{error};
     use cipher.{cipher-key, cipher-key-options};

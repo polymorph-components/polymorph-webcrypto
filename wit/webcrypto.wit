@@ -394,7 +394,8 @@ interface aead {
 ///   condition (for AES-CBC, a bad final padding block among them) fails
 ///   `error.other` with no distinguishing detail. Implementations MUST
 ///   NOT reveal *why* a decryption failed — a distinguishable padding
-///   verdict is a padding-oracle amplifier.
+///   verdict is a padding-oracle amplifier. This is a contract on the
+///   returned error, not a guarantee of uniform execution timing.
 /// - IV discipline is the algorithm's contract (unpredictability for CBC,
 ///   per-key uniqueness for CTR counter blocks); the minting interface
 ///   documents it. The caller owns it, as with `aead` nonces.
